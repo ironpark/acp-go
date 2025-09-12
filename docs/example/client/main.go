@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	acp "github.com/ironpark/go-acp"
+	acp "github.com/ironpark/acp-go"
 )
 
 // ExampleClient implements the acp.Client interface

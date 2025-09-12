@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	acp "github.com/ironpark/go-acp"
+	acp "github.com/ironpark/acp-go"
 )
 
 // ExampleAgent implements the acp.Agent interface with full session update capabilities
@@ -175,7 +175,7 @@ func (a *ExampleAgent) simulateTurn(ctx context.Context, sessionId acp.SessionId
 	// Send more agent message
 	err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
 		SessionId: sessionId,
-		Update: acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" Now I understand the project structure. I need to make some changes to improve it.")),
+		Update:    acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" Now I understand the project structure. I need to make some changes to improve it.")),
 	})
 	if err != nil {
 		return err
@@ -265,7 +265,7 @@ func (a *ExampleAgent) simulateTurn(ctx context.Context, sessionId acp.SessionId
 
 			err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
 				SessionId: sessionId,
-				Update: acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" Perfect! I've successfully updated the configuration. The changes have been applied.")),
+				Update:    acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" Perfect! I've successfully updated the configuration. The changes have been applied.")),
 			})
 			if err != nil {
 				return err
@@ -278,7 +278,7 @@ func (a *ExampleAgent) simulateTurn(ctx context.Context, sessionId acp.SessionId
 
 			err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
 				SessionId: sessionId,
-				Update: acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" I understand you prefer not to make that change. I'll skip the configuration update.")),
+				Update:    acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" I understand you prefer not to make that change. I'll skip the configuration update.")),
 			})
 			if err != nil {
 				return err
@@ -311,7 +311,6 @@ func generateRandomID() string {
 	}
 	return string(b)
 }
-
 
 func main() {
 	agent := NewExampleAgent()
