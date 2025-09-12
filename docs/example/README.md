@@ -53,7 +53,8 @@ $ git clone https://github.com/ironpark/acp-go.git
 You can also run the Agent directly and send messages to it:
 
 ```bash
-npx tsx typescript/examples/agent.ts
+cd /path/to/go-acp
+go run ./docs/example/agent
 ```
 
 Paste this into your terminal and press <kbd>enter</kbd>:
