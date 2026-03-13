@@ -10,7 +10,13 @@ import (
 	acp "github.com/ironpark/go-acp"
 )
 
-// ExampleAgent implements the acp.Agent interface with full session update capabilities
+// ExampleAgent implements the acp.Agent interface with full session update capabilities.
+//
+// This example demonstrates:
+//   - SessionStream for convenient update sending
+//   - Middleware for logging and panic recovery
+//   - Tool call lifecycle (start → complete/fail)
+//   - Permission requests
 type ExampleAgent struct {
 	client   acp.Client
 	sessions map[acp.SessionID]*AgentSession
@@ -53,18 +59,14 @@ func (a *ExampleAgent) Authenticate(ctx context.Context, params *acp.Authenticat
 }
 
 func (a *ExampleAgent) NewSession(ctx context.Context, params *acp.NewSessionRequest) (*acp.NewSessionResponse, error) {
-	// Generate a random session ID
 	sessionId := acp.SessionID(fmt.Sprintf("session_%s", generateRandomID()))
 
-	// Create cancellation context for this session
 	sessionCtx, cancelFunc := context.WithCancel(context.Background())
-
 	session := &AgentSession{
 		sessionId:     sessionId,
 		cancelContext: sessionCtx,
 		cancelFunc:    cancelFunc,
 	}
-
 	a.sessions[sessionId] = session
 
 	return &acp.NewSessionResponse{
@@ -101,7 +103,6 @@ func (a *ExampleAgent) Prompt(ctx context.Context, params *acp.PromptRequest) (*
 	session.cancelContext = sessionCtx
 	session.cancelFunc = cancelFunc
 
-	// Simulate the turn processing
 	err := a.simulateTurn(sessionCtx, params.SessionID)
 	if err != nil {
 		if sessionCtx.Err() == context.Canceled {
@@ -125,85 +126,50 @@ func (a *ExampleAgent) Cancel(ctx context.Context, params *acp.CancelNotificatio
 }
 
 func (a *ExampleAgent) simulateTurn(ctx context.Context, sessionId acp.SessionID) error {
-	// Send initial agent message chunk
-	err := a.client.SessionUpdate(ctx, &acp.SessionNotification{
-		SessionID: sessionId,
-		Update:    acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText("I'll help you with that. Let me start by reading some files to understand the current situation.")),
-	})
-	if err != nil {
+	// Use SessionStream for convenient update sending
+	stream := acp.NewSessionStream(a.client, sessionId)
+
+	// Send initial agent message
+	if err := stream.SendText(ctx, "I'll help you with that. Let me start by reading some files."); err != nil {
 		return err
 	}
 
-	// Simulate model thinking time
-	if err := a.simulateModelInteraction(ctx); err != nil {
+	if err := simulateDelay(ctx); err != nil {
 		return err
 	}
 
-	// Send a tool call that doesn't need permission
+	// Tool call: read file (no permission needed)
 	toolCallId := acp.ToolCallID("call_1")
-	err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
-		SessionID: sessionId,
-		Update: acp.NewSessionUpdateToolCall(acp.ToolCall{
-			ToolCallID: toolCallId,
-			Title:      "Reading project files",
-			Kind:       new(acp.ToolKindRead),
-			Status:     new(acp.ToolCallStatusPending),
-			Locations:  []acp.ToolCallLocation{{Path: "/project/README.md"}},
-		}),
-	})
-	if err != nil {
+	if err := stream.StartToolCall(ctx, toolCallId, "Reading project files", acp.ToolKindRead); err != nil {
 		return err
 	}
 
-	if err := a.simulateModelInteraction(ctx); err != nil {
+	if err := simulateDelay(ctx); err != nil {
 		return err
 	}
 
-	// Update tool call to completed
-	err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
-		SessionID: sessionId,
-		Update: acp.NewSessionUpdateToolCallUpdate(acp.ToolCallUpdate{
-			ToolCallID: toolCallId,
-			Status:     new(acp.ToolCallStatusCompleted),
-			Content: []acp.ToolCallContent{
-				acp.NewToolCallContentContent(acp.NewContentBlockText("# My Project\n\nThis is a sample project...")),
-			},
-		}),
-	})
-	if err != nil {
+	// Complete the tool call with content
+	if err := stream.CompleteToolCall(ctx, toolCallId,
+		acp.NewToolCallContentContent(acp.NewContentBlockText("# My Project\n\nThis is a sample project...")),
+	); err != nil {
 		return err
 	}
 
-	if err := a.simulateModelInteraction(ctx); err != nil {
+	if err := simulateDelay(ctx); err != nil {
 		return err
 	}
 
-	// Send more agent message
-	err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
-		SessionID: sessionId,
-		Update: acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" Now I understand the project structure. I need to make some changes to improve it.")),
-	})
-	if err != nil {
+	if err := stream.SendText(ctx, " Now I understand the project. I need to make changes."); err != nil {
 		return err
 	}
 
-	if err := a.simulateModelInteraction(ctx); err != nil {
+	if err := simulateDelay(ctx); err != nil {
 		return err
 	}
 
-	// Send a tool call that DOES need permission
+	// Tool call: edit file (needs permission)
 	toolCallId2 := acp.ToolCallID("call_2")
-	err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
-		SessionID: sessionId,
-		Update: acp.NewSessionUpdateToolCall(acp.ToolCall{
-			ToolCallID: toolCallId2,
-			Title:      "Modifying critical configuration file",
-			Kind:       new(acp.ToolKindEdit),
-			Status:     new(acp.ToolCallStatusPending),
-			Locations:  []acp.ToolCallLocation{{Path: "/project/config.json"}},
-		}),
-	})
-	if err != nil {
+	if err := stream.StartToolCall(ctx, toolCallId2, "Modifying configuration", acp.ToolKindEdit); err != nil {
 		return err
 	}
 
@@ -212,86 +178,44 @@ func (a *ExampleAgent) simulateTurn(ctx context.Context, sessionId acp.SessionID
 		SessionID: sessionId,
 		ToolCall: acp.ToolCallUpdate{
 			ToolCallID: toolCallId2,
-			Title:      "Modifying critical configuration file",
+			Title:      "Modifying configuration",
 			Kind:       new(acp.ToolKindEdit),
 			Status:     new(acp.ToolCallStatusPending),
-			Locations: []acp.ToolCallLocation{
-				{Path: "/home/user/project/config.json"},
-			},
-			RawInput: nil,
+			Locations:  []acp.ToolCallLocation{{Path: "/project/config.json"}},
 		},
 		Options: []acp.PermissionOption{
-			{
-				Kind:     acp.PermissionOptionKindAllowOnce,
-				Name:     "Allow this change",
-				OptionID: acp.PermissionOptionID("allow"),
-			},
-			{
-				Kind:     acp.PermissionOptionKindRejectOnce,
-				Name:     "Skip this change",
-				OptionID: acp.PermissionOptionID("reject"),
-			},
+			{Kind: acp.PermissionOptionKindAllowOnce, Name: "Allow this change", OptionID: "allow"},
+			{Kind: acp.PermissionOptionKindRejectOnce, Name: "Skip this change", OptionID: "reject"},
 		},
 	})
 	if err != nil {
 		return err
 	}
 
-	// Handle permission response
-	if _, ok := permissionResponse.Outcome.AsCancelled(); ok {
-		return nil
-	}
-
-	if selectedOutcome, ok := permissionResponse.Outcome.AsSelected(); ok {
-		switch selectedOutcome.OptionID {
-		case "allow":
-			err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
-				SessionID: sessionId,
-				Update: acp.NewSessionUpdateToolCallUpdate(acp.ToolCallUpdate{
-					ToolCallID: toolCallId2,
-					Status:     new(acp.ToolCallStatusCompleted),
-				}),
-			})
-			if err != nil {
+	// Handle permission response using Match pattern
+	return acp.MatchRequestPermissionOutcome[error](&permissionResponse.Outcome, acp.RequestPermissionOutcomeMatcher[error]{
+		Cancelled: func(_ acp.RequestPermissionOutcomeCancelled) error {
+			return stream.FailToolCall(ctx, toolCallId2)
+		},
+		Selected: func(v acp.RequestPermissionOutcomeSelected) error {
+			if v.OptionID == "allow" {
+				if err := stream.CompleteToolCall(ctx, toolCallId2); err != nil {
+					return err
+				}
+				if err := simulateDelay(ctx); err != nil {
+					return err
+				}
+				return stream.SendText(ctx, " Configuration updated successfully.")
+			}
+			if err := stream.FailToolCall(ctx, toolCallId2); err != nil {
 				return err
 			}
-
-			if err := a.simulateModelInteraction(ctx); err != nil {
-				return err
-			}
-
-			err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
-				SessionID: sessionId,
-				Update: acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" Perfect! I've successfully updated the configuration. The changes have been applied.")),
-			})
-			if err != nil {
-				return err
-			}
-
-		case "reject":
-			if err := a.simulateModelInteraction(ctx); err != nil {
-				return err
-			}
-
-			err = a.client.SessionUpdate(ctx, &acp.SessionNotification{
-				SessionID: sessionId,
-				Update: acp.NewSessionUpdateAgentMessageChunk(acp.NewContentBlockText(" I understand you prefer not to make that change. I'll skip the configuration update.")),
-			})
-			if err != nil {
-				return err
-			}
-
-		default:
-			return fmt.Errorf("unexpected permission outcome: %s", selectedOutcome.OptionID)
-		}
-	} else {
-		return fmt.Errorf("unexpected permission outcome type")
-	}
-
-	return nil
+			return stream.SendText(ctx, " Skipping the configuration update.")
+		},
+	})
 }
 
-func (a *ExampleAgent) simulateModelInteraction(ctx context.Context) error {
+func simulateDelay(ctx context.Context) error {
 	select {
 	case <-time.After(1 * time.Second):
 		return nil
@@ -312,13 +236,13 @@ func generateRandomID() string {
 func main() {
 	agent := NewExampleAgent()
 
-	// Create connection using stdin/stdout
-	conn := acp.NewAgentSideConnection(agent, os.Stdin, os.Stdout)
+	// Create connection with middleware
+	conn := acp.NewAgentSideConnection(agent, os.Stdin, os.Stdout,
+		acp.WithMiddleware(acp.RecoveryMiddleware()),
+	)
 
-	// Set the client reference so the agent can make requests
 	agent.client = conn.Client()
 
-	// Start the connection
 	if err := conn.Start(context.Background()); err != nil {
 		fmt.Fprintf(os.Stderr, "Connection error: %v\n", err)
 		os.Exit(1)

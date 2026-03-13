@@ -1,9 +1,9 @@
-# ACP TypeScript Examples
+# ACP Go Examples
 
-This directory contains examples using the [ACP](https://agentclientprotocol.com) library for TypeScript:
+This directory contains examples using the [ACP Go SDK](https://github.com/ironpark/acp-go):
 
-- [`agent/main.go`](./agent/main.go) - A minimal agent implementation that simulates LLM interaction
-- [`client/main.go`](./agent/main.go) - A minimal client implementation that spawns the [`agent/main.go`](./agent.ts) as a subprocess
+- [`agent/main.go`](./agent/main.go) - Agent implementation demonstrating SessionStream, middleware, tool calls, and permission requests
+- [`client/main.go`](./client/main.go) - Client implementation using SpawnAgent and MatchSessionUpdate for type-safe update handling
 
 ## Running the Agent
 
@@ -53,7 +53,7 @@ $ git clone https://github.com/ironpark/acp-go.git
 You can also run the Agent directly and send messages to it:
 
 ```bash
-npx tsx typescript/examples/agent.ts
+go run ./docs/example/agent
 ```
 
 Paste this into your terminal and press <kbd>enter</kbd>:

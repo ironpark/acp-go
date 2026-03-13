@@ -20,18 +20,142 @@ go get github.com/ironpark/go-acp
 ## Example Code
 See the [docs/example](./docs/example/) directory for complete working examples:
 
-- **[Agent Example](./docs/example/agent/)** - Comprehensive agent implementation demonstrating session management, tool calls, and permission requests
-- **[Client Example](./docs/example/client/)** - Client implementation that spawns the agent and communicates with it
+- **[Agent Example](./docs/example/agent/)** - Agent implementation with SessionStream, middleware, and permission requests
+- **[Client Example](./docs/example/client/)** - Client implementation using SpawnAgent and MatchSessionUpdate
 
 ## Architecture
 
 This implementation provides a clean, modern architecture with bidirectional JSON-RPC 2.0 communication:
 
-- **`Connection`**: Unified bidirectional transport layer handling stdin/stdout communication with concurrent request/response correlation
-- **`AgentSideConnection`**: High-level ACP interface for implementing agents, wraps Connection for agent-specific operations
-- **`ClientSideConnection`**: High-level ACP interface for implementing clients, wraps Connection for client-specific operations
-- **`TerminalHandle`**: Resource management wrapper for terminal sessions with automatic cleanup patterns
+- **`Connection`**: Unified bidirectional transport layer with concurrent request/response correlation
+- **`Transport`**: Pluggable transport interface (stdio, HTTP+SSE) for flexible deployment
+- **`AgentSideConnection`**: High-level ACP interface for implementing agents
+- **`ClientSideConnection`**: High-level ACP interface for implementing clients
+- **`SessionStream`**: Convenience wrapper for sending session updates with minimal boilerplate
+- **`Middleware`**: Composable request/response processing chain for cross-cutting concerns
+- **`TerminalHandle`**: Resource management wrapper for terminal sessions
 - **Generated Types**: Complete type-safe Go structs generated from the official ACP JSON schema
+
+## Quick Start
+
+### Agent
+
+```go
+agent := &MyAgent{}
+conn := acp.NewAgentSideConnection(agent, os.Stdin, os.Stdout,
+    acp.WithMiddleware(acp.RecoveryMiddleware()),
+    acp.WithMiddleware(acp.LoggingMiddleware(nil)),
+)
+conn.Start(context.Background())
+```
+
+### Client
+
+```go
+client := &MyClient{}
+conn, _ := acp.SpawnAgent(ctx, client, "my-agent")
+go conn.Start(ctx)
+
+conn.Initialize(ctx, &acp.InitializeRequest{...})
+conn.Prompt(ctx, &acp.PromptRequest{...})
+```
+
+## Features
+
+### Transport Layer
+
+The SDK supports pluggable transports via the `Transport` interface:
+
+```go
+// Default: stdio (newline-delimited JSON)
+conn := acp.NewConnection(handler, os.Stdin, os.Stdout)
+
+// HTTP+SSE transport for web deployments
+transport := acp.NewHTTPServerTransport()
+conn := acp.NewConnection(handler, nil, nil, acp.WithTransport(transport))
+http.Handle("/", transport.Handler())
+```
+
+### Middleware
+
+Add cross-cutting concerns to the connection handler chain:
+
+```go
+conn := acp.NewAgentSideConnection(agent, reader, writer,
+    acp.WithMiddleware(
+        acp.RecoveryMiddleware(),                   // catch panics
+        acp.LoggingMiddleware(log.Printf),          // log method calls
+        acp.TimeoutMiddleware(30 * time.Second),    // per-request timeout
+    ),
+)
+```
+
+Custom middleware follows the standard pattern:
+
+```go
+func authMiddleware(next acp.MethodHandler) acp.MethodHandler {
+    return func(ctx context.Context, method string, params json.RawMessage) (any, error) {
+        if method != "initialize" && !isAuthenticated(ctx) {
+            return nil, acp.ErrAuthRequired(nil)
+        }
+        return next(ctx, method, params)
+    }
+}
+```
+
+### SessionStream
+
+Reduce boilerplate when sending session updates from agents:
+
+```go
+stream := acp.NewSessionStream(client, sessionID)
+
+// Stream text
+stream.SendText(ctx, "Hello!")
+stream.SendThought(ctx, "thinking...")
+
+// Tool call lifecycle
+stream.StartToolCall(ctx, toolID, "Reading file", acp.ToolKindRead)
+stream.CompleteToolCall(ctx, toolID, content...)
+stream.FailToolCall(ctx, toolID)
+
+// Other updates
+stream.SendPlan(ctx, entries)
+stream.SendModeUpdate(ctx, modeID)
+stream.SendSessionInfo(ctx, title, updatedAt)
+```
+
+### Match Pattern
+
+Exhaustive pattern matching for discriminated union types:
+
+```go
+acp.MatchSessionUpdate(&update, acp.SessionUpdateMatcher[string]{
+    AgentMessageChunk: func(v acp.SessionUpdateAgentMessageChunk) string {
+        return acp.MatchContentBlock(&v.Content, acp.ContentBlockMatcher[string]{
+            Text: func(t acp.ContentBlockText) string { return t.Text },
+            Default: func() string { return "[non-text]" },
+        })
+    },
+    ToolCall: func(v acp.SessionUpdateToolCall) string {
+        return v.Title
+    },
+    Default: func() string { return "" },
+})
+```
+
+Matchers are available for all union types: `SessionUpdate`, `ContentBlock`, `ToolCallContent`, `RequestPermissionOutcome`, `MCPServer`.
+
+### Connection Options
+
+```go
+acp.NewConnection(handler, reader, writer,
+    acp.WithWriteQueueSize(500),                    // configurable write queue
+    acp.WithRequestTimeout(30 * time.Second),       // default request timeout
+    acp.WithShutdownTimeout(10 * time.Second),      // graceful shutdown timeout
+    acp.WithErrorHandler(func(err error) { ... }),   // error callback
+)
+```
 
 ## Protocol Support
 
@@ -42,7 +166,9 @@ This implementation supports ACP Protocol Version 1 with the following features:
 - `authenticate` - Authenticate with the agent (optional)
 - `session/new` - Create a new conversation session
 - `session/load` - Load an existing session (if supported)
-- `session/set_mode` - Change session mode (unstable)
+- `session/list` - List available sessions
+- `session/set_mode` - Change session mode
+- `session/set_config_option` - Update session configuration
 - `session/prompt` - Send user prompt to agent
 - `session/cancel` - Cancel ongoing operations
 
@@ -58,6 +184,11 @@ This implementation supports ACP Protocol Version 1 with the following features:
   - `terminal/kill` - Kill terminal process
   - `terminal/release` - Release terminal handle
 
+### Unstable Features
+- `session/fork` - Fork a session (via `SessionForker` interface)
+- `session/resume` - Resume a session (via `SessionResumer` interface)
+- `session/close` - Close a session (via `SessionCloser` interface)
+- `session/set_model` - Set model (via `ModelSetter` interface)
 
 ## Contributing
 
