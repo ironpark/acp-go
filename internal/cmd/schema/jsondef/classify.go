@@ -213,6 +213,12 @@ func classifyType(s *Schema) (genType GenerateType, nullable bool) {
 			if s.Properties == nil && s.AdditionalProperties != nil && s.AdditionalProperties.Schema != nil {
 				return Primitive, false
 			}
+			// An object with a discriminator + oneOf/anyOf is a discriminated union,
+			// not a plain struct. Classify as ComplexStruct so the generator produces
+			// the proper variant interface, As* accessors, and JSON marshalling.
+			if s.Discriminator != nil && (len(s.OneOf) > 0 || len(s.AnyOf) > 0) {
+				return ComplexStruct, false
+			}
 			return Struct, false
 		}
 		if defType == "array" {

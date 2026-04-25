@@ -541,6 +541,81 @@ func (r *RequestPermissionOutcome) AsSelected() (RequestPermissionOutcomeSelecte
 	return v, ok
 }
 
+// Single-value selector (dropdown).
+type SessionConfigOptionSelect struct {
+	SessionConfigSelect
+	Type        string                       `json:"type"`
+	Description string                       `json:"description,omitempty"`
+	ID          SessionConfigID              `json:"id"`
+	Name        string                       `json:"name"`
+	Meta        map[string]any               `json:"_meta,omitempty"`
+	Category    *SessionConfigOptionCategory `json:"category,omitempty"`
+}
+
+func (SessionConfigOptionSelect) isSessionConfigOptionVariant() string {
+	return "select"
+}
+
+type sessionConfigOptionVariant interface{ isSessionConfigOptionVariant() string }
+
+// A session configuration option selector and its current state.
+type SessionConfigOption struct {
+	variant sessionConfigOptionVariant
+}
+
+func (s SessionConfigOption) MarshalJSON() ([]byte, error) {
+	if s.variant == nil {
+		return nil, fmt.Errorf("no variant is set for SessionConfigOption")
+	}
+	return json.Marshal(s.variant)
+}
+
+// SessionConfigOptionVariantFactory is a factory function that deserializes a variant from JSON.
+type SessionConfigOptionVariantFactory func(data []byte) (sessionConfigOptionVariant, error)
+
+var sessionConfigOptionExtVariants = map[string]SessionConfigOptionVariantFactory{}
+
+// RegisterSessionConfigOptionVariant registers a new variant factory for the SessionConfigOption union.
+// Call this from init() to extend the union with additional variants.
+func RegisterSessionConfigOptionVariant(discriminator string, factory SessionConfigOptionVariantFactory) {
+	sessionConfigOptionExtVariants[discriminator] = factory
+}
+func trySessionConfigOptionExtension(discriminator string) (SessionConfigOptionVariantFactory, bool) {
+	fn, ok := sessionConfigOptionExtVariants[discriminator]
+	return fn, ok
+}
+func (s *SessionConfigOption) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "select":
+		var v SessionConfigOptionSelect
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		s.variant = v
+		return nil
+	default:
+		if fn, ok := trySessionConfigOptionExtension(disc.Type); ok {
+			v, err := fn(data)
+			if err != nil {
+				return err
+			}
+			s.variant = v
+			return nil
+		}
+		return fmt.Errorf("unknown discriminator value: %s", disc.Type)
+	}
+}
+func (s *SessionConfigOption) AsSelect() (SessionConfigOptionSelect, bool) {
+	v, ok := s.variant.(SessionConfigOptionSelect)
+	return v, ok
+}
+
 // Possible values for a session configuration option.
 type SessionConfigSelectOptions any
 
@@ -1411,15 +1486,6 @@ type SessionCapabilities struct {
 	Fork   *SessionForkCapabilities   `json:"fork,omitempty"`
 	List   *SessionListCapabilities   `json:"list,omitempty"`
 	Resume *SessionResumeCapabilities `json:"resume,omitempty"`
-}
-
-// A session configuration option selector and its current state.
-type SessionConfigOption struct {
-	Meta        map[string]any               `json:"_meta,omitempty"`
-	Category    *SessionConfigOptionCategory `json:"category,omitempty"`
-	Description string                       `json:"description,omitempty"`
-	ID          SessionConfigID              `json:"id"`
-	Name        string                       `json:"name"`
 }
 
 // A single-value selector (dropdown) session configuration option payload.

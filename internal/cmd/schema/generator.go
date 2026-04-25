@@ -776,7 +776,7 @@ func (g *Generator) generateExtendedUnionVariants(def jsondef.Definition) error 
 	return nil
 }
 
-func (g *Generator) collectVariants(parentName string, _ *jsondef.Schema, allVariants []*jsondef.Schema, discriminatorField string) []OneOfVariant {
+func (g *Generator) collectVariants(parentName string, parentSchema *jsondef.Schema, allVariants []*jsondef.Schema, discriminatorField string) []OneOfVariant {
 	var variants []OneOfVariant
 
 	// Check if any variant name would collide with its ref type name.
@@ -843,6 +843,35 @@ func (g *Generator) collectVariants(parentName string, _ *jsondef.Schema, allVar
 							continue
 						}
 						fields = append(fields, field)
+					}
+
+					// Include shared properties from the parent schema (e.g. id, name)
+					// so the variant struct can marshal/unmarshal the full object.
+					if parentSchema != nil && parentSchema.Properties != nil {
+						for propName, propSchema := range parentSchema.Properties {
+							if propName == discriminatorField {
+								continue
+							}
+							// Skip if the variant already defines this property.
+							if _, exists := mergedSchema.Properties[propName]; exists {
+								continue
+							}
+							// Handle _meta as generic map (same as buildStructFields).
+							if propName == "_meta" {
+								fields = append(fields, astgen.StructField{
+									Name: "Meta",
+									Type: astgen.TypeExpr("map[string]any"),
+									Tag:  `json:"_meta,omitempty"`,
+								})
+								continue
+							}
+							def := jsondef.Classify(propName, propSchema)
+							field, err := g.buildStructField(propName, propSchema, def, parentSchema)
+							if err != nil {
+								continue
+							}
+							fields = append(fields, field)
+						}
 					}
 
 					g.builder.AddDecl(astgen.StructDef(variantName, fields, desc))
