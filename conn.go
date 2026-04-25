@@ -356,10 +356,8 @@ func (c *Connection) readLoop() error {
 				c.handleRequest(msg)
 			})
 		} else if msg.Method != "" {
-			// It's a notification — dispatch handler in goroutine
-			c.handlerWg.Go(func() {
-				c.handleNotification(msg)
-			})
+			// It's a notification — handle inline to preserve ordering
+			c.handleNotification(msg)
 		} else if msg.ID != nil {
 			// It's a response — handle inline to avoid ordering issues
 			c.handleResponse(msg)
