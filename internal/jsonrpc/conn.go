@@ -264,6 +264,9 @@ func (c *Connection) readLoop() error {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
+			if c.ctx.Err() != nil {
+				return c.ctx.Err() // the read failed because the connection stopped
+			}
 			return err
 		}
 		if len(data) == 0 {

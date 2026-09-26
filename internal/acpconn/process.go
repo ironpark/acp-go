@@ -120,13 +120,22 @@ func Pipe(ctx context.Context, agent, client func(jsonrpc.Transport) Conn) {
 }
 
 // Run starts conn's read loop over transport and returns a wait that blocks
-// until it stops, then closes transport. A connection never closes its
-// transport itself, so this is where transports the caller dialed end.
+// until it stops. A connection never closes its transport itself, so this is
+// where transports the caller dialed end: once conn stops and has flushed its
+// writes. That also ends a read that ignores cancellation, as a stdio
+// transport's does, which would otherwise keep the read loop running.
 func Run(ctx context.Context, conn Conn, transport io.Closer) (wait func() error) {
+	closed := make(chan struct{})
+	go func() {
+		<-conn.Done()
+		_ = conn.Close() // returns once queued writes are flushed
+		_ = transport.Close()
+		close(closed)
+	}()
 	done := make(chan error, 1)
 	go func() {
 		err := conn.Start(ctx)
-		_ = transport.Close()
+		<-closed
 		if errors.Is(err, context.Canceled) && ctx.Err() == nil {
 			err = nil // closed by the caller
 		}
