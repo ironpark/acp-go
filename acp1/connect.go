@@ -33,8 +33,10 @@ func ConnectAgent(ctx context.Context, transport acp.Transport, newClient func(*
 // Close stops the connection and returns once it has stopped, whichever way
 // the agent was reached. For [SpawnAgent] that closes the agent's stdin and
 // waits for the process to exit, killing it after [ExitGrace]; for
-// [ConnectAgent] it closes the transport, which for Streamable HTTP deletes
-// the connection on the server. [RemoteAgent.Wait] reports how it ended.
+// [ConnectAgent] it closes the transport once queued messages are written, or
+// after [ExitGrace] if the agent stops reading them, which for Streamable
+// HTTP deletes the connection on the server. [RemoteAgent.Wait] reports how
+// it ended.
 func (a *RemoteAgent) Close() error {
 	err := a.ClientSideConnection.Close()
 	_ = a.wait()
@@ -42,7 +44,8 @@ func (a *RemoteAgent) Close() error {
 }
 
 // ExitGrace is how long a spawned agent has to exit on its own, once its
-// connection stops, before it is killed.
+// connection stops, before it is killed; and how long a connected agent has
+// to take the messages still queued before its transport is closed.
 const ExitGrace = acpconn.ExitGrace
 
 // Wait blocks until the connection has stopped: for [SpawnAgent] until the

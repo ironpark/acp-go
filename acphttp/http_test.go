@@ -272,3 +272,47 @@ func jsonrpcKey(id string) string {
 	e, _ := parseEnvelope(jsontext.Value(`{"id":` + id + `}`))
 	return e.idKey()
 }
+
+// TestClientCloseAbortsAPost: a connection flushing on its way out writes
+// without cancellation, so Close must end a POST the server never answers.
+func TestClientCloseAbortsAPost(t *testing.T) {
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.Header.Get(ConnectionIDHeader) == "":
+			w.Header().Set(ConnectionIDHeader, "c1")
+			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}`)
+		case r.Method == http.MethodGet:
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.(http.Flusher).Flush()
+			<-r.Context().Done()
+		case r.Method == http.MethodPost:
+			<-release // a server that never answers
+		default:
+			w.WriteHeader(http.StatusAccepted)
+		}
+	}))
+	defer ts.Close()
+	defer close(release)
+	client := NewClientTransport(ts.URL)
+	defer client.Close()
+	if err := client.WriteMessage(t.Context(), jsontext.Value(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	written := make(chan error, 1)
+	go func() {
+		ctx := context.WithoutCancel(t.Context())
+		written <- client.WriteMessage(ctx, jsontext.Value(`{"jsonrpc":"2.0","method":"x"}`))
+	}()
+	time.Sleep(50 * time.Millisecond) // let the POST reach the server
+	client.Close()
+	select {
+	case err := <-written:
+		if err == nil {
+			t.Error("WriteMessage = nil for a POST the server never answered")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close left a POST in flight")
+	}
+}

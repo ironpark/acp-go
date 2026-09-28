@@ -162,6 +162,11 @@ func (t *ClientTransport) WriteMessage(ctx context.Context, data jsontext.Value)
 	if err != nil {
 		return err
 	}
+	// Close aborts a POST in flight: a connection flushing on its way out
+	// writes without cancellation, and would otherwise wait on the server.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	defer context.AfterFunc(t.streamCtx, cancel)()
 	if e.Method == initializeMethod && e.isRequest() {
 		t.mu.Lock()
 		initialized := t.connectionID != ""

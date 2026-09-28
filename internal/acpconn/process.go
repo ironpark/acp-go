@@ -92,7 +92,9 @@ func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(jsonrpc.Transport) C
 }
 
 // ExitGrace is how long a spawned agent has to exit on its own, after its
-// connection stops and its stdin closes, before it is killed.
+// connection stops and its stdin closes, before it is killed; and how long a
+// connected one has to take the writes still queued before its transport is
+// closed on them.
 const ExitGrace = 5 * time.Second
 
 // exitGrace is ExitGrace, shortened by tests.
@@ -124,11 +126,25 @@ func Pipe(ctx context.Context, agent, client func(jsonrpc.Transport) Conn) {
 // where transports the caller dialed end: once conn stops and has flushed its
 // writes. That also ends a read that ignores cancellation, as a stdio
 // transport's does, which would otherwise keep the read loop running.
+//
+// A peer that stops reading can block the flush for good, so it gets
+// ExitGrace; then the transport is closed anyway, which ends the write.
 func Run(ctx context.Context, conn Conn, transport io.Closer) (wait func() error) {
 	closed := make(chan struct{})
+	grace := exitGrace
 	go func() {
 		<-conn.Done()
-		_ = conn.Close() // returns once queued writes are flushed
+		flushed := make(chan struct{})
+		go func() {
+			_ = conn.Close() // returns once queued writes are flushed
+			close(flushed)
+		}()
+		timer := time.NewTimer(grace)
+		defer timer.Stop()
+		select {
+		case <-flushed:
+		case <-timer.C:
+		}
 		_ = transport.Close()
 		close(closed)
 	}()

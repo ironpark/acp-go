@@ -64,3 +64,32 @@ func TestRunStopsABlockedRead(t *testing.T) {
 		})
 	}
 }
+
+// TestRunStopsABlockedWrite: a peer that stops reading blocks the flush of
+// queued writes, so the transport is closed on it once ExitGrace ends.
+func TestRunStopsABlockedWrite(t *testing.T) {
+	defer func(grace time.Duration) { exitGrace = grace }(exitGrace)
+	exitGrace = 50 * time.Millisecond
+	local, remote := net.Pipe() // unbuffered: a write blocks until the peer reads
+	defer remote.Close()
+	tr := jsonrpc.NewStdioTransport(local, local)
+	conn := jsonrpc.New(nil, nil, tr)
+	wait := Run(t.Context(), conn, tr)
+	if err := conn.SendNotification(t.Context(), "x", map[string]int{}); err != nil {
+		t.Fatal(err)
+	}
+
+	stopped := make(chan error, 1)
+	go func() {
+		_ = conn.Close()
+		stopped <- wait()
+	}()
+	select {
+	case err := <-stopped:
+		if err != nil {
+			t.Errorf("wait after Close = %v, want nil", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("wait blocked on a write the peer never read")
+	}
+}
