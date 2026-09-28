@@ -2,9 +2,12 @@ package acp1_test
 
 import (
 	"context"
+	"io"
+	"net"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
@@ -94,5 +97,32 @@ func TestConnectAgentOverHTTP(t *testing.T) {
 				t.Fatalf("Wait after Close = %v", err)
 			}
 		})
+	}
+}
+
+// TestConnectAgentOverSocketCloses: over a socket whose peer stays open and
+// never writes, Close must still return; a stdio transport's read ignores
+// cancellation, so the transport has to be closed to end it (#11).
+func TestConnectAgentOverSocketCloses(t *testing.T) {
+	a, b := net.Pipe()
+	defer b.Close()
+	go func() { _, _ = io.Copy(io.Discard, b) }() // the agent's end stays open
+	agent := acp1.ConnectAgent(t.Context(), acp.NewStdioTransport(a, a), func(*acp1.ClientSideConnection) acp1.Client {
+		return newTestClient()
+	})
+	time.Sleep(100 * time.Millisecond) // let the read loop block
+
+	closed := make(chan error, 1)
+	go func() { closed <- agent.Close() }()
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close blocked on a read the connection could not cancel")
+	}
+	if err := agent.Wait(); err != nil {
+		t.Fatalf("Wait after Close = %v", err)
 	}
 }
