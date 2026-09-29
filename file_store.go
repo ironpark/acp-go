@@ -28,10 +28,10 @@ const (
 // Get and List read the in-memory copy, so they return the same value every
 // time, as [MemoryStore] does, and session state can be changed in place. Only
 // Set writes to disk: the session manager sets a session when it creates it,
-// so an agent that changes a session afterwards calls Set again to save it,
-// typically when a turn ends:
+// so an agent that changes a session afterwards saves it again, typically
+// when a turn ends, which the manager's WithAutoSave option does for it:
 //
-//	if err := manager.Store().Set(ctx, id, session); err != nil { ... }
+//	if err := manager.Save(ctx, id, session); err != nil { ... }
 //
 // A session is encoded with encoding/json/v2, which skips unexported fields,
 // so session state with unexported fields implements [json.Marshaler] and

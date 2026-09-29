@@ -59,6 +59,17 @@ caps.PromptCapabilities = &schema.PromptCapabilities{Image: new(true)} // 콘텐
 return &acp1.InitializeResponse{ProtocolVersion: acp1.ProtocolVersion, AgentCapabilities: caps}, nil
 ```
 
+`Initialize`에 응답한 뒤에는 `conn.ClientCapabilities()`가 클라이언트가 알린 capability를 돌려주므로
+에이전트가 따로 보관할 필요가 없습니다. v1 `SessionStream`의 `ReadTextFile`, `WriteTextFile`,
+`NewTerminal`은 이를 확인해, 클라이언트가 해당 capability를 알리지 않았으면 요청을 보내지 않고
+`errors.ErrUnsupported`에 해당하는 오류로 실패합니다.
+
+```go
+if a.conn.ClientCapabilities().GetTerminal() {
+    // 에디터 터미널에서 명령 실행
+}
+```
+
 ### 클라이언트 구현
 
 ```go
@@ -96,7 +107,10 @@ if err != nil {
 
 `SpawnAgent`는 읽기 루프를 이미 시작한 상태로 돌려주며, `agent.Wait()`가 프로세스와 연결이 어떻게
 끝났는지 알려 줍니다. `cmd.Stderr`를 지정하지 않으면 에이전트의 stderr는 부모 프로세스로 전달됩니다.
-`acp1.Pipe`는 에이전트와 클라이언트를 메모리에서 연결하므로 테스트에 유용합니다.
+`acp1.Pipe`는 에이전트와 클라이언트를 메모리에서 연결하므로 테스트에 유용합니다. `acp1test.Connect`는
+이를 테스트용으로 감싸고, `acp1test.Client`는 에이전트가 보낸 업데이트와 권한 요청을 기록하며
+(`Updates`, `Text`, `WaitFor`) 요청에는 `acp1test.AllowOnce`, `AllowAlways`, `Reject` 또는 직접 만든 함수로
+응답합니다. v2는 `acp2test`가 같은 역할을 합니다.
 
 `Client` 인터페이스에 필요한 메서드는 `SessionUpdate`와 `RequestPermission` 두 개입니다. 에이전트가 권한을
 묻지 않는다면 `acp1.UnimplementedClient`를 임베드해 둘 다 채울 수 있습니다.
@@ -141,10 +155,20 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
         return acp1.StopReasonEndTurn, a.work(ctx, s)
     })
 }
+
+// RunTurnResponse는 usage처럼 stop reason 외의 필드가 있는 응답용입니다.
+// 취소된 턴도 응답의 나머지 필드를 유지합니다.
+return a.RunTurnResponse(ctx, params.SessionID, func(ctx context.Context, s *MySession) (*acp1.PromptResponse, error) {
+    reason, err := a.work(ctx, s)
+    return &acp1.PromptResponse{StopReason: reason, Usage: s.usage()}, err
+})
 ```
 
 에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다. 세션 상태가 `SessionModesReporter`나
 `SessionConfigOptionsReporter`를 구현하면 session/new와 session/resume 응답에 모드와 설정 옵션이 실립니다.
+`SessionCommandsReporter`를 구현하면 그 응답 직후 슬래시 명령이 `available_commands_update`로 전송되므로,
+업데이트가 가리키는 세션보다 먼저 클라이언트에 도착하는 일이 없습니다. `acp.TurnCancelled(ctx)`는
+`session/cancel`로 취소된 턴을 다른 취소와 구분합니다.
 
 매니저는 에이전트만 아는 대화를 재생해야 하는 `session/load`와, v1에서는 선택 사항인 `session/list`를 제공하지
 않습니다. 목록을 지원하는 에이전트는 `ListSessions`를 `List`로 넘기고, `List`는 세션 상태의
@@ -171,8 +195,9 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 
 `acp.FileStore`(`acp1.NewFileStore[T](dir)`)는 재시작 후에도 세션을 유지합니다. `Get`과 `List`는
 `MemoryStore`처럼 메모리에서 응답하므로 상태를 제자리에서 바꿀 수 있고, `Set`할 때마다 세션을
-`dir` 안의 개별 JSON 파일에 기록합니다. 매니저는 세션을 만들 때만 `Set`하므로, 이후 변경은 보통 턴이
-끝날 때 `manager.Store().Set(ctx, id, session)`으로 직접 저장합니다. 세션은 unexported 필드를
+`dir` 안의 개별 JSON 파일에 기록합니다. 매니저는 세션을 만들 때 `Set`하고, `acp1.WithAutoSave(onError)`를
+주면 턴이 끝날 때마다(취소되어도) 저장합니다. `session/set_mode`처럼 턴 밖에서 바꾼 상태는
+ctx의 취소와 무관하게 저장하는 `manager.Save(ctx, id, session)`으로 저장합니다. 세션은 unexported 필드를
 건너뛰는 `encoding/json/v2`로 인코딩되므로, unexported 필드가 있는 세션 상태는
 `MarshalJSON`/`UnmarshalJSON`을 구현합니다. 한 디렉터리는 한 번에 한 프로세스만 사용할 수 있습니다.
 
@@ -184,6 +209,7 @@ stream := acp1.NewSessionStream(client, sessionID)
 stream.SendText(ctx, "안녕하세요!")
 stream.StartToolCall(ctx, toolID, "파일 읽기", acp1.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents)))
+stream.ProposeToolCall(ctx, runID, "테스트 실행", acp1.ToolKindExecute) // pending: 권한 대기 중
 stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &oldText, newText)))
 stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // conn.NewTerminal로 만든 터미널
 stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("리팩터링")}) // 헬퍼가 없는 variant용
@@ -193,6 +219,17 @@ stream.WithMeta(meta).SendText(ctx, "…")                                    //
 흔한 텍스트 콘텐츠는 `acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts`(프롬프트의 텍스트 블록 iterator),
 `acp1.JoinTexts`(그 텍스트를 이어 붙인 문자열),
 `acp1.ToolText`로, 그 밖의 도구 출력은 `acp1.ToolDiff`와 `acp1.ToolTerminal`로 다룹니다.
+
+`stream.RunTerminal(ctx, toolID, request, timeout)`은 클라이언트 터미널에서 명령을 처음부터 끝까지
+실행합니다. tool call에 터미널을 표시하고, 종료를 기다리고, 타임아웃이나 ctx 취소 시 명령을 종료하며,
+터미널을 해제하기 전에 출력과 종료 상태를 돌려줍니다.
+
+설정 옵션에는 `acp1.SelectOptions(choices...)`가 `NewSessionConfigSelectOptions`의 오류 반환 없이 select
+옵션의 선택지를 만들고, `acp1.ConfigChangeOf(params)`는 `session/set_config_option` 요청을 variant와
+무관하게 하나의 `ConfigChange`로 읽습니다.
+
+새 세션에 대한 업데이트처럼 응답 뒤에 나가야 하는 알림은 핸들러에서 `acp.AfterReply(ctx, fn)`으로
+등록합니다. `fn`은 응답이 큐에 들어간 뒤 실행되고, 연결은 메시지를 순서대로 씁니다.
 
 tool call id는 세션
 안에서 유일해야 하며, `acp1.GenerateToolCallID`와 `acp1.GenerateMessageID`가 `GenerateSessionID`처럼 시간순으로 정렬되는 고유 id(접두사와 UUIDv7)를

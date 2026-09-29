@@ -121,7 +121,19 @@ func (s *SessionStream) SendUserMessage(ctx context.Context, id MessageID, conte
 
 // StartToolCall reports a tool call that is now running.
 func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, opts ...ToolCallOption) error {
-	update := toolCallUpdate(id, schema.ToolCallStatusInProgress, opts)
+	return s.toolCall(ctx, id, title, kind, schema.ToolCallStatusInProgress, opts)
+}
+
+// ProposeToolCall reports a tool call that has not started running: its input
+// is still streaming in, or it waits for the user's permission. Move it on
+// with [SessionStream.UpdateToolCallStatus] once it runs, or end it with
+// [SessionStream.CompleteToolCall] or [SessionStream.FailToolCall].
+func (s *SessionStream) ProposeToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, opts ...ToolCallOption) error {
+	return s.toolCall(ctx, id, title, kind, schema.ToolCallStatusPending, opts)
+}
+
+func (s *SessionStream) toolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, status ToolCallStatus, opts []ToolCallOption) error {
+	update := toolCallUpdate(id, status, opts)
 	update.Title, update.Kind = &title, &kind
 	return s.Send(ctx, update)
 }

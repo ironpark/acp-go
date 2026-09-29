@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -57,36 +58,32 @@ func (a *exampleAgent) runTurn(ctx context.Context, sessionID acp1.SessionID, se
 func (a *exampleAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, sess *session, command string, args ...string) error {
 	id := acp1.GenerateToolCallID()
 	title := "Running " + strings.Join(append([]string{command}, args...), " ")
-	if err := stream.StartToolCall(ctx, id, title, acp1.ToolKindExecute); err != nil {
+	// The tool call is pending until RunTerminal moves it to in progress with
+	// the terminal as its content; the client keeps showing the output once
+	// the terminal is released.
+	if err := stream.ProposeToolCall(ctx, id, title, acp1.ToolKindExecute); err != nil {
 		return err
 	}
-	if !a.terminal {
-		return stream.CompleteToolCall(ctx, id, acp1.WithToolContent(acp1.ToolText("This client cannot run commands.")))
-	}
-
-	terminal, err := stream.NewTerminal(ctx, acp1.CreateTerminalRequest{
+	run, err := stream.RunTerminal(ctx, id, acp1.CreateTerminalRequest{
 		Command: command,
 		Args:    args,
 		Cwd:     &sess.cwd,
-	})
-	if err != nil {
+	}, time.Minute)
+	switch {
+	case errors.Is(err, errors.ErrUnsupported):
+		// The client did not advertise the terminal capability.
+		return stream.CompleteToolCall(ctx, id, acp1.WithToolContent(acp1.ToolText("This client cannot run commands.")))
+	case err != nil && ctx.Err() != nil:
+		return err // the turn was cancelled
+	case err != nil:
 		return stream.FailToolCall(ctx, id, acp1.WithToolContent(acp1.ToolText(err.Error())))
-	}
-	// Release frees the terminal; the client still shows the output of the
-	// tool calls that embed it.
-	defer terminal.Release(context.WithoutCancel(ctx))
-
-	exit, err := terminal.WaitForExit(ctx)
-	if err != nil {
-		_ = terminal.Kill(context.WithoutCancel(ctx)) // the turn was cancelled
-		return err
 	}
 	// No exit code means a signal ended it, so ExitCode is checked for nil
 	// rather than read with GetExitCode, which would give 0.
-	if exit.ExitCode == nil || *exit.ExitCode != 0 {
-		return stream.FailToolCall(ctx, id, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID)))
+	if run.ExitStatus == nil || run.ExitStatus.ExitCode == nil || *run.ExitStatus.ExitCode != 0 {
+		return stream.FailToolCall(ctx, id)
 	}
-	return stream.CompleteToolCall(ctx, id, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID)))
+	return stream.CompleteToolCall(ctx, id)
 }
 
 func readProject(ctx context.Context, stream *acp1.SessionStream) error {

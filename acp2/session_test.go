@@ -228,7 +228,7 @@ func (a *lateJoinAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) 
 		reason := schema.StopReasonEndTurn
 		select {
 		case <-turn.Done():
-			if context.Cause(turn) == acp.ErrTurnCancelled {
+			if acp.TurnCancelled(turn) {
 				reason = schema.StopReasonCancelled
 			}
 		case <-time.After(2 * time.Second):

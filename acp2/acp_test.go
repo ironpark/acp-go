@@ -7,6 +7,7 @@ import (
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp2"
+	"github.com/ironpark/acp-go/acp2/acp2test"
 	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
@@ -99,21 +100,11 @@ func (c *testClient) RequestPermission(_ context.Context, params *acp2.RequestPe
 
 func connect(t *testing.T, agent *testAgent, client acp2.Client) (*acp2.ClientSideConnection, *acp2.AgentSideConnection) {
 	t.Helper()
-	ctx, cancel := context.WithCancel(t.Context())
-	agentConn, clientConn := acp2.Pipe(ctx, func(c *acp2.AgentSideConnection) acp2.Agent {
-		agent.client = c
+	var agentConn *acp2.AgentSideConnection
+	clientConn := acp2test.Connect(t, func(c *acp2.AgentSideConnection) acp2.Agent {
+		agentConn, agent.client = c, c
 		return agent
-	}, func(*acp2.ClientSideConnection) acp2.Client { return client })
-	t.Cleanup(func() {
-		cancel()
-		for _, done := range []<-chan struct{}{agentConn.Done(), clientConn.Done()} {
-			select {
-			case <-done:
-			case <-time.After(2 * time.Second):
-				t.Error("connection did not stop")
-			}
-		}
-	})
+	}, client)
 	return clientConn, agentConn
 }
 

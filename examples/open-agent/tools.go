@@ -311,32 +311,19 @@ func (a *openAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, 
 	if runtime.GOOS == "windows" {
 		shell, flag = "cmd", "/C"
 	}
-	terminal, err := stream.NewTerminal(ctx, acp1.CreateTerminalRequest{
+	// RunTerminal embeds the terminal in the tool call while the command
+	// runs and releases it once it exits; the client still shows its output.
+	run, err := stream.RunTerminal(ctx, id, acp1.CreateTerminalRequest{
 		Command:         shell,
 		Args:            []string{flag, command},
 		Cwd:             &sess.cwd,
 		OutputByteLimit: new(uint64(outputLimit)),
-	})
+	}, 0)
 	if err != nil {
 		return "", nil, err
 	}
-	// Release frees the terminal; the client still shows its output in the
-	// tool call.
-	defer terminal.Release(context.WithoutCancel(ctx))
-	content := []acp1.ToolCallContent{acp1.ToolTerminal(terminal.ID)}
-	if err := stream.Send(ctx, acp1.SessionUpdateToolCallUpdate{ToolCallID: id, Content: content}); err != nil {
-		return "", content, err
-	}
-
-	exit, err := terminal.WaitForExit(ctx)
-	if err != nil {
-		_ = terminal.Kill(context.WithoutCancel(ctx)) // the turn was cancelled
-		return "", content, err
-	}
-	output, err := terminal.CurrentOutput(ctx)
-	if err != nil {
-		return "", content, err
-	}
+	content := []acp1.ToolCallContent{acp1.ToolTerminal(run.TerminalID)}
+	exit := run.ExitStatus // set, since the run was neither timed nor cancelled
 
 	var result strings.Builder
 	switch {
@@ -345,11 +332,11 @@ func (a *openAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, 
 	case exit.Signal != nil:
 		fmt.Fprintf(&result, "Killed by signal %s", *exit.Signal)
 	}
-	if output.Truncated {
+	if run.Truncated {
 		result.WriteString(", output truncated to the last part")
 	}
 	result.WriteString(":\n")
-	result.WriteString(output.Output)
+	result.WriteString(run.Output)
 	if exit.ExitCode == nil || *exit.ExitCode != 0 {
 		return result.String(), content, errors.New("command failed")
 	}

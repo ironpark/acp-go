@@ -35,10 +35,6 @@ type exampleAgent struct {
 	*acp1.SessionManager[*session]
 	acp.ExtRouter
 	client *acp1.AgentSideConnection
-
-	// terminal is whether the client runs commands for the agent, from its
-	// initialize request. Each connection has its own agent, so its own copy.
-	terminal bool
 }
 
 // Extension methods start with an underscore and a domain the agent owns.
@@ -56,9 +52,7 @@ func (a *exampleAgent) ping(_ context.Context, params *pingParams) (*pingResult,
 	return &pingResult{Reply: "pong: " + params.Message}, nil
 }
 
-func (a *exampleAgent) Initialize(_ context.Context, params *acp1.InitializeRequest) (*acp1.InitializeResponse, error) {
-	// Getters read optional fields as their zero value when absent.
-	a.terminal = params.GetClientCapabilities().GetTerminal()
+func (a *exampleAgent) Initialize(context.Context, *acp1.InitializeRequest) (*acp1.InitializeResponse, error) {
 	// CapabilitiesOf advertises exactly the optional methods implemented.
 	return &acp1.InitializeResponse{
 		ProtocolVersion:   acp1.ProtocolVersion,

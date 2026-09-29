@@ -354,10 +354,12 @@ func (c *Connection) send(msg wireMessage) error {
 	}
 }
 
-func (c *Connection) trySend(msg wireMessage) {
-	if err := c.send(msg); err != nil && !errors.Is(err, context.Canceled) {
+func (c *Connection) trySend(msg wireMessage) bool {
+	err := c.send(msg)
+	if err != nil && !errors.Is(err, context.Canceled) {
 		c.logError(err)
 	}
+	return err == nil
 }
 
 // acceptRequest creates an incoming request's context and registers it for
@@ -377,6 +379,7 @@ func (c *Connection) handleRequest(ctx context.Context, cancel context.CancelCau
 		cancel(nil)
 	}()
 
+	ctx, hooks := withReplyHooks(ctx)
 	response := wireMessage{ID: msg.ID.Clone()}
 	result, err := c.callRequest(ctx, msg.Method, msg.Params)
 	switch {
@@ -392,7 +395,10 @@ func (c *Connection) handleRequest(ctx context.Context, cancel context.CancelCau
 			response.Result = data
 		}
 	}
-	c.trySend(response)
+	fns := hooks.take()
+	if c.trySend(response) && response.Error == nil {
+		c.runReplyHooks(ctx, msg.Method, fns)
+	}
 }
 
 // callRequest invokes the request handler, converting panics into errors so a

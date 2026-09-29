@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"errors"
+	"fmt"
 
 	schema "github.com/ironpark/acp-go/schema/v1"
 )
@@ -153,12 +154,30 @@ func (s *SessionStream) SendContent(ctx context.Context, content ContentBlock, o
 
 // StartToolCall reports a tool call that is now running.
 func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, opts ...ToolCallOption) error {
+	return s.toolCall(ctx, id, title, kind, schema.ToolCallStatusInProgress, opts)
+}
+
+// ProposeToolCall reports a tool call that has not started running: its input
+// is still streaming in, or it waits for the user's permission. Move it on
+// with [SessionStream.UpdateToolCallStatus] once it runs, or end it with
+// [SessionStream.CompleteToolCall] or [SessionStream.FailToolCall]:
+//
+//	stream.ProposeToolCall(ctx, id, "Run tests", acp1.ToolKindExecute)
+//	if _, allowed, err := stream.RequestPermission(ctx, acp1.ToolCallUpdate{ToolCallID: id}); err != nil || !allowed {
+//		return stream.FailToolCall(ctx, id)
+//	}
+//	stream.UpdateToolCallStatus(ctx, id, acp1.ToolCallStatusInProgress)
+func (s *SessionStream) ProposeToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, opts ...ToolCallOption) error {
+	return s.toolCall(ctx, id, title, kind, schema.ToolCallStatusPending, opts)
+}
+
+func (s *SessionStream) toolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, status ToolCallStatus, opts []ToolCallOption) error {
 	o := applyToolCallOptions(opts)
 	return s.Send(ctx, schema.SessionUpdateToolCall{
 		ToolCallID: id,
 		Title:      title,
 		Kind:       &kind,
-		Status:     new(schema.ToolCallStatusInProgress),
+		Status:     &status,
 		Content:    o.content,
 		Locations:  o.locations,
 		RawInput:   o.rawInput,
@@ -249,11 +268,16 @@ func (s *SessionStream) RequestPermission(ctx context.Context, toolCall ToolCall
 
 // ReadTextFile reads a text file through the client, which includes unsaved
 // changes in its editor. The stream's client must implement [FileReader], as
-// [AgentSideConnection] does; read part of a file with its ReadTextFile.
+// [AgentSideConnection] does; read part of a file with its ReadTextFile. When
+// the client did not advertise fs.readTextFile, it fails without a request
+// with an error that matches [errors.ErrUnsupported].
 func (s *SessionStream) ReadTextFile(ctx context.Context, path string) (string, error) {
 	reader, ok := s.client.(FileReader)
 	if !ok {
 		return "", errors.New("acp1: the stream's client cannot read files")
+	}
+	if err := s.require("fs.readTextFile", func(c *ClientCapabilities) bool { return c.GetFS().GetReadTextFile() }); err != nil {
+		return "", err
 	}
 	response, err := reader.ReadTextFile(ctx, &ReadTextFileRequest{SessionID: s.sessionID, Path: path, Meta: s.meta})
 	if err != nil {
@@ -263,11 +287,16 @@ func (s *SessionStream) ReadTextFile(ctx context.Context, path string) (string, 
 }
 
 // WriteTextFile writes a text file through the client. The stream's client
-// must implement [FileWriter], as [AgentSideConnection] does.
+// must implement [FileWriter], as [AgentSideConnection] does. When the client
+// did not advertise fs.writeTextFile, it fails without a request with an
+// error that matches [errors.ErrUnsupported].
 func (s *SessionStream) WriteTextFile(ctx context.Context, path, content string) error {
 	writer, ok := s.client.(FileWriter)
 	if !ok {
 		return errors.New("acp1: the stream's client cannot write files")
+	}
+	if err := s.require("fs.writeTextFile", func(c *ClientCapabilities) bool { return c.GetFS().GetWriteTextFile() }); err != nil {
+		return err
 	}
 	_, err := writer.WriteTextFile(ctx, &WriteTextFileRequest{SessionID: s.sessionID, Path: path, Content: content, Meta: s.meta})
 	return err
@@ -275,11 +304,16 @@ func (s *SessionStream) WriteTextFile(ctx context.Context, path, content string)
 
 // NewTerminal creates a terminal in the stream's session, which it sets as
 // params' SessionID, and returns a handle bound to it. The stream's client
-// must implement [TerminalHandler], as [AgentSideConnection] does.
+// must implement [TerminalHandler], as [AgentSideConnection] does. When the
+// client did not advertise terminal, it fails without a request with an
+// error that matches [errors.ErrUnsupported].
 func (s *SessionStream) NewTerminal(ctx context.Context, params CreateTerminalRequest) (*TerminalHandle, error) {
 	terminals, ok := s.client.(TerminalHandler)
 	if !ok {
 		return nil, errors.New("acp1: the stream's client cannot run terminals")
+	}
+	if err := s.require("terminal", func(c *ClientCapabilities) bool { return c.GetTerminal() }); err != nil {
+		return nil, err
 	}
 	params.SessionID = s.sessionID
 	return newTerminal(ctx, terminals, &params)
@@ -294,4 +328,25 @@ func (s *SessionStream) Send[T schema.SessionUpdateVariants](ctx context.Context
 		Update:    schema.NewSessionUpdate(update),
 		Meta:      s.meta,
 	})
+}
+
+// capabilityReporter is a client that knows the capabilities its peer
+// advertised, as [AgentSideConnection] does once initialized.
+type capabilityReporter interface {
+	ClientCapabilities() *ClientCapabilities
+}
+
+// require fails with [errors.ErrUnsupported] when the stream's client knows
+// the peer's capabilities and has reports the named one missing. A client
+// that does not know them, such as a connection not yet initialized or a fake
+// in a test, is assumed to support it.
+func (s *SessionStream) require(name string, has func(*ClientCapabilities) bool) error {
+	reporter, ok := s.client.(capabilityReporter)
+	if !ok {
+		return nil
+	}
+	if caps := reporter.ClientCapabilities(); caps != nil && !has(caps) {
+		return fmt.Errorf("acp1: the client does not support %s: %w", name, errors.ErrUnsupported)
+	}
+	return nil
 }

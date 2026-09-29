@@ -158,7 +158,7 @@ func (a slowStartAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) 
 	defer done()
 	select {
 	case <-ctx.Done():
-		if context.Cause(ctx) == acp.ErrTurnCancelled {
+		if acp.TurnCancelled(ctx) {
 			return &acp1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
 		}
 		return nil, ctx.Err()

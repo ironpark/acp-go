@@ -2,6 +2,7 @@ package acp
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/ironpark/acp-go/internal/acpconn"
@@ -9,12 +10,21 @@ import (
 
 // ErrTurnCancelled is the cause of a turn context cancelled by the client's
 // session/cancel, through [TurnTracker.Cancel] or before the turn began, which
-// is how an agent tells it apart from other cancellation:
-//
-//	if context.Cause(ctx) == acp.ErrTurnCancelled {
-//		return &acp1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
-//	}
+// is how an agent tells it apart from other cancellation; [TurnCancelled]
+// checks for it.
 var ErrTurnCancelled = acpconn.ErrTurnCancelled
+
+// TurnCancelled reports whether ctx, or the turn context it derives from, was
+// cancelled by the client's session/cancel, as opposed to a deadline, the
+// connection closing or no cancellation at all. The protocol answers such a
+// turn with the cancelled stop reason, whatever the work returned:
+//
+//	if acp.TurnCancelled(ctx) {
+//		return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
+//	}
+func TurnCancelled(ctx context.Context) bool {
+	return errors.Is(context.Cause(ctx), ErrTurnCancelled)
+}
 
 // ErrTurnInProgress reports a prompt on a session whose turn has not ended.
 // v1 allows one prompt turn per session at a time, so both sides refuse it.

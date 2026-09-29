@@ -59,6 +59,16 @@ type SessionConfigOptionsReporter interface {
 	SessionConfigOptions() []SessionConfigOption
 }
 
+// SessionCommandsReporter is implemented by session state that offers slash
+// commands. After answering session/new or session/resume, the
+// [SessionManager] sends them in an available_commands_update, which reaches
+// the client after the response that names the session; an agent's own
+// LoadSession sends them with [SessionStream.SendCommands] while it replays
+// the session. Send an update whenever the commands change.
+type SessionCommandsReporter interface {
+	AvailableCommands() []AvailableCommand
+}
+
 // SessionInfoReporter is implemented by session state that can describe
 // itself in a session/list response. SessionInfo must set at least the
 // session's working directory; the [SessionManager] sets the id.
@@ -87,7 +97,8 @@ type SessionInfoReporter interface {
 // the turn started with [SessionManager.BeginTurn]. When the session state
 // implements [SessionModesReporter] or [SessionConfigOptionsReporter], the
 // session/new and session/resume responses carry its modes and config
-// options.
+// options, and when it implements [SessionCommandsReporter], its commands
+// follow the response. [WithAutoSave] saves a session whenever its turn ends.
 //
 // The manager leaves out the two methods it cannot serve from the store
 // alone. session/load must replay the conversation, which only the agent
@@ -100,6 +111,7 @@ type SessionManager[T any] struct {
 	factory  SessionFactory[T]
 	turns    acp.TurnTracker[SessionID]
 	pageSize int
+	onSave   func(SessionID, error) // set by WithAutoSave
 }
 
 // defaultSessionListPageSize is how many sessions [SessionManager.List] returns
@@ -109,7 +121,10 @@ const defaultSessionListPageSize = 100
 // SessionManagerOption configures a [SessionManager].
 type SessionManagerOption func(*sessionManagerOptions)
 
-type sessionManagerOptions struct{ pageSize int }
+type sessionManagerOptions struct {
+	pageSize int
+	onSave   func(SessionID, error) // set by WithAutoSave
+}
 
 // WithSessionListPageSize sets how many sessions [SessionManager.List] returns
 // per page before it hands back a next cursor, which it caps at this size. The
@@ -119,13 +134,27 @@ func WithSessionListPageSize(size int) SessionManagerOption {
 	return func(o *sessionManagerOptions) { o.pageSize = size }
 }
 
+// WithAutoSave has the manager save a session to its store with
+// [SessionManager.Save] whenever a turn begun on it ends, however the turn
+// ended, so an agent that changes the session during its turns need not save
+// it itself. A session deleted during its turn is not saved back. onError,
+// which may be nil, receives the errors of saves that fail, which do not fail
+// the prompt. Changes made outside a turn, such as by session/set_mode, are
+// still saved by the agent.
+func WithAutoSave(onError func(id SessionID, err error)) SessionManagerOption {
+	if onError == nil {
+		onError = func(SessionID, error) {}
+	}
+	return func(o *sessionManagerOptions) { o.onSave = onError }
+}
+
 // NewSessionManager pairs a store with the factory that fills it.
 func NewSessionManager[T any](store SessionStore[T], factory SessionFactory[T], opts ...SessionManagerOption) *SessionManager[T] {
 	o := sessionManagerOptions{pageSize: defaultSessionListPageSize}
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return &SessionManager[T]{store: store, factory: factory, pageSize: o.pageSize}
+	return &SessionManager[T]{store: store, factory: factory, pageSize: o.pageSize, onSave: o.onSave}
 }
 
 // Store returns the underlying store, for state the RPC methods do not cover.
@@ -144,6 +173,24 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 	return session, nil
 }
 
+// Save writes the session to the store. It detaches from ctx's cancellation,
+// since a session is typically saved as its turn ends, cancelled or not.
+func (m *SessionManager[T]) Save(ctx context.Context, id SessionID, session T) error {
+	return m.store.Set(context.WithoutCancel(ctx), id, session)
+}
+
+// saveAfterTurn saves the session as its turn ends, for [WithAutoSave].
+func (m *SessionManager[T]) saveAfterTurn(ctx context.Context, id SessionID) {
+	ctx = context.WithoutCancel(ctx)
+	session, ok, err := m.store.Get(ctx, id)
+	if err == nil && ok {
+		err = m.store.Set(ctx, id, session)
+	}
+	if err != nil {
+		m.onSave(id, err)
+	}
+}
+
 // RunTurn answers a prompt with one turn on the session: it looks the session
 // up, begins its turn, runs run with the turn's context and ends the turn.
 // The response carries the stop reason run returns, or [StopReasonCancelled]
@@ -158,8 +205,31 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 //		})
 //	}
 //
-// Use [SessionManager.BeginTurn] for a response with more than a stop reason.
+// Use [SessionManager.RunTurnResponse] for a response with more than a stop
+// reason.
 func (m *SessionManager[T]) RunTurn(ctx context.Context, id SessionID, run func(ctx context.Context, session T) (StopReason, error)) (*PromptResponse, error) {
+	return m.RunTurnResponse(ctx, id, func(ctx context.Context, session T) (*PromptResponse, error) {
+		reason, err := run(ctx, session)
+		if err != nil {
+			return nil, err
+		}
+		return &PromptResponse{StopReason: reason}, nil
+	})
+}
+
+// RunTurnResponse is [SessionManager.RunTurn] for a turn whose response
+// carries more than a stop reason, such as token usage: run returns the whole
+// response. Once [SessionManager.CancelSession] has cancelled the turn, the
+// response run returned is sent with [StopReasonCancelled], or a new one when
+// run returned none or failed:
+//
+//	func (a *myAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
+//		return a.RunTurnResponse(ctx, params.SessionID, func(ctx context.Context, s *session) (*acp1.PromptResponse, error) {
+//			reason, err := a.answer(ctx, s, params.Prompt)
+//			return &acp1.PromptResponse{StopReason: reason, Usage: s.usage()}, err
+//		})
+//	}
+func (m *SessionManager[T]) RunTurnResponse(ctx context.Context, id SessionID, run func(ctx context.Context, session T) (*PromptResponse, error)) (*PromptResponse, error) {
 	session, err := m.Lookup(ctx, id)
 	if err != nil {
 		return nil, err
@@ -169,14 +239,21 @@ func (m *SessionManager[T]) RunTurn(ctx context.Context, id SessionID, run func(
 		return nil, err
 	}
 	defer done()
-	reason, err := run(turn, session)
-	if context.Cause(turn) == acp.ErrTurnCancelled {
-		return &PromptResponse{StopReason: StopReasonCancelled}, nil
+	response, err := run(turn, session)
+	if acp.TurnCancelled(turn) {
+		if response == nil || err != nil {
+			response = &PromptResponse{}
+		}
+		response.StopReason = StopReasonCancelled
+		return response, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &PromptResponse{StopReason: reason}, nil
+	if response == nil {
+		return nil, acp.InternalError("the prompt turn produced no response")
+	}
+	return response, nil
 }
 
 // BeginTurn starts a prompt turn on a session. Run the turn's work with the
@@ -192,12 +269,21 @@ func (m *SessionManager[T]) RunTurn(ctx context.Context, id SessionID, run func(
 //		}
 //		defer done()
 //		// ... stream updates with ctx ...
-//		if context.Cause(ctx) == acp.ErrTurnCancelled {
+//		if acp.TurnCancelled(ctx) {
 //			return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
 //		}
 //	}
+//
+// With [WithAutoSave], done saves the session before it ends the turn.
 func (m *SessionManager[T]) BeginTurn(ctx context.Context, id SessionID) (context.Context, func(), error) {
-	return m.turns.Begin(ctx, id)
+	turn, done, err := m.turns.Begin(ctx, id)
+	if err != nil || m.onSave == nil {
+		return turn, done, err
+	}
+	return turn, func() {
+		m.saveAfterTurn(turn, id)
+		done()
+	}, nil
 }
 
 // CancelSession cancels the session's turn in progress, if any.
@@ -216,6 +302,7 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 		return nil, err
 	}
 	modes, options := sessionState(session)
+	advertiseCommands(ctx, id, session)
 	return &NewSessionResponse{SessionID: id, Modes: modes, ConfigOptions: options}, nil
 }
 
@@ -315,6 +402,7 @@ func (m *SessionManager[T]) ResumeSession(ctx context.Context, params *ResumeSes
 		return nil, err
 	}
 	modes, options := sessionState(session)
+	advertiseCommands(ctx, params.SessionID, session)
 	return &ResumeSessionResponse{Modes: modes, ConfigOptions: options}, nil
 }
 
@@ -339,4 +427,22 @@ func sessionState(session any) (*SessionModeState, []SessionConfigOption) {
 		options = r.SessionConfigOptions()
 	}
 	return modes, options
+}
+
+// advertiseCommands sends the commands of a session that has them once the
+// response to the request ctx belongs to has gone out, for a request an
+// [AgentSideConnection] serves.
+func advertiseCommands(ctx context.Context, id SessionID, session any) {
+	reporter, ok := session.(SessionCommandsReporter)
+	if !ok {
+		return
+	}
+	conn, ok := agentConnFrom(ctx)
+	if !ok {
+		return
+	}
+	acp.AfterReply(ctx, func(ctx context.Context) {
+		// A failure means the connection is gone; there is no one to tell.
+		_ = NewSessionStream(conn, id).SendCommands(ctx, reporter.AvailableCommands())
+	})
 }

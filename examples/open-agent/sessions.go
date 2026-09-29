@@ -79,11 +79,11 @@ func (a *openAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsR
 	return a.List(ctx, params)
 }
 
-// save writes the session to the store. It runs when the session changes, so
-// a failure is logged rather than failing the request that changed it. The
-// turn's context may be cancelled by then, and the save must still happen.
+// save writes a session changed outside a turn to the store; the manager
+// saves the changes turns make. A failure is logged rather than failing the
+// request that changed the session.
 func (a *openAgent) save(ctx context.Context, id acp1.SessionID, sess *session) {
-	if err := a.Store().Set(context.WithoutCancel(ctx), id, sess); err != nil {
+	if err := a.Save(ctx, id, sess); err != nil {
 		a.logger.Error("save session", "session", id, "error", err)
 	}
 }

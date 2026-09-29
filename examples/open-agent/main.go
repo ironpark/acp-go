@@ -89,12 +89,10 @@ func (a *openAgent) Initialize(_ context.Context, params *acp1.InitializeRequest
 }
 
 // Prompt runs the turn through the embedded manager, whose CancelSession cancels the
-// turn's context, which also aborts the request to the model.
+// turn's context, which also aborts the request to the model. The manager
+// saves the session when the turn ends.
 func (a *openAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
 	return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, sess *session) (acp1.StopReason, error) {
-		// The history holds whole exchanges however the turn ended, so it is
-		// always safe to save.
-		defer a.save(ctx, params.SessionID, sess)
 		return a.runTurn(ctx, params.SessionID, sess, acp1.JoinTexts(params.Prompt))
 	})
 }
@@ -162,6 +160,11 @@ func main() {
 		func(_ context.Context, params *acp1.NewSessionRequest) (acp1.SessionID, *session, error) {
 			return acp1.GenerateSessionID(), &session{cwd: params.Cwd, mode: askMode}, nil
 		},
+		// The history holds whole exchanges however a turn ended, so it is
+		// always safe to save when one ends.
+		acp1.WithAutoSave(func(id acp1.SessionID, err error) {
+			logger.Error("save session", "session", id, "error", err)
+		}),
 	)
 	conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
 		return &openAgent{SessionManager: manager, client: c, llm: llm, logger: logger}

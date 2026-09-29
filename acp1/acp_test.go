@@ -9,6 +9,7 @@ import (
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acp1/acp1test"
 	schema "github.com/ironpark/acp-go/schema/v1"
 )
 
@@ -101,21 +102,11 @@ func (c *testClient) ReadTextFile(_ context.Context, params *acp1.ReadTextFileRe
 // connect wires an agent and a client together over in-memory pipes.
 func connect(t *testing.T, agent *testAgent, client acp1.Client) (*acp1.ClientSideConnection, *acp1.AgentSideConnection) {
 	t.Helper()
-	ctx, cancel := context.WithCancel(t.Context())
-	agentConn, clientConn := acp1.Pipe(ctx, func(c *acp1.AgentSideConnection) acp1.Agent {
-		agent.client = c
+	var agentConn *acp1.AgentSideConnection
+	clientConn := acp1test.Connect(t, func(c *acp1.AgentSideConnection) acp1.Agent {
+		agentConn, agent.client = c, c
 		return agent
-	}, func(*acp1.ClientSideConnection) acp1.Client { return client })
-	t.Cleanup(func() {
-		cancel()
-		for _, done := range []<-chan struct{}{agentConn.Done(), clientConn.Done()} {
-			select {
-			case <-done:
-			case <-time.After(2 * time.Second):
-				t.Error("connection did not stop")
-			}
-		}
-	})
+	}, client)
 	return clientConn, agentConn
 }
 

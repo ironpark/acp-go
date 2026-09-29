@@ -62,6 +62,17 @@ caps.PromptCapabilities = &schema.PromptCapabilities{Image: new(true)} // conten
 return &acp1.InitializeResponse{ProtocolVersion: acp1.ProtocolVersion, AgentCapabilities: caps}, nil
 ```
 
+Once `Initialize` is answered, `conn.ClientCapabilities()` returns what the client advertised, so the
+agent need not keep its own copy. The v1 `SessionStream`'s `ReadTextFile`, `WriteTextFile` and
+`NewTerminal` check it and fail with an error matching `errors.ErrUnsupported`, without a request,
+when the client left the capability out:
+
+```go
+if a.conn.ClientCapabilities().GetTerminal() {
+    // run the command in the editor's terminal
+}
+```
+
 ### Client
 
 ```go
@@ -99,7 +110,10 @@ if err != nil {
 
 `SpawnAgent` already runs the read loop; `agent.Wait()` reports how the process and connection
 ended. The agent's stderr goes to the parent's unless `cmd.Stderr` is set. `acp1.Pipe` connects
-an agent and a client in memory, which is handy in tests.
+an agent and a client in memory, which is handy in tests; `acp1test.Connect` wraps it for a test, and
+`acp1test.Client` records the updates and permission requests an agent sends (`Updates`, `Text`,
+`WaitFor`) and answers the requests with `acp1test.AllowOnce`, `AllowAlways`, `Reject` or a function
+of your own. `acp2test` does the same for v2.
 
 `Client` requires only `SessionUpdate` and `RequestPermission`; a client whose agent never asks for
 permission can embed `acp1.UnimplementedClient` for both.
@@ -146,11 +160,21 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
         return acp1.StopReasonEndTurn, a.work(ctx, s)
     })
 }
+
+// RunTurnResponse is the same for a response with more than a stop reason, such as usage;
+// a cancelled turn keeps the response's other fields.
+return a.RunTurnResponse(ctx, params.SessionID, func(ctx context.Context, s *MySession) (*acp1.PromptResponse, error) {
+    reason, err := a.work(ctx, s)
+    return &acp1.PromptResponse{StopReason: reason, Usage: s.usage()}, err
+})
 ```
 
 Override any of those by declaring the method on the agent itself. Session state that implements
 `SessionModesReporter` or `SessionConfigOptionsReporter` has its modes and config options reported
-in the session/new and session/resume responses.
+in the session/new and session/resume responses. State that implements `SessionCommandsReporter`
+has its slash commands sent in an `available_commands_update` right after those responses, so the
+update never reaches the client before the session it names. `acp.TurnCancelled(ctx)` tells a
+turn cancelled by `session/cancel` apart from other cancellation.
 
 The manager leaves out `session/load`, which must
 replay a conversation only the agent knows, and, in v1, the optional `session/list`: an agent that
@@ -179,8 +203,10 @@ blocks; each façade aliases the stores with its own session id.
 
 `acp.FileStore` (`acp1.NewFileStore[T](dir)`) keeps sessions across restarts: it serves `Get` and
 `List` from memory like `MemoryStore`, so state can still change in place, and writes each session
-to its own JSON file in `dir` on `Set`. The manager sets a session only when it creates it, so save
-later changes yourself, typically when a turn ends, with `manager.Store().Set(ctx, id, session)`.
+to its own JSON file in `dir` on `Set`. The manager sets a session when it creates it, and with
+`acp1.WithAutoSave(onError)` also whenever a turn begun on it ends, cancelled or not; save changes
+made outside a turn, such as by `session/set_mode`, with `manager.Save(ctx, id, session)`, which
+ignores ctx's cancellation.
 Sessions encode with `encoding/json/v2`, which skips unexported fields; session state with
 unexported fields implements `MarshalJSON`/`UnmarshalJSON`. One process at a time may use a
 directory.
@@ -195,6 +221,7 @@ stream.SendThought(ctx, "thinking...")
 
 stream.StartToolCall(ctx, toolID, "Reading file", acp1.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents)))
+stream.ProposeToolCall(ctx, runID, "Run tests", acp1.ToolKindExecute) // pending: awaiting permission
 stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &oldText, newText)))
 stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // terminal from conn.NewTerminal
 
@@ -207,6 +234,18 @@ stream.WithMeta(meta).SendText(ctx, "…")                                      
 `acp1.JoinTexts` (their concatenation) and
 `acp1.ToolText` cover the common text content, and `acp1.ToolDiff` and `acp1.ToolTerminal` the
 other tool output.
+
+`stream.RunTerminal(ctx, toolID, request, timeout)` runs a command in a client terminal from start
+to finish: it shows the terminal in the tool call, waits for the exit, kills the command on the
+timeout or a cancelled ctx, and returns the output and exit status before releasing the terminal.
+
+For config options, `acp1.SelectOptions(choices...)` builds a select option's choices without the
+error `NewSessionConfigSelectOptions` returns, and `acp1.ConfigChangeOf(params)` reads a
+`session/set_config_option` request as one `ConfigChange` whichever variant it holds.
+
+To send a notification that must follow a response, such as an update about a session the
+response creates, register it with `acp.AfterReply(ctx, fn)` in the handler: `fn` runs once the
+response is queued, and the connection writes in order.
 
 Tool call ids must be unique within a session; `acp1.GenerateToolCallID` and
 `acp1.GenerateMessageID` mint random ones, like `GenerateSessionID`. The v2
