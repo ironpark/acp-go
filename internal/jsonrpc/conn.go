@@ -57,12 +57,20 @@ type wireMessage struct {
 }
 
 // Connection is a bidirectional JSON-RPC 2.0 connection over a [Transport].
+//
+// Incoming notifications are handled one at a time, in arrival order, on a
+// goroutine of their own, so a slow notification handler never stops the
+// connection from reading. What the peer sent before a notification still
+// sees it first: a response is not handed to its caller, and a request's
+// handler does not start, until every notification read before it has been
+// handled.
 type Connection struct {
 	transport Transport
 
-	request        RequestHandler
-	notification   NotificationHandler
-	requestContext func(ctx context.Context, method string, params jsontext.Value) context.Context
+	request              RequestHandler
+	notification         NotificationHandler
+	requestContext       func(ctx context.Context, method string, params jsontext.Value) context.Context
+	notificationReceived func(method string, params jsontext.Value)
 
 	pending  sync.Map // idKey -> *pendingResponse
 	incoming sync.Map // idKey -> context.CancelCauseFunc
@@ -74,8 +82,10 @@ type Connection struct {
 	cancel     context.CancelFunc
 	fail       context.CancelCauseFunc // cancels with the error that broke the connection
 
+	notifications notificationQueue
+
 	wg        sync.WaitGroup // write loop
-	handlerWg sync.WaitGroup // in-flight request handlers
+	handlerWg sync.WaitGroup // in-flight request handlers and the notification loop
 	// lifecycle orders goroutine starts against Close: a WaitGroup must not
 	// gain a goroutine while Close waits on it from zero.
 	lifecycle sync.Mutex
@@ -111,6 +121,14 @@ func WithRequestContext(fn func(ctx context.Context, method string, params jsont
 	return func(c *Connection) { c.requestContext = fn }
 }
 
+// WithNotificationReceived sets a function called for each incoming
+// notification on the read loop in arrival order, before the notification is
+// queued for its handler, so it sees every notification before any message
+// read after it; it must not block. $/cancel_request is not passed to it.
+func WithNotificationReceived(fn func(method string, params jsontext.Value)) Option {
+	return func(c *Connection) { c.notificationReceived = fn }
+}
+
 // WithWriteQueueSize sets the outgoing queue depth. Default: 100.
 func WithWriteQueueSize(size int) Option {
 	return func(c *Connection) { c.writeQueueSize = size }
@@ -135,6 +153,9 @@ type pendingResponse struct {
 type responseResult struct {
 	data jsontext.Value
 	err  error
+	// after is the number of notifications read before the response; the
+	// caller sees the response only once they have been handled.
+	after uint64
 }
 
 // New creates a connection over transport. Either handler may be nil, in which
@@ -151,6 +172,7 @@ func New(request RequestHandler, notification NotificationHandler, transport Tra
 		opt(c)
 	}
 	c.writeQueue = make(chan jsontext.Value, c.writeQueueSize)
+	c.notifications.wake = make(chan struct{}, 1)
 	// The connection is usable before Start: outgoing messages queue up and the
 	// write loop flushes them once it runs.
 	c.ctx, c.fail = context.WithCancelCause(context.Background())
@@ -174,18 +196,23 @@ func (c *Connection) Start(ctx context.Context) error {
 	stop := context.AfterFunc(ctx, c.cancel)
 	defer stop()
 
-	if !c.goUnlessClosed(&c.wg, c.writeLoop) {
+	if !c.goUnlessClosed(&c.wg, c.writeLoop) || !c.goUnlessClosed(&c.handlerWg, c.notificationLoop) {
+		c.cancel()
+		c.wg.Wait()
 		c.failPending(errConnectionClosed)
 		return context.Cause(c.ctx)
 	}
 
 	err := c.readLoop()
+	// Notifications already read are still handled after EOF.
+	c.notifications.close()
 	if cause := context.Cause(c.ctx); cause != nil && errors.Is(err, context.Canceled) {
 		err = cause // why, if a write failed
 	}
-	// The reader is done (typically EOF). Let in-flight handlers finish so
-	// their responses reach the write loop, then let the write loop flush them
-	// before Start returns: a caller that exits on return must not lose a reply.
+	// The reader is done (typically EOF). Let in-flight handlers, and the
+	// notifications already read, finish so their responses reach the write
+	// loop, then let the write loop flush them before Start returns: a caller
+	// that exits on return must not lose a reply.
 	c.handlerWg.Wait()
 	c.cancel()
 	c.wg.Wait()
@@ -285,14 +312,23 @@ func (c *Connection) readLoop() error {
 			// handler goroutine, so a cancellation read after the request
 			// always finds it.
 			ctx, cancel := c.acceptRequest(msg)
-			if !c.goUnlessClosed(&c.handlerWg, func() { c.handleRequest(ctx, cancel, msg) }) {
+			after := c.notifications.received
+			if !c.goUnlessClosed(&c.handlerWg, func() { c.handleRequest(ctx, cancel, msg, after) }) {
 				c.incoming.Delete(IDKey(msg.ID))
 				cancel(nil)
 				return c.ctx.Err()
 			}
+		case msg.Method == CancelRequestMethod:
+			// Handled here rather than queued so that it takes effect even
+			// while a notification handler is running.
+			c.cancelIncoming(msg.Params)
 		case msg.Method != "":
-			// Handled inline so notification ordering is preserved.
-			c.handleNotification(msg)
+			if c.notificationReceived != nil {
+				c.notificationReceived(msg.Method, msg.Params)
+			}
+			if c.notification != nil {
+				c.notifications.push(msg)
+			}
 		case len(msg.ID) > 0:
 			c.handleResponse(msg)
 		default:
@@ -373,7 +409,9 @@ func (c *Connection) acceptRequest(msg wireMessage) (context.Context, context.Ca
 	return ctx, cancel
 }
 
-func (c *Connection) handleRequest(ctx context.Context, cancel context.CancelCauseFunc, msg wireMessage) {
+// handleRequest answers an incoming request once the first after
+// notifications, those read before it, have been handled.
+func (c *Connection) handleRequest(ctx context.Context, cancel context.CancelCauseFunc, msg wireMessage, after uint64) {
 	defer func() {
 		c.incoming.Delete(IDKey(msg.ID))
 		cancel(nil)
@@ -381,7 +419,11 @@ func (c *Connection) handleRequest(ctx context.Context, cancel context.CancelCau
 
 	ctx, hooks := withReplyHooks(ctx)
 	response := wireMessage{ID: msg.ID.Clone()}
-	result, err := c.callRequest(ctx, msg.Method, msg.Params)
+	var result any
+	err := c.awaitNotifications(ctx, after)
+	if err == nil {
+		result, err = c.callRequest(ctx, msg.Method, msg.Params)
+	}
 	switch {
 	case err != nil:
 		response.Error = toRequestError(ctx, err).toWire()
@@ -434,16 +476,11 @@ func toRequestError(ctx context.Context, err error) *RequestError {
 	return InternalError(err.Error())
 }
 
-func (c *Connection) handleNotification(msg wireMessage) {
-	if msg.Method == CancelRequestMethod {
-		c.cancelIncoming(msg.Params)
-		return
-	}
-	if c.notification == nil {
-		return
-	}
+func (c *Connection) handleNotification(n queuedNotification) {
 	ctx, cancel := context.WithCancel(c.ctx)
 	defer cancel()
+	ctx = context.WithValue(ctx, runningNotificationKey{}, n.seq)
+	msg := n.msg
 
 	err := func() (err error) {
 		defer func() {
@@ -484,7 +521,7 @@ func (c *Connection) handleResponse(msg wireMessage) {
 	}
 	pending := entry.(*pendingResponse)
 
-	var result responseResult
+	result := responseResult{after: c.notifications.received}
 	switch {
 	case msg.Error != nil:
 		result.err = msg.Error.toRequestError()
@@ -560,6 +597,11 @@ func (c *Connection) StartRequest(ctx context.Context, method string, params any
 		defer c.pending.Delete(key)
 		select {
 		case result := <-pending.result:
+			// The response is in; only the notifications before it are
+			// awaited, so there is nothing left to cancel at the peer.
+			if err := c.awaitNotifications(ctx, result.after); err != nil {
+				return nil, err
+			}
 			if result.err != nil {
 				return nil, result.err
 			}

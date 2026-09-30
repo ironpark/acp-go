@@ -222,10 +222,13 @@ See protocol docs: [Client](https://agentclientprotocol.com/protocol/overview#cl
 					Wire: "session/update", Name: "SessionUpdate", Params: "SessionNotification", Via: "sessionUpdate",
 					Doc: `SessionUpdate is a notification streaming turn progress to the user.
 
-Notifications are handled one at a time on the connection's read loop, which
-keeps updates in order and ahead of the prompt response. The flip side: a
-handler that calls the agent and waits for the answer blocks the loop that
-would read it. Hand such calls to a goroutine.
+Notifications are handled one at a time, in order, off the loop that reads
+the connection, so a slow handler holds back neither the agent's messages
+nor $/cancel_request. Updates stay ahead of the prompt response, and a
+request from the agent is handled only after the updates sent before it.
+A handler may call the agent and wait for the answer, unless answering needs
+a request back to the client: that request waits for the handler to return.
+Hand such calls to a goroutine.
 
 See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)`,
 					CallDoc: `SessionUpdate streams turn progress to the client.`,

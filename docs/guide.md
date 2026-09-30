@@ -119,8 +119,10 @@ of your own. `acp2test` does the same for v2.
 permission can embed `acp1.UnimplementedClient` for both.
 
 `SessionUpdate` sees every update,
-including those outside a `Turn`; notifications are handled in order on the read loop, so a handler
-must not wait on a call to the agent.
+including those outside a `Turn`. Updates are handled one at a time, in order, and before the prompt
+response and any agent request sent after them; a slow handler does not stop the connection from
+reading. A handler may call the agent and wait for the answer, as long as the agent does not need to
+call back into the client to produce it.
 
 File system, terminal and elicitation support come from
 `acp1.FileReader`, `acp1.FileWriter`, `acp1.TerminalHandler` and `acp1.ElicitationHandler`;

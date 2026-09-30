@@ -115,8 +115,10 @@ if err != nil {
 `Client` 인터페이스에 필요한 메서드는 `SessionUpdate`와 `RequestPermission` 두 개입니다. 에이전트가 권한을
 묻지 않는다면 `acp1.UnimplementedClient`를 임베드해 둘 다 채울 수 있습니다.
 
-`SessionUpdate`는 `Turn` 밖의 업데이트까지 모두 받습니다. 알림은 읽기 루프에서 순서대로 처리되므로,
-핸들러 안에서 에이전트 호출의 응답을 기다리면 교착 상태가 됩니다.
+`SessionUpdate`는 `Turn` 밖의 업데이트까지 모두 받습니다. 업데이트는 한 번에 하나씩 순서대로 처리되며,
+프롬프트 응답과 그 뒤에 온 에이전트 요청보다 먼저 처리됩니다. 핸들러가 느려도 연결은 계속 메시지를 읽습니다.
+핸들러 안에서 에이전트를 호출하고 응답을 기다려도 되지만, 에이전트가 그 응답을 만들려고 클라이언트를 다시
+호출해야 한다면 교착 상태가 됩니다.
 
 파일 시스템·터미널·elicitation 지원은 `acp1.FileReader`, `acp1.FileWriter`,
 `acp1.TerminalHandler`, `acp1.ElicitationHandler`로 추가하며, `acp1.ClientCapabilitiesOf(client)`가

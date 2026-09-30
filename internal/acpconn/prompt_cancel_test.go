@@ -4,7 +4,12 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"errors"
+	"io"
+	"net"
 	"testing"
+	"time"
+
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 func TestSessionIDOf(t *testing.T) {
@@ -92,5 +97,59 @@ func TestRemoveDropsOnlyTheNamedPrompt(t *testing.T) {
 	defer p.mu.Unlock()
 	if _, ok := p.sessions["s1"]; ok {
 		t.Fatal("removing the last prompt should drop the session entry")
+	}
+}
+
+// TestCancelReachesOnlyEarlierPrompts: notifications are handled off the read
+// loop, so a session/cancel queued behind a slow notification is handled after
+// a later prompt has been read. It must still cancel only the prompt sent
+// before it.
+func TestCancelReachesOnlyEarlierPrompts(t *testing.T) {
+	local, remote := net.Pipe()
+	t.Cleanup(func() { local.Close(); remote.Close() })
+	go func() { _, _ = io.Copy(io.Discard, remote) }()
+
+	gate, release := make(chan struct{}), make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	signals := make(chan context.Context, 2)
+	conn := NewAgentConnection(func(ctx context.Context, _ string, _ jsontext.Value) (any, error) {
+		signals <- PromptCancelSignal(ctx)
+		<-release // keep the prompt outstanding
+		return nil, nil
+	}, func(ctx context.Context, method string, _ jsontext.Value) error {
+		if method == "slow" {
+			select {
+			case <-gate:
+			case <-ctx.Done():
+			}
+		}
+		return nil
+	}, jsonrpc.NewStdioTransport(local, local), nil)
+	go func() { _ = conn.Start(t.Context()) }()
+
+	for _, line := range []string{
+		`{"jsonrpc":"2.0","id":1,"method":"session/prompt","params":{"sessionId":"s1"}}`,
+		`{"jsonrpc":"2.0","method":"slow"}`,
+		`{"jsonrpc":"2.0","method":"session/cancel","params":{"sessionId":"s1"}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"session/prompt","params":{"sessionId":"s1"}}`,
+	} {
+		if _, err := remote.Write([]byte(line + "\n")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	close(gate)
+
+	for i, wantCancelled := range []bool{true, false} {
+		var signal context.Context
+		select {
+		case signal = <-signals:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("prompt %d never started", i+1)
+		}
+		// Let the cancel, if it were still pending, land.
+		time.Sleep(20 * time.Millisecond)
+		if cancelled := errors.Is(context.Cause(signal), ErrTurnCancelled); cancelled != wantCancelled {
+			t.Errorf("prompt %d cancelled = %v, want %v", i+1, cancelled, wantCancelled)
+		}
 	}
 }
