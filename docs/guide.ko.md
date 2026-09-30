@@ -255,7 +255,8 @@ stdio는 `acp.NewStdioTransport`, 원격 연결은 `acphttp.NewClientTransport` 
 `acphttp.Server`는 일반 `http.Handler`라서 인증은 앞에 두는 미들웨어로 처리하고, `serve`가 받는 context는
 연결을 연 요청의 값을 유지하므로 미들웨어가 넣은 사용자 정보 등이 에이전트까지 전달됩니다. `WithErrorHandler`는
 `serve`가 반환한 에러를 받고, `Server.Shutdown(ctx)`은 새 연결을 거절한 뒤 열린 연결이 끝나기를 기다렸다가
-닫습니다. 클라이언트에서 거절된 요청은 HTTP 상태를 담은 `*acphttp.StatusError`로 실패하므로, 자격 증명이
+닫습니다. `http.Server`의 `Shutdown`보다 먼저 호출하세요. 반대 순서면 열린 연결의 POST가 막히고, HTTP 서버는 이벤트
+스트림 때문에 기한까지 기다립니다. `examples/http-agent`가 Ctrl-C에서 두 단계를 모두 보여 줍니다. 클라이언트에서 거절된 요청은 HTTP 상태를 담은 `*acphttp.StatusError`로 실패하므로, 자격 증명이
 만료된 401 등을 구분할 수 있습니다.
 
 #### 재연결

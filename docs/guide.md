@@ -294,7 +294,9 @@ as text frames instead. WebSockets from browser pages on other origins are refus
 the context `serve` receives keeps the values of the request that opened the connection: what the
 middleware stored there, such as the user, reaches the agent. `WithErrorHandler` receives the errors
 `serve` returns, and `Server.Shutdown(ctx)` refuses new connections and waits for the open ones to
-end before closing them. On the client, a refused request fails with an `*acphttp.StatusError`
+end before closing them. Call it before the `http.Server`'s own `Shutdown`, which would stop the open
+connections' POSTs and wait out its deadline on their event streams; `examples/http-agent` does both on
+Ctrl-C. On the client, a refused request fails with an `*acphttp.StatusError`
 carrying the HTTP status, such as 401 when credentials have expired.
 
 #### Reconnecting

@@ -122,8 +122,10 @@ func NewServer(serve func(ctx context.Context, t acp.Transport) error, opts ...S
 // Shutdown stops the server accepting connections and waits for those in
 // progress to end, which they do when their clients close them. If ctx ends
 // first, Shutdown ends the remaining connections as Close does and returns
-// ctx's error. Like Close, it does not stop the http.Server using it; call
-// this after that server's own Shutdown.
+// ctx's error. Like Close, it does not stop the http.Server using it. Call
+// this before that server's own Shutdown: the connections still need it to
+// POST and stream until they end, and the http.Server would otherwise wait
+// out its deadline on their event streams.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.mu.Lock()
 	s.draining = true
