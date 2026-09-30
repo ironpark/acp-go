@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,9 +112,15 @@ func TestCancelReachesOnlyEarlierPrompts(t *testing.T) {
 
 	gate, release := make(chan struct{}), make(chan struct{})
 	t.Cleanup(func() { close(release) })
-	signals := make(chan context.Context, 2)
-	conn := NewAgentConnection(func(ctx context.Context, _ string, _ jsontext.Value) (any, error) {
-		signals <- PromptCancelSignal(ctx)
+	// Each prompt runs in its own goroutine, so they may start in either
+	// order; params carry which prompt it is.
+	type started struct {
+		params string
+		signal context.Context
+	}
+	signals := make(chan started, 2)
+	conn := NewAgentConnection(func(ctx context.Context, _ string, params jsontext.Value) (any, error) {
+		signals <- started{string(params), PromptCancelSignal(ctx)}
 		<-release // keep the prompt outstanding
 		return nil, nil
 	}, func(ctx context.Context, method string, _ jsontext.Value) error {
@@ -128,10 +135,10 @@ func TestCancelReachesOnlyEarlierPrompts(t *testing.T) {
 	go func() { _ = conn.Start(t.Context()) }()
 
 	for _, line := range []string{
-		`{"jsonrpc":"2.0","id":1,"method":"session/prompt","params":{"sessionId":"s1"}}`,
+		`{"jsonrpc":"2.0","id":1,"method":"session/prompt","params":{"sessionId":"s1","n":1}}`,
 		`{"jsonrpc":"2.0","method":"slow"}`,
 		`{"jsonrpc":"2.0","method":"session/cancel","params":{"sessionId":"s1"}}`,
-		`{"jsonrpc":"2.0","id":2,"method":"session/prompt","params":{"sessionId":"s1"}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"session/prompt","params":{"sessionId":"s1","n":2}}`,
 	} {
 		if _, err := remote.Write([]byte(line + "\n")); err != nil {
 			t.Fatal(err)
@@ -139,17 +146,20 @@ func TestCancelReachesOnlyEarlierPrompts(t *testing.T) {
 	}
 	close(gate)
 
-	for i, wantCancelled := range []bool{true, false} {
-		var signal context.Context
+	byPrompt := map[bool]context.Context{} // by whether it is the first
+	for range 2 {
 		select {
-		case signal = <-signals:
+		case s := <-signals:
+			byPrompt[strings.Contains(s.params, `"n":1`)] = s.signal
 		case <-time.After(2 * time.Second):
-			t.Fatalf("prompt %d never started", i+1)
+			t.Fatal("a prompt never started")
 		}
-		// Let the cancel, if it were still pending, land.
-		time.Sleep(20 * time.Millisecond)
-		if cancelled := errors.Is(context.Cause(signal), ErrTurnCancelled); cancelled != wantCancelled {
-			t.Errorf("prompt %d cancelled = %v, want %v", i+1, cancelled, wantCancelled)
+	}
+	// Let the cancel, if it were still pending, land.
+	time.Sleep(20 * time.Millisecond)
+	for first, wantCancelled := range map[bool]bool{true: true, false: false} {
+		if cancelled := errors.Is(context.Cause(byPrompt[first]), ErrTurnCancelled); cancelled != wantCancelled {
+			t.Errorf("first prompt %v: cancelled = %v, want %v", first, cancelled, wantCancelled)
 		}
 	}
 }
