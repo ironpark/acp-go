@@ -199,7 +199,7 @@ func (c *Connection) Start(ctx context.Context) error {
 	if !c.goUnlessClosed(&c.wg, c.writeLoop) || !c.goUnlessClosed(&c.handlerWg, c.notificationLoop) {
 		c.cancel()
 		c.wg.Wait()
-		c.failPending(errConnectionClosed)
+		c.failPending(c.closedError())
 		return context.Cause(c.ctx)
 	}
 
@@ -216,7 +216,7 @@ func (c *Connection) Start(ctx context.Context) error {
 	c.handlerWg.Wait()
 	c.cancel()
 	c.wg.Wait()
-	c.failPending(errConnectionClosed)
+	c.failPending(c.closedError())
 	return err
 }
 
@@ -255,7 +255,7 @@ func (c *Connection) Close() error {
 	} else {
 		waitAll()
 	}
-	c.failPending(errConnectionClosed)
+	c.failPending(c.closedError())
 	return nil
 }
 
@@ -537,6 +537,16 @@ func (c *Connection) handleResponse(msg wireMessage) {
 }
 
 // failPending releases every caller still waiting on a response.
+// closedError is why the requests still pending fail: what ended the
+// connection, such as a failed write, or errConnectionClosed when it was
+// just closed. Both reach a waiting request at once, so they must agree.
+func (c *Connection) closedError() error {
+	if cause := context.Cause(c.ctx); cause != nil && !errors.Is(cause, context.Canceled) {
+		return cause
+	}
+	return errConnectionClosed
+}
+
 func (c *Connection) failPending(err error) {
 	c.pending.Range(func(key, value any) bool {
 		if _, loaded := c.pending.LoadAndDelete(key); loaded {
