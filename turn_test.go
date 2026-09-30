@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestTurnTrackerBegin(t *testing.T) {
@@ -49,5 +50,47 @@ func TestTurnTrackerJoin(t *testing.T) {
 	done()
 	if first.Err() == nil {
 		t.Fatal("the starter's done should end the turn")
+	}
+}
+
+// TestTurnTrackerSettle: a turn settles only once no caller joined since the
+// last try, and a caller arriving after that waits for the end and starts a
+// new turn instead of joining one that no longer reads prompts.
+func TestTurnTrackerSettle(t *testing.T) {
+	var turns TurnTracker[string]
+	first, done, _ := turns.Join(context.Background(), "s1")
+	if !turns.Settle("s1") {
+		t.Fatal("a turn nobody joined did not settle")
+	}
+	done()
+
+	_, done, _ = turns.Join(context.Background(), "s1")
+	if _, _, joined := turns.Join(context.Background(), "s1"); !joined {
+		t.Fatal("the second caller did not join")
+	}
+	if turns.Settle("s1") {
+		t.Fatal("settled with a joined caller not answered")
+	}
+	if !turns.Settle("s1") {
+		t.Fatal("did not settle once the joined caller was answered")
+	}
+
+	started := make(chan bool)
+	go func() {
+		_, laterDone, joined := turns.Join(context.Background(), "s1")
+		defer laterDone()
+		started <- joined
+	}()
+	select {
+	case <-started:
+		t.Fatal("a caller joined a settled turn")
+	case <-time.After(50 * time.Millisecond):
+	}
+	done()
+	if joined := <-started; joined {
+		t.Error("the caller after the end joined instead of starting a turn")
+	}
+	if first.Err() == nil {
+		t.Error("the first turn's context is still live")
 	}
 }

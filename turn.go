@@ -44,7 +44,8 @@ var ErrTurnInProgress = acpconn.ErrTurnInProgress
 // The two ways to start a turn follow the protocol versions: in v1 a prompt
 // occupies the session until it ends, so [TurnTracker.Begin] refuses a second
 // one; in v2 a prompt may contribute to foreground work already running, so
-// [TurnTracker.Join] hands back the running turn.
+// [TurnTracker.Join] hands back the running turn, and [TurnTracker.Settle]
+// lets the work end it only once it has answered every prompt that joined.
 type TurnTracker[ID comparable] struct {
 	mu    sync.Mutex
 	turns map[ID]*turn
@@ -53,6 +54,9 @@ type TurnTracker[ID comparable] struct {
 type turn struct {
 	ctx    context.Context
 	cancel context.CancelCauseFunc
+	joined bool          // a caller joined since the turn began or last settled
+	ending bool          // settled: callers wait for the end, then start anew
+	ended  chan struct{} // closed by done
 }
 
 // Begin starts a turn on a session and returns its context and a done func
@@ -70,15 +74,55 @@ func (t *TurnTracker[ID]) Begin(ctx context.Context, id ID) (context.Context, fu
 
 // Join returns the session's running turn, or starts one when there is none.
 // joined reports which: a joined caller gets a no-op done, since the turn
-// belongs to the caller that started it.
+// belongs to the caller that started it. A turn that has settled is ending,
+// so Join waits for its done and then starts a new one.
 func (t *TurnTracker[ID]) Join(ctx context.Context, id ID) (turnCtx context.Context, done func(), joined bool) {
 	t.mu.Lock()
-	defer t.mu.Unlock()
-	if running := t.turns[id]; running != nil {
-		return running.ctx, func() {}, true
+	for {
+		running := t.turns[id]
+		if running == nil {
+			break
+		}
+		if !running.ending {
+			running.joined = true
+			t.mu.Unlock()
+			return running.ctx, func() {}, true
+		}
+		t.mu.Unlock()
+		<-running.ended
+		t.mu.Lock()
 	}
+	defer t.mu.Unlock()
 	turnCtx, done = t.start(ctx, id)
 	return turnCtx, done, false
+}
+
+// Settle reports whether the session's turn may end: false when a caller
+// joined it since it began or since the last Settle, whose prompt the work
+// must answer before trying again. Once it reports true, callers that would
+// join wait for the turn's done and start a new turn instead, so the starter
+// can report the end without a joined prompt going unanswered:
+//
+//	for {
+//		work(turnCtx) // answers every prompt received so far
+//		if tracker.Settle(id) {
+//			break
+//		}
+//	}
+//	report the end, then done()
+func (t *TurnTracker[ID]) Settle(id ID) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	running := t.turns[id]
+	if running == nil {
+		return true // cancelled
+	}
+	if running.joined {
+		running.joined = false
+		return false
+	}
+	running.ending = true
+	return true
 }
 
 // start registers a new turn; t.mu must be held.
@@ -93,20 +137,21 @@ func (t *TurnTracker[ID]) start(ctx context.Context, id ID) (context.Context, fu
 			stop = context.AfterFunc(signal, func() { cancel(ErrTurnCancelled) })
 		}
 	}
-	token := &turn{ctx: ctx, cancel: cancel}
+	token := &turn{ctx: ctx, cancel: cancel, ended: make(chan struct{})}
 	if t.turns == nil {
 		t.turns = map[ID]*turn{}
 	}
 	t.turns[id] = token
-	return ctx, func() {
+	return ctx, sync.OnceFunc(func() {
 		t.mu.Lock()
 		if t.turns[id] == token {
 			delete(t.turns, id)
 		}
 		t.mu.Unlock()
+		close(token.ended)
 		stop()
 		cancel(nil)
-	}
+	})
 }
 
 // Cancel cancels the session's turn in progress with [ErrTurnCancelled] and

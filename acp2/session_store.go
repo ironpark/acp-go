@@ -193,8 +193,10 @@ func (m *SessionManager[T]) saveAfterTurn(ctx context.Context, id SessionID) {
 // ends. Both reports are sent even after a cancel, so the client's turn always
 // ends. A prompt that arrives while the turn runs joins it: joined is true,
 // work does not run, and the running work picks the new message up from the
-// conversation. An unknown session and a failed running report are returned
-// as errors:
+// conversation. When work returns and a prompt joined since it started, it
+// runs again, so it answers the prompts not answered yet and returns once
+// none are left; see [SessionManager.SettleTurn]. An unknown session and a
+// failed running report are returned as errors:
 //
 //	func (a *myAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
 //		stream := acp2.NewSessionStream(a.client, params.SessionID)
@@ -227,9 +229,16 @@ func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream 
 	}
 	go func() {
 		defer done()
-		reason := work(turn, session)
-		if acp.TurnCancelled(turn) {
-			reason = StopReasonCancelled
+		var reason StopReason
+		for {
+			reason = work(turn, session)
+			if acp.TurnCancelled(turn) {
+				reason = StopReasonCancelled
+				break
+			}
+			if m.turns.Settle(id) {
+				break
+			}
 		}
 		_ = stream.Idle(report, reason) // the connection is gone if this fails
 	}()
@@ -255,6 +264,9 @@ func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream 
 //		return &acp2.PromptResponse{MessageID: id}, nil
 //	}
 //
+// The work reports idle only once [SessionManager.SettleTurn] allows it, so a
+// prompt that joined as it finished is answered too.
+//
 // With [WithAutoSave], the starter's done saves the session before it ends
 // the turn.
 func (m *SessionManager[T]) JoinTurn(ctx context.Context, id SessionID) (turn context.Context, done func(), joined bool) {
@@ -267,6 +279,24 @@ func (m *SessionManager[T]) JoinTurn(ctx context.Context, id SessionID) (turn co
 		end()
 	}, false
 }
+
+// SettleTurn reports whether the session's turn may end, for work started
+// with [SessionManager.JoinTurn]: false when a prompt joined it since it
+// began or since the last SettleTurn, which the work must answer before
+// trying again. Once it reports true, prompts wait for the turn's done and
+// start a new turn, so none joins a turn that has stopped reading them:
+//
+//	for {
+//		a.answerPending(turn, id)
+//		if a.SettleTurn(id) {
+//			break
+//		}
+//	}
+//	stream.Idle(ctx, reason)
+//	done()
+//
+// [SessionManager.StartTurn] does this itself.
+func (m *SessionManager[T]) SettleTurn(id SessionID) bool { return m.turns.Settle(id) }
 
 // CancelSession cancels the session's turn in progress, if any.
 func (m *SessionManager[T]) CancelSession(_ context.Context, params *CancelSessionNotification) error {
