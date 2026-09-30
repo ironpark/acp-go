@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ironpark/acp-go/acp1"
 )
@@ -171,7 +172,9 @@ func (a *openAgent) runTool(ctx context.Context, stream *acp1.SessionStream, ses
 		}
 	}
 
-	if err := stream.StartToolCall(ctx, id, act.title, act.kind, acp1.WithLocations(act.locations...)); err != nil {
+	// The tool call starts pending: a write or a command may need the user's
+	// permission first. Each action moves it to in progress once it runs.
+	if err := stream.ProposeToolCall(ctx, id, act.title, act.kind, acp1.WithLocations(act.locations...)); err != nil {
 		return "", err
 	}
 	result, content, err := act.run(ctx, stream, id)
@@ -212,8 +215,8 @@ func (a *openAgent) parseTool(sess *session, call toolCall) (*action, error) {
 			title:     "Read " + params.Path,
 			kind:      acp1.ToolKindRead,
 			locations: []acp1.ToolCallLocation{{Path: path, Line: params.Line}},
-			run: func(ctx context.Context, stream *acp1.SessionStream, _ acp1.ToolCallID) (string, []acp1.ToolCallContent, error) {
-				return a.readFile(ctx, stream, path, params.Line, params.Limit)
+			run: func(ctx context.Context, stream *acp1.SessionStream, id acp1.ToolCallID) (string, []acp1.ToolCallContent, error) {
+				return a.readFile(ctx, stream, id, path, params.Line, params.Limit)
 			},
 		}, nil
 
@@ -262,7 +265,13 @@ func decodeArgs[T any](call toolCall) (T, error) {
 	return args, nil
 }
 
-func (a *openAgent) readFile(ctx context.Context, stream *acp1.SessionStream, path string, line, limit *uint32) (string, []acp1.ToolCallContent, error) {
+// readFile reads the file through the client. It sends the request itself
+// rather than calling stream.ReadTextFile, which reads whole files, to pass
+// the line and limit on.
+func (a *openAgent) readFile(ctx context.Context, stream *acp1.SessionStream, id acp1.ToolCallID, path string, line, limit *uint32) (string, []acp1.ToolCallContent, error) {
+	if err := stream.UpdateToolCallStatus(ctx, id, acp1.ToolCallStatusInProgress); err != nil {
+		return "", nil, err
+	}
 	file, err := a.client.ReadTextFile(ctx, &acp1.ReadTextFileRequest{
 		SessionID: stream.SessionID(),
 		Path:      path,
@@ -275,10 +284,24 @@ func (a *openAgent) readFile(ctx context.Context, stream *acp1.SessionStream, pa
 	// The client shows that the file was read; the model gets its content.
 	content := file.Content
 	if len(content) > outputLimit {
-		content = content[:outputLimit] + "\n[truncated; read the rest with line and limit]"
+		cut := outputLimit
+		for cut > 0 && !utf8.RuneStart(content[cut]) {
+			cut-- // keep the last character whole
+		}
+		content = content[:cut] + "\n[truncated; read the rest with line and limit]"
 	}
-	summary := fmt.Sprintf("Read %d lines", strings.Count(file.Content, "\n")+1)
+	summary := fmt.Sprintf("Read %d lines", countLines(file.Content))
 	return content, []acp1.ToolCallContent{acp1.ToolText(summary)}, nil
+}
+
+// countLines counts the lines of text, the last one with or without a
+// newline.
+func countLines(text string) int {
+	n := strings.Count(text, "\n")
+	if text != "" && !strings.HasSuffix(text, "\n") {
+		n++
+	}
+	return n
 }
 
 // writeFile shows the change as a diff and, in ask mode, writes it only if
@@ -292,6 +315,9 @@ func (a *openAgent) writeFile(ctx context.Context, stream *acp1.SessionStream, s
 	diff := []acp1.ToolCallContent{acp1.ToolDiff(path, oldText, content)}
 
 	if err := a.allow(ctx, stream, sess, id, diff...); err != nil {
+		return "", diff, err
+	}
+	if err := stream.UpdateToolCallStatus(ctx, id, acp1.ToolCallStatusInProgress); err != nil {
 		return "", diff, err
 	}
 	if err := stream.WriteTextFile(ctx, path, content); err != nil {
@@ -311,8 +337,9 @@ func (a *openAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, 
 	if runtime.GOOS == "windows" {
 		shell, flag = "cmd", "/C"
 	}
-	// RunTerminal embeds the terminal in the tool call while the command
-	// runs and releases it once it exits; the client still shows its output.
+	// RunTerminal moves the tool call to in progress with the terminal as its
+	// content while the command runs, and releases the terminal once it
+	// exits; the client still shows its output.
 	run, err := stream.RunTerminal(ctx, id, acp1.CreateTerminalRequest{
 		Command:         shell,
 		Args:            []string{flag, command},
@@ -345,15 +372,15 @@ func (a *openAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, 
 
 var errRejected = errors.New("the user rejected this")
 
-// allow asks the user whether the tool call may go ahead, showing content,
-// and returns errRejected if not. Auto mode allows everything without asking.
-// The client already has the tool call's title, kind and locations from its
-// start, so the request only adds the content.
+// allow asks the user whether the pending tool call may go ahead, showing
+// content, and returns errRejected if not. Auto mode allows everything
+// without asking. The client already has the tool call's title, kind and
+// locations from its proposal, so the request only adds the content.
 func (a *openAgent) allow(ctx context.Context, stream *acp1.SessionStream, sess *session, id acp1.ToolCallID, content ...acp1.ToolCallContent) error {
 	if sess.currentMode() == autoMode {
 		return nil
 	}
-	toolCall := acp1.ToolCallUpdate{ToolCallID: id, Status: new(acp1.ToolCallStatusPending), Content: content}
+	toolCall := acp1.ToolCallUpdate{ToolCallID: id, Content: content}
 	_, allowed, err := stream.RequestPermission(ctx, toolCall,
 		acp1.NewPermissionOption(acp1.PermissionOptionKindAllowOnce, "Allow"),
 		acp1.NewPermissionOption(acp1.PermissionOptionKindRejectOnce, "Reject"))

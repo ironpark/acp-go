@@ -99,17 +99,21 @@ func readProject(ctx context.Context, stream *acp1.SessionStream) error {
 
 // editConfig proposes a change to config.json and reports it as a diff. In
 // ask mode it asks the user first. The example does not write the file.
+//
+// The tool call starts pending, as the proposal the permission request is
+// about, and moves to in progress only once the change may go ahead.
 func (a *exampleAgent) editConfig(ctx context.Context, stream *acp1.SessionStream, sess *session) error {
 	id := acp1.GenerateToolCallID()
 	path := filepath.Join(sess.cwd, "config.json")
-	if err := stream.StartToolCall(ctx, id, "Modifying configuration", acp1.ToolKindEdit, acp1.WithLocations(acp1.ToolCallLocation{Path: path})); err != nil {
-		return err
-	}
 	oldText, newText := "{\"debug\": false}\n", "{\"debug\": true}\n"
 	diff := acp1.ToolDiff(path, &oldText, newText)
+	if err := stream.ProposeToolCall(ctx, id, "Modifying configuration", acp1.ToolKindEdit,
+		acp1.WithLocations(acp1.ToolCallLocation{Path: path}), acp1.WithToolContent(diff)); err != nil {
+		return err
+	}
 
 	if sess.currentMode() == askMode {
-		allowed, err := askPermission(ctx, stream, id, path, diff)
+		allowed, err := askPermission(ctx, stream, id)
 		if err != nil {
 			return err
 		}
@@ -120,25 +124,25 @@ func (a *exampleAgent) editConfig(ctx context.Context, stream *acp1.SessionStrea
 			return stream.SendText(ctx, " Skipping the configuration update.")
 		}
 	}
-	if err := stream.CompleteToolCall(ctx, id, acp1.WithToolContent(diff)); err != nil {
+	if err := stream.UpdateToolCallStatus(ctx, id, acp1.ToolCallStatusInProgress); err != nil {
+		return err
+	}
+	if err := pause(ctx); err != nil { // writing the file
+		return err
+	}
+	if err := stream.CompleteToolCall(ctx, id); err != nil {
 		return err
 	}
 	return stream.SendText(ctx, " Configuration updated.")
 }
 
-// askPermission shows the user the proposed diff and asks whether to apply it.
-func askPermission(ctx context.Context, stream *acp1.SessionStream, id acp1.ToolCallID, path string, diff acp1.ToolCallContent) (bool, error) {
+// askPermission asks whether to apply the proposed tool call. The client
+// already has its title, location and diff from the proposal, so the request
+// names it by id only.
+func askPermission(ctx context.Context, stream *acp1.SessionStream, id acp1.ToolCallID) (bool, error) {
 	// Anything but an allowing choice, including a cancelled request, skips
 	// the change.
-	toolCall := acp1.ToolCallUpdate{
-		ToolCallID: id,
-		Title:      new("Modifying configuration"),
-		Kind:       new(acp1.ToolKindEdit),
-		Status:     new(acp1.ToolCallStatusPending),
-		Locations:  []acp1.ToolCallLocation{{Path: path}},
-		Content:    []acp1.ToolCallContent{diff},
-	}
-	_, allowed, err := stream.RequestPermission(ctx, toolCall,
+	_, allowed, err := stream.RequestPermission(ctx, acp1.ToolCallUpdate{ToolCallID: id},
 		acp1.NewPermissionOption(acp1.PermissionOptionKindAllowOnce, "Allow this change"),
 		acp1.NewPermissionOption(acp1.PermissionOptionKindRejectOnce, "Skip this change"))
 	return allowed, err

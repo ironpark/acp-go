@@ -21,8 +21,12 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"slices"
 	"sync"
+	"syscall"
+	"time"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
@@ -104,8 +108,7 @@ func main() {
 			return &echoAgent{SessionManager: sessions, client: c}
 		}, t)
 		return conn.Start(ctx)
-	})
-	defer server.Close()
+	}, acphttp.WithErrorHandler(func(err error) { log.Printf("connection: %v", err) }))
 
 	mux := http.NewServeMux()
 	mux.Handle("/acp", requireToken(*token, server))
@@ -114,8 +117,33 @@ func main() {
 	httpServer := &http.Server{Addr: *addr, Handler: mux, Protocols: new(http.Protocols)}
 	httpServer.Protocols.SetHTTP1(true)
 	httpServer.Protocols.SetUnencryptedHTTP2(true)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	failed := make(chan error, 1)
+	go func() { failed <- httpServer.ListenAndServe() }()
 	log.Printf("serving an ACP agent on http://%s/acp", *addr)
-	log.Fatal(httpServer.ListenAndServe())
+	select {
+	case err := <-failed:
+		log.Fatal(err)
+	case <-ctx.Done():
+	}
+
+	// On Ctrl-C, stop taking new connections and give those in progress a
+	// few seconds to end. The HTTP server keeps running meanwhile, since
+	// their clients still POST and stream over it; any left at the deadline
+	// are ended. Then the HTTP server has no long-lived requests to wait for.
+	log.Print("shutting down")
+	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdown); err != nil {
+		log.Printf("ended the connections still open: %v", err)
+	}
+	shutdownHTTP, cancelHTTP := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelHTTP()
+	if err := httpServer.Shutdown(shutdownHTTP); err != nil {
+		log.Print(err)
+	}
 }
 
 // requireToken rejects requests without "Authorization: Bearer <token>", or

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 
@@ -21,7 +22,7 @@ func (c *exampleClient) render(update acp1.SessionUpdate) {
 			fmt.Printf("\n💭 %s", text)
 		}
 	case acp1.SessionUpdateToolCall:
-		c.toolTitles[update.ToolCallID] = update.Title
+		c.setToolTitle(update.ToolCallID, update.Title)
 		fmt.Printf("\n🔧 %s", update.Title)
 		if update.Status != nil {
 			fmt.Printf(" (%s)", *update.Status)
@@ -30,7 +31,8 @@ func (c *exampleClient) render(update acp1.SessionUpdate) {
 		c.renderContent(update.Content)
 	case acp1.SessionUpdateToolCallUpdate:
 		// Updates name the tool call by its id; show the title it started with.
-		fmt.Printf("🔧 %s", c.toolTitles[update.ToolCallID])
+		title := cmp.Or(update.GetTitle(), c.toolTitle(update.ToolCallID))
+		fmt.Printf("🔧 %s", title)
 		if update.Status != nil {
 			fmt.Printf(": %s", *update.Status)
 		}
@@ -39,12 +41,7 @@ func (c *exampleClient) render(update acp1.SessionUpdate) {
 	case acp1.SessionUpdatePlan:
 		fmt.Println("\n📋 Plan")
 		for _, entry := range update.Entries {
-			mark := map[acp1.PlanEntryStatus]string{
-				acp1.PlanEntryStatusPending:    "[ ]",
-				acp1.PlanEntryStatusInProgress: "[>]",
-				acp1.PlanEntryStatusCompleted:  "[x]",
-			}[entry.Status]
-			fmt.Printf("   %s %s\n", mark, entry.Content)
+			fmt.Printf("   %s %s\n", planMarks[entry.Status], entry.Content)
 		}
 	case acp1.SessionUpdateCurrentModeUpdate:
 		fmt.Printf("\n🎛  mode: %s\n", update.CurrentModeID)
@@ -52,6 +49,12 @@ func (c *exampleClient) render(update acp1.SessionUpdate) {
 		// Includes acp1.SessionUpdateUnknown: updates newer than this SDK
 		// are safe to ignore.
 	}
+}
+
+var planMarks = map[acp1.PlanEntryStatus]string{
+	acp1.PlanEntryStatusPending:    "[ ]",
+	acp1.PlanEntryStatusInProgress: "[>]",
+	acp1.PlanEntryStatusCompleted:  "[x]",
 }
 
 // renderContent prints a tool call's output: text, a file diff, or the

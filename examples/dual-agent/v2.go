@@ -27,10 +27,44 @@ type v2Session struct {
 
 	mu      sync.Mutex
 	history []v2Exchange
+	pending []v2Exchange // accepted prompts the turn has not answered yet
+}
+
+// accept adds a prompt for the turn to answer.
+func (s *v2Session) accept(exchange v2Exchange) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pending = append(s.pending, exchange)
+}
+
+// next takes the oldest prompt not answered yet.
+func (s *v2Session) next() (v2Exchange, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.pending) == 0 {
+		return v2Exchange{}, false
+	}
+	exchange := s.pending[0]
+	s.pending = s.pending[1:]
+	return exchange, true
+}
+
+// answered records an exchange in the history, for a replay.
+func (s *v2Session) answered(exchange v2Exchange) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.history = append(s.history, exchange)
 }
 
 // SessionInfo describes the session in session/list.
 func (s *v2Session) SessionInfo() acp2.SessionInfo { return acp2.SessionInfo{Cwd: s.cwd} }
+
+// replay returns the answered exchanges.
+func (s *v2Session) replay() []v2Exchange {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.history)
+}
 
 // v2Exchange is one prompt and the agent's reply, with their message ids.
 type v2Exchange struct {
@@ -59,7 +93,11 @@ func (a *v2Agent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.In
 }
 
 func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
-	userMessage, reply := acp2.GenerateMessageID(), acp2.GenerateMessageID()
+	session, err := a.Lookup(ctx, params.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	userMessage := acp2.GenerateMessageID()
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
 
 	// The agent must echo the user message it accepted, then report the
@@ -68,15 +106,18 @@ func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2
 	if err := stream.SendUserMessage(ctx, userMessage, params.Prompt...); err != nil {
 		return nil, err
 	}
-	_, err := a.StartTurn(ctx, params.SessionID, stream, func(ctx context.Context, session *v2Session) acp2.StopReason {
-		text := "v2 echo: " + acp2.JoinTexts(params.Prompt)
-		_ = stream.SendText(ctx, reply, text) // fails only once the client is gone
-		session.mu.Lock()
-		session.history = append(session.history, v2Exchange{userMessage, params.Prompt, reply, text})
-		session.mu.Unlock()
+	session.accept(v2Exchange{userMessage: userMessage, prompt: params.Prompt})
+	// A prompt that arrives while the turn runs joins it, and the running
+	// work answers it too, so the work answers every accepted prompt.
+	if _, err := a.StartTurn(ctx, params.SessionID, stream, func(ctx context.Context, session *v2Session) acp2.StopReason {
+		for exchange, ok := session.next(); ok; exchange, ok = session.next() {
+			exchange.reply = acp2.GenerateMessageID()
+			exchange.text = "v2 echo: " + acp2.JoinTexts(exchange.prompt)
+			_ = stream.SendText(ctx, exchange.reply, exchange.text) // fails only once the client is gone
+			session.answered(exchange)
+		}
 		return acp2.StopReasonEndTurn
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &acp2.PromptResponse{MessageID: userMessage}, nil
@@ -101,9 +142,7 @@ func (a *v2Agent) ResumeSession(ctx context.Context, params *acp2.ResumeSessionR
 	if err != nil {
 		return nil, err
 	}
-	session.mu.Lock()
-	history := slices.Clone(session.history)
-	session.mu.Unlock()
+	history := session.replay()
 	// The replay goes out before the response, the same messages with the
 	// same ids, so the client can rebuild the conversation.
 	stream := acp2.NewSessionStream(a.client, params.SessionID)

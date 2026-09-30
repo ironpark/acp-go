@@ -55,7 +55,10 @@ func run(ctx context.Context, command []string) error {
 	}
 	defer agent.Close() // Close, Wait, Done and extension calls work on either version
 
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 	const prompt = "hello from dual-client"
 	if agent.V2 != nil {
 		fmt.Printf("negotiated v2 with %s\n", agent.V2Init.Info.Name)
@@ -67,7 +70,10 @@ func run(ctx context.Context, command []string) error {
 
 // buildDualAgent compiles the dual-agent example into a temporary directory.
 func buildDualAgent() (binary string, cleanup func(), err error) {
-	_, currentFile, _, _ := runtime.Caller(0)
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", nil, fmt.Errorf("cannot locate this source file")
+	}
 	dir, err := os.MkdirTemp("", "acp-dual-agent")
 	if err != nil {
 		return "", nil, err

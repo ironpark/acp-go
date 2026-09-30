@@ -70,21 +70,31 @@ func (a *exampleAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (
 	})
 }
 
-func main() {
-	manager := acp1.NewSessionManager(
+// newManager returns the session manager: sessions in memory, starting in
+// ask mode.
+func newManager() *acp1.SessionManager[*session] {
+	return acp1.NewSessionManager(
 		acp1.NewMemoryStore[*session](),
 		func(_ context.Context, params *acp1.NewSessionRequest) (acp1.SessionID, *session, error) {
 			return acp1.GenerateSessionID(), &session{cwd: params.Cwd, mode: askMode}, nil
 		},
 	)
+}
 
-	// Stdout carries the protocol, so logs go to stderr.
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
+// newAgent returns the constructor of a connection's agent; the agents
+// share manager's sessions.
+func newAgent(manager *acp1.SessionManager[*session]) func(*acp1.AgentSideConnection) acp1.Agent {
+	return func(c *acp1.AgentSideConnection) acp1.Agent {
 		a := &exampleAgent{SessionManager: manager, client: c}
 		a.HandleExt(pingMethod, a.ping)
 		return a
-	}, acp.NewStdioTransport(os.Stdin, os.Stdout),
+	}
+}
+
+func main() {
+	// Stdout carries the protocol, so logs go to stderr.
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	conn := acp1.NewAgentSideConnection(newAgent(newManager()), acp.NewStdioTransport(os.Stdin, os.Stdout),
 		acp.WithMiddleware(acp.LoggingMiddleware(logger)),
 		acp.WithErrorHandler(func(err error) { logger.Error("acp", "error", err) }),
 	)
