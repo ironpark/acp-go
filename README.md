@@ -11,6 +11,11 @@ This is an **unofficial** implementation. ACP v1 is stable; ACP v2 and the HTTP 
 The protocol is evolving, so support follows the [pinned upstream revision](schema/typescript/REVISION).
 See the [official ACP documentation](https://agentclientprotocol.com/) for the protocol itself.
 
+| Protocol | Schema version |
+| --- | --- |
+| ACP v1 | [`1.24.1`](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/schema/v1/CHANGELOG.md) |
+| ACP v2 (draft) | [`2.0.0-alpha.7`](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/schema/v2/CHANGELOG.md) |
+
 [Quick start](#quick-start) · [Packages](#packages) · [Examples](#examples) · [Documentation](#documentation)
 
 ## Requirements and Installation

@@ -31,6 +31,9 @@ go test ./...
 go generate ./...
 ```
 
+After a refresh, update the schema versions in the README tables (`README.md`,
+`docs/README.ko.md`) to the releases the new snapshot was generated from.
+
 Inputs and outputs:
 
 | Upstream | Snapshot | Go import |

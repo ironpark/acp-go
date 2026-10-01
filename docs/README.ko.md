@@ -11,6 +11,11 @@ ACP의 **비공식** 구현체입니다. ACP v1은 안정 버전이며, ACP v2�
 프로토콜이 계속 바뀌므로 [고정된 업스트림 리비전](../schema/typescript/REVISION)을 기준으로 지원합니다.
 프로토콜 자체는 [공식 ACP 문서](https://agentclientprotocol.com/)를 참고하세요.
 
+| 프로토콜 | 스키마 버전 |
+| --- | --- |
+| ACP v1 | [`1.24.1`](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/schema/v1/CHANGELOG.md) |
+| ACP v2 (초안) | [`2.0.0-alpha.7`](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/schema/v2/CHANGELOG.md) |
+
 [빠른 시작](#빠른-시작) · [패키지 선택](#패키지-선택) · [예제](#예제) · [문서](#문서)
 
 ## 요구 사항 및 설치
