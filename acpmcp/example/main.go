@@ -77,7 +77,7 @@ func (a *agent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.P
 func (a *agent) CancelSession(context.Context, *acp1.CancelNotification) error { return nil }
 
 // client provides MCP servers through the embedded HostV1, which answers the
-// agent's mcp/connect, mcp/message and mcp/disconnect. The turns read their
+// agent's mcp/message requests. The turns read their
 // own updates, so UnimplementedClient covers the rest.
 type client struct {
 	acp1.UnimplementedClient

@@ -1,14 +1,22 @@
 // Package acpmcp carries MCP over an ACP connection, so a client can hand an
 // agent MCP servers that live in the client's own process, with no stdio
 // child or HTTP port in between. It connects the official MCP Go SDK
-// (github.com/modelcontextprotocol/go-sdk) to the mcp/connect, mcp/message
-// and mcp/disconnect methods of ACP.
+// (github.com/modelcontextprotocol/go-sdk) to the mcp/message method of ACP.
+//
+// The binding carries stateless MCP 2026-07-28 only. Every MCP request is an
+// mcp/message request of its own, naming the server by serverId and itself by
+// a fresh requestId; there is no MCP connection or initialize handshake.
+// While a request runs, the server's notifications for it, such as progress or
+// a subscription's events, come back to the agent under the same ids, and
+// cancelling the request's context cancels the ACP request and the tool
+// behind it. An MCP error is the response's error outcome, kept apart from
+// the outer ACP errors of the binding ([ErrorCodeServerUnavailable] and the
+// rest).
 //
 // The client side is a Host: it registers *mcp.Server values and lists them in
-// session/new with the "acp" transport. The agent side is a Dialer: it opens
-// an *mcp.ClientSession to one of those servers. Requests and notifications
-// flow both ways, so server-to-client MCP features such as roots, sampling
-// and list-changed notifications work too.
+// session/new with the "acp" transport, and serves each request on a session
+// of its own, as a stateless MCP server does. The agent side is a Dialer: it
+// opens an *mcp.ClientSession to one of those servers.
 //
 //	// client
 //	host := acpmcp.NewHostV1(conn)

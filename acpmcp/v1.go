@@ -2,15 +2,17 @@ package acpmcp
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/json/jsontext"
 
 	"github.com/ironpark/acp-go/acp1"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // HostV1 serves MCP servers from an ACP v1 client to its agent. It implements
-// [acp1.MCPConnector]; embed it in the client so the connection routes the
-// agent's mcp/* calls to it:
+// [acp1.MCPProvider]; embed it in the client so the connection routes the
+// agent's mcp/message requests to it:
 //
 //	type myClient struct {
 //		*acpmcp.HostV1
@@ -24,17 +26,10 @@ type HostV1 struct{ h *host }
 
 // NewHostV1 returns a host that answers the agent on conn.
 func NewHostV1(conn *acp1.ClientSideConnection) *HostV1 {
-	return &HostV1{h: newHost(peer{
-		request: func(ctx context.Context, id, method string, params map[string]jsontext.Value) (jsontext.Value, error) {
-			result, err := conn.MessageMCP(ctx, &acp1.MessageMCPRequest{ConnectionID: acp1.MCPConnectionID(id), Method: method, Params: params})
-			if err != nil {
-				return nil, err
-			}
-			return *result, nil
-		},
-		notify: func(ctx context.Context, id, method string, params map[string]jsontext.Value) error {
-			return conn.NotifyMCP(ctx, &acp1.MessageMCPNotification{ConnectionID: acp1.MCPConnectionID(id), Method: method, Params: params})
-		},
+	return &HostV1{h: newHost(func(ctx context.Context, m message) error {
+		return conn.NotifyMCP(ctx, &acp1.MessageMCPNotification{
+			ServerID: acp1.MCPServerACPID(m.serverID), RequestID: acp1.MCPRequestID(m.requestID), Method: m.method, Params: m.params,
+		})
 	})}
 }
 
@@ -45,36 +40,27 @@ func (h *HostV1) Add(name string, server *mcp.Server) acp1.MCPServer {
 	return acp1.NewMCPServer(acp1.MCPServerACP{Name: name, ServerID: acp1.MCPServerACPID(h.h.add(server))})
 }
 
-func (h *HostV1) ConnectMCP(ctx context.Context, params *acp1.ConnectMCPRequest) (*acp1.ConnectMCPResponse, error) {
-	id, err := h.h.connect(ctx, string(params.ServerID))
-	if err != nil {
-		return nil, err
-	}
-	return &acp1.ConnectMCPResponse{ConnectionID: acp1.MCPConnectionID(id)}, nil
-}
-
 func (h *HostV1) MessageMCP(ctx context.Context, params *acp1.MessageMCPRequest) (*acp1.MessageMCPResponse, error) {
-	result, err := h.h.message(ctx, string(params.ConnectionID), params.Method, params.Params)
+	out, err := h.h.message(ctx, message{
+		serverID: string(params.ServerID), requestID: string(params.RequestID), method: params.Method, params: params.Params,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
-}
-
-func (h *HostV1) NotifyMCP(_ context.Context, params *acp1.MessageMCPNotification) error {
-	return h.h.notifyMessage(string(params.ConnectionID), params.Method, params.Params)
-}
-
-func (h *HostV1) DisconnectMCP(_ context.Context, params *acp1.DisconnectMCPRequest) (*acp1.DisconnectMCPResponse, error) {
-	if err := h.h.disconnect(string(params.ConnectionID)); err != nil {
-		return nil, err
+	var response acp1.MessageMCPResponse
+	if out.err != nil {
+		response, err = acp1.NewMessageMCPResponse(acp1.MessageMCPResponseError{Error: acp1.MCPError{
+			Code: int32(out.err.Code), Message: out.err.Message, Data: jsontext.Value(out.err.Data),
+		}})
+	} else {
+		response, err = acp1.NewMessageMCPResponse(acp1.MessageMCPResponseResult{Result: out.result})
 	}
-	return &acp1.DisconnectMCPResponse{}, nil
+	return &response, err
 }
 
 // DialerV1 connects an ACP v1 agent to the MCP servers its client provides.
 // It implements [acp1.MCPMessageHandler], which carries the servers'
-// requests and notifications back to the agent; embed it in the agent, and
+// notifications back to the agent; embed it in the agent, and
 // [acp1.CapabilitiesOf] then advertises mcpCapabilities.acp:
 //
 //	type myAgent struct {
@@ -89,44 +75,37 @@ type DialerV1 struct{ d *dialer }
 
 // NewDialerV1 returns a dialer that reaches the client on conn.
 func NewDialerV1(conn *acp1.AgentSideConnection) *DialerV1 {
-	return &DialerV1{d: newDialer(peer{
-		request: func(ctx context.Context, id, method string, params map[string]jsontext.Value) (jsontext.Value, error) {
-			result, err := conn.MessageMCP(ctx, &acp1.MessageMCPRequest{ConnectionID: acp1.MCPConnectionID(id), Method: method, Params: params})
-			if err != nil {
-				return nil, err
-			}
-			return *result, nil
-		},
-		notify: func(ctx context.Context, id, method string, params map[string]jsontext.Value) error {
-			return conn.NotifyMCP(ctx, &acp1.MessageMCPNotification{ConnectionID: acp1.MCPConnectionID(id), Method: method, Params: params})
-		},
-	}, func(ctx context.Context, serverID string) (string, error) {
-		response, err := conn.ConnectMCP(ctx, &acp1.ConnectMCPRequest{ServerID: acp1.MCPServerACPID(serverID)})
+	return &DialerV1{d: newDialer(func(ctx context.Context, m message) (outcome, error) {
+		response, err := conn.MessageMCP(ctx, &acp1.MessageMCPRequest{
+			ServerID: acp1.MCPServerACPID(m.serverID), RequestID: acp1.MCPRequestID(m.requestID), Method: m.method, Params: m.params,
+		})
 		if err != nil {
-			return "", err
+			return outcome{}, err
 		}
-		return string(response.ConnectionID), nil
-	}, func(ctx context.Context, id string) error {
-		_, err := conn.DisconnectMCP(ctx, &acp1.DisconnectMCPRequest{ConnectionID: acp1.MCPConnectionID(id)})
-		return err
+		// A response with both outcomes is read as its result.
+		if result, err := response.As[acp1.MessageMCPResponseResult](); err == nil {
+			return outcome{result: result.Result}, nil
+		}
+		if failed, err := response.As[acp1.MessageMCPResponseError](); err == nil {
+			return outcome{err: &jsonrpc.Error{
+				Code: int64(failed.Error.Code), Message: failed.Error.Message, Data: json.RawMessage(failed.Error.Data),
+			}}, nil
+		}
+		return outcome{}, errNoOutcome
 	})}
 }
 
 // Connect opens an MCP session with client to server, an entry of the
 // MCPServers in session/new, as [mcp.Client.Connect] does over any other
-// transport; opts may be nil. Closing the session sends mcp/disconnect.
+// transport; opts may be nil. The session speaks MCP 2026-07-28, which needs
+// no handshake: each of its requests is an mcp/message request of its own.
 func (d *DialerV1) Connect(ctx context.Context, server acp1.MCPServerACP, client *mcp.Client, opts *mcp.ClientSessionOptions) (*mcp.ClientSession, error) {
 	return d.d.dial(ctx, string(server.ServerID), client, opts)
 }
 
-func (d *DialerV1) MessageMCP(ctx context.Context, params *acp1.MessageMCPRequest) (*acp1.MessageMCPResponse, error) {
-	result, err := d.d.message(ctx, string(params.ConnectionID), params.Method, params.Params)
-	if err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
-
 func (d *DialerV1) NotifyMCP(_ context.Context, params *acp1.MessageMCPNotification) error {
-	return d.d.notifyMessage(string(params.ConnectionID), params.Method, params.Params)
+	d.d.notify(message{
+		serverID: string(params.ServerID), requestID: string(params.RequestID), method: params.Method, params: params.Params,
+	})
+	return nil
 }

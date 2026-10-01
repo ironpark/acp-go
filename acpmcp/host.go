@@ -4,93 +4,195 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
+	"errors"
+	"fmt"
 	"sync"
 
 	acp "github.com/ironpark/acp-go"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // host serves the MCP servers a client provides: the version-neutral core of
 // [HostV1] and [HostV2].
+//
+// Each mcp/message request is one MCP operation, served by a session of its
+// own, as a stateless MCP server serves each HTTP request: everything the
+// server writes on that session belongs to the operation, so its
+// notifications go back under the request's serverId and requestId.
 type host struct {
-	peer peer
+	notify func(ctx context.Context, m message) error
 
 	mu      sync.Mutex
 	servers map[string]*mcp.Server
-	conns   map[string]*hostConn
+	active  map[[2]string]bool // (serverId, requestId) of the operations running
 }
 
-type hostConn struct {
-	*conn
-	session *mcp.ServerSession
+func newHost(notify func(context.Context, message) error) *host {
+	return &host{notify: notify, servers: map[string]*mcp.Server{}, active: map[[2]string]bool{}}
 }
 
-func newHost(p peer) *host {
-	return &host{peer: p, servers: map[string]*mcp.Server{}, conns: map[string]*hostConn{}}
-}
-
-// add registers server and returns the id the agent connects to it by.
+// add registers server and returns the id the agent addresses it by.
 func (h *host) add(server *mcp.Server) string {
-	id := rand.Text()
+	id := "mcp-server:" + rand.Text()
 	h.mu.Lock()
 	h.servers[id] = server
 	h.mu.Unlock()
 	return id
 }
 
-func (h *host) connect(ctx context.Context, serverID string) (string, error) {
-	h.mu.Lock()
-	server := h.servers[serverID]
-	h.mu.Unlock()
-	if server == nil {
-		return "", acp.ResourceNotFound("mcp server " + serverID)
-	}
-	id := rand.Text()
-	c := newConn(id, h.peer, func() {
-		h.mu.Lock()
-		delete(h.conns, id)
-		h.mu.Unlock()
-	})
-	// The session outlives this request; the connection's close ends it.
-	session, err := server.Connect(context.WithoutCancel(ctx), transport{c}, nil)
-	if err != nil {
-		return "", acp.InternalError(err.Error())
-	}
-	h.mu.Lock()
-	h.conns[id] = &hostConn{conn: c, session: session}
-	h.mu.Unlock()
-	return id, nil
-}
-
-func (h *host) lookup(connectionID string) (*hostConn, error) {
+// claim marks the operation m names as running, or reports why it cannot run.
+func (h *host) claim(m message) (*mcp.Server, func(), error) {
+	key := [2]string{m.serverID, m.requestID}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if c := h.conns[connectionID]; c != nil {
-		return c, nil
+	server := h.servers[m.serverID]
+	switch {
+	case server == nil:
+		return nil, nil, &acp.RequestError{Code: ErrorCodeServerUnavailable, Message: "mcp server " + m.serverID + " is not available"}
+	case h.active[key]:
+		return nil, nil, acp.InvalidParams(fmt.Sprintf("mcp request %q is already active for server %s", m.requestID, m.serverID))
 	}
-	return nil, acp.ResourceNotFound("mcp connection " + connectionID)
+	h.active[key] = true
+	return server, func() {
+		h.mu.Lock()
+		delete(h.active, key)
+		h.mu.Unlock()
+	}, nil
 }
 
-func (h *host) message(ctx context.Context, connectionID, method string, params map[string]jsontext.Value) (jsontext.Value, error) {
-	c, err := h.lookup(connectionID)
+// message runs the MCP request m and returns its outcome. When ctx ends
+// first, the server is told to cancel, and message still waits for it to
+// answer: until then the request id stays in use.
+func (h *host) message(ctx context.Context, m message) (outcome, error) {
+	server, release, err := h.claim(m)
 	if err != nil {
-		return nil, err
+		return outcome{}, err
 	}
-	return c.call(ctx, method, params)
+	defer release()
+	params, err := fromParams(m.params)
+	if err != nil {
+		return outcome{}, acp.InvalidParams(err.Error())
+	}
+	id, err := jsonrpc.MakeID(m.requestID)
+	if err != nil {
+		return outcome{}, acp.InvalidParams(err.Error())
+	}
+
+	op := newOperation(h, m, id)
+	session, err := server.Connect(context.WithoutCancel(ctx), op, nil)
+	if err != nil {
+		return outcome{}, &acp.RequestError{Code: ErrorCodeBackendFailed, Message: err.Error()}
+	}
+	defer session.Close()
+	op.incoming <- &jsonrpc.Request{ID: id, Method: m.method, Params: params}
+
+	var response *jsonrpc.Response
+	select {
+	case response = <-op.response:
+	case <-ctx.Done():
+		cancelled, _ := jsonv2.Marshal(map[string]string{"requestId": m.requestID})
+		op.incoming <- &jsonrpc.Request{Method: "notifications/cancelled", Params: cancelled}
+		select {
+		case <-op.response:
+		case <-op.done:
+		}
+		return outcome{}, ctx.Err()
+	}
+	if response.Error != nil {
+		if wire, ok := errors.AsType[*jsonrpc.Error](response.Error); ok {
+			return outcome{err: wire}, nil
+		}
+		return outcome{}, &acp.RequestError{Code: ErrorCodeBackendFailed, Message: response.Error.Error()}
+	}
+	result := jsontext.Value(response.Result)
+	if len(result) == 0 {
+		result = jsontext.Value("null")
+	}
+	return outcome{result: result}, nil
 }
 
-func (h *host) notifyMessage(connectionID, method string, params map[string]jsontext.Value) error {
-	c, err := h.lookup(connectionID)
-	if err != nil {
-		return err
-	}
-	return c.notify(method, params)
+// operation is the [mcp.Connection] of one MCP request served by a host: it
+// reads the request, then waits; what the server writes is the request's
+// notifications and, last, its response.
+type operation struct {
+	host     *host
+	message  message
+	id       jsonrpc.ID
+	incoming chan jsonrpc.Message   // the request, then at most a cancellation
+	response chan *jsonrpc.Response // the answer, once
+	done     chan struct{}          // closed by Close
+	once     sync.Once
+
+	mu       sync.Mutex
+	answered bool
 }
 
-func (h *host) disconnect(connectionID string) error {
-	c, err := h.lookup(connectionID)
-	if err != nil {
-		return err
+func newOperation(h *host, m message, id jsonrpc.ID) *operation {
+	return &operation{
+		host: h, message: m, id: id,
+		incoming: make(chan jsonrpc.Message, 2),
+		response: make(chan *jsonrpc.Response, 1),
+		done:     make(chan struct{}),
 	}
-	return c.session.Close() // closes the conn too
 }
+
+// Connect makes operation its own [mcp.Transport].
+func (o *operation) Connect(context.Context) (mcp.Connection, error) { return o, nil }
+
+// SupportsProtocolVersion limits server/discover to the revision the binding
+// carries.
+func (o *operation) SupportsProtocolVersion(version string) bool { return version == protocolVersion }
+
+func (o *operation) Read(ctx context.Context) (jsonrpc.Message, error) {
+	select {
+	case msg := <-o.incoming:
+		return msg, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-o.done:
+		return nil, mcp.ErrConnectionClosed
+	}
+}
+
+func (o *operation) Write(ctx context.Context, msg jsonrpc.Message) error {
+	switch msg := msg.(type) {
+	case *jsonrpc.Response:
+		if msg.ID != o.id {
+			return fmt.Errorf("acpmcp: response to unknown request %v", msg.ID.Raw())
+		}
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		if !o.answered {
+			o.answered = true
+			o.response <- msg
+		}
+		return nil
+	case *jsonrpc.Request:
+		if msg.IsCall() {
+			return errors.New("acpmcp: an MCP server cannot send requests over ACP")
+		}
+		params, err := toParams(msg.Params)
+		if err != nil {
+			return err
+		}
+		m := o.message
+		m.method, m.params = msg.Method, params
+		// Held across the send, so no notification follows the answer.
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		if o.answered {
+			return nil
+		}
+		return o.host.notify(ctx, m)
+	}
+	return fmt.Errorf("acpmcp: unexpected message %T", msg)
+}
+
+func (o *operation) Close() error {
+	o.once.Do(func() { close(o.done) })
+	return nil
+}
+
+func (o *operation) SessionID() string { return "" }
