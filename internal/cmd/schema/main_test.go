@@ -12,7 +12,7 @@ import (
 
 func TestPinnedSDKGeneration(t *testing.T) {
 	source := "../../../schema/typescript"
-	for version, count := range map[string]int{"v1": 268, "v2": 267} {
+	for version, count := range map[string]int{"v1": 276, "v2": 270} {
 		s, err := tsdef.ParseDir(filepath.Join(source, version))
 		if err != nil {
 			t.Fatal(err)

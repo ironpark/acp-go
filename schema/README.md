@@ -260,7 +260,7 @@ respect the `offset` option. Input JSON rejects duplicate keys and invalid UTF-8
 recursion is limited to 512 evaluator levels. Error wording is Go-specific.
 
 Both pinned SDK versions are covered by Go tests and captured reference outcomes from
-Zod 4.5.4; see [reference fixtures](testdata/README.md). A snapshot of the evaluator's results on a
+Zod 4.6.5; see [reference fixtures](testdata/README.md). A snapshot of the evaluator's results on a
 corpus derived from every rule (`testdata/zod-snapshot-v{1,2}.json.gz`) guards changes to the
 evaluator or the generated rules; rewrite it with
 `go test ./schema/... -run TestZodSnapshot -update-zod-snapshot` only when a result is meant to

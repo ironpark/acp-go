@@ -2541,6 +2541,155 @@ func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 	return nil
 }
 
+// AvailableCommandInput is the input specification for a command.
+//
+// AvailableCommandInput is a tagged union discriminated by the "type" member. Use [NewAvailableCommandInput]
+// or a type switch on [AvailableCommandInput.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
+type AvailableCommandInput struct{ value AvailableCommandInputVariant }
+
+// AvailableCommandInputVariant is implemented by [AvailableCommandInputText], [AvailableCommandInputCustom].
+type AvailableCommandInputVariant interface {
+	availableCommandInputVariant()
+	Tag() string
+}
+
+// AvailableCommandInputVariants is the set of AvailableCommandInput variant types. It lists the types
+// themselves: a pointer to a variant also has the AvailableCommandInputVariant
+// methods, but is not one.
+type AvailableCommandInputVariants interface {
+	AvailableCommandInputText |
+		AvailableCommandInputCustom
+	AvailableCommandInputVariant
+}
+
+// NewAvailableCommandInput wraps a variant.
+func NewAvailableCommandInput[T AvailableCommandInputVariants](v T) AvailableCommandInput {
+	return AvailableCommandInput{value: v}
+}
+
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u AvailableCommandInput) Variant() AvailableCommandInputVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u AvailableCommandInput) As[T AvailableCommandInputVariants]() (T, bool) {
+	v, ok := u.value.(T)
+	return v, ok
+}
+
+// Tag returns the "type" discriminator, or "" for the zero value.
+func (u AvailableCommandInput) Tag() string {
+	if u.value == nil {
+		return ""
+	}
+	return u.value.Tag()
+}
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u AvailableCommandInput) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u AvailableCommandInput) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return errors.New("AvailableCommandInput: no variant set; use NewAvailableCommandInput")
+	}
+	return json.MarshalEncode(enc, u.value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *AvailableCommandInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalAvailableCommandInputVariant(dec, &u.value)
+}
+
+// unmarshalAvailableCommandInputVariant decodes a AvailableCommandInputVariant by its "type" member; it backs Unmarshalers.
+func unmarshalAvailableCommandInputVariant(dec *jsontext.Decoder, out *AvailableCommandInputVariant) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("AvailableCommandInput: expected object, got %s", raw.Kind())
+	}
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
+		return fmt.Errorf("AvailableCommandInput: %w", err)
+	}
+	switch tag {
+	case "text":
+		var v AvailableCommandInputText
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v AvailableCommandInputCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
+	return nil
+}
+
+// AvailableCommandInputText is the AvailableCommandInput variant with type "text".
+//
+// All text that was typed after the command name is provided as input.
+type AvailableCommandInputText struct {
+	// A hint to display when the input hasn't been provided yet
+	Hint string `json:"hint"`
+	Meta Meta   `json:"_meta,omitzero"`
+}
+
+func (AvailableCommandInputText) availableCommandInputVariant() {}
+
+// Tag returns "text".
+func (AvailableCommandInputText) Tag() string { return "text" }
+
+type availableCommandInputTextFields AvailableCommandInputText
+type availableCommandInputTextWire struct {
+	Tag                             string `json:"type"`
+	availableCommandInputTextFields `json:",inline"`
+}
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v AvailableCommandInputText) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, availableCommandInputTextWire{"text", availableCommandInputTextFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *AvailableCommandInputText) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w availableCommandInputTextWire
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != "text" {
+		return fmt.Errorf("AvailableCommandInputText: expected type \"text\", got %q", w.Tag)
+	}
+	*v = AvailableCommandInputText(w.availableCommandInputTextFields)
+	return nil
+}
+
+// AvailableCommandInputCustom holds AvailableCommandInput values with an unrecognized "type", keeping every member.
+type AvailableCommandInputCustom struct {
+	// Custom or future command input type.
+	//
+	// Values beginning with `_` are reserved for implementation-specific
+	// extensions. Unknown values that do not begin with `_` are reserved for
+	// future ACP variants.
+	Type                 string                    `json:"type"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (AvailableCommandInputCustom) availableCommandInputVariant() {}
+
+// Tag returns the "type" member.
+func (v AvailableCommandInputCustom) Tag() string { return v.Type }
+
 // NesSuggestion is a suggestion returned by the agent.
 //
 // NesSuggestion is a tagged union discriminated by the "kind" member. Use [NewNesSuggestion]
@@ -2859,7 +3008,7 @@ func (v NesSuggestionCustom) Tag() string { return v.Kind }
 // [Agent Reports Output]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#3-agent-reports-output
 type SessionUpdate struct{ value SessionUpdateVariant }
 
-// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateUserMessage], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentMessage], [SessionUpdateAgentThoughtChunk], [SessionUpdateAgentThought], [SessionUpdateStateUpdate], [SessionUpdateToolCallContentChunk], [SessionUpdateToolCallUpdate], [SessionUpdateTerminalUpdate], [SessionUpdateTerminalOutputChunk], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdateCustom].
+// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateUserMessage], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentMessage], [SessionUpdateAgentThoughtChunk], [SessionUpdateAgentThought], [SessionUpdateStateUpdate], [SessionUpdateToolCallContentChunk], [SessionUpdateToolCallUpdate], [SessionUpdateTerminalUpdate], [SessionUpdateTerminalOutputChunk], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdateSubagentUpdate], [SessionUpdateSessionMessage], [SessionUpdateSessionMessageChunk], [SessionUpdateCustom].
 type SessionUpdateVariant interface {
 	sessionUpdateVariant()
 	Tag() string
@@ -2889,6 +3038,9 @@ type SessionUpdateVariants interface {
 		SessionUpdateNotice |
 		SessionUpdateCompactionUpdate |
 		SessionUpdateCompactionSummaryChunk |
+		SessionUpdateSubagentUpdate |
+		SessionUpdateSessionMessage |
+		SessionUpdateSessionMessageChunk |
 		SessionUpdateCustom
 	SessionUpdateVariant
 }
@@ -3061,6 +3213,24 @@ func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVari
 		*out = v
 	case "compaction_summary_chunk":
 		var v SessionUpdateCompactionSummaryChunk
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "subagent_update":
+		var v SessionUpdateSubagentUpdate
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "session_message":
+		var v SessionUpdateSessionMessage
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "session_message_chunk":
+		var v SessionUpdateSessionMessageChunk
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -3976,6 +4146,191 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 	return nil
 }
 
+// SessionUpdateSubagentUpdate is a notification that the enclosing parent session created and owns a child session.
+//
+// Later updates modify the existing association's metadata, not its ownership.
+//
+// Sent on the immediate parent session. The first update for an unknown
+// [SessionUpdateSubagentUpdate.SessionID] announces the child and MUST be sent
+// before any live request or notification bearing the child's session ID,
+// including messages naming it as sender or recipient. Child events are
+// delivered automatically; no separate child load, resume, or subscription is needed.
+// Understanding this update, registering child sessions, and applying their
+// operation restrictions are baseline v2 requirements; no Client capability
+// is required.
+//
+// Only [SessionUpdateSubagentUpdate.SessionID] is required. Other fields have
+// patch semantics: omitted fields leave the stored value unchanged, `null`
+// clears or unsets the value, and concrete values replace it. For `state`,
+// `null` removes the current state report and leaves activity unconfirmed;
+// it does not report idle or cancellation. A child whose capabilities are
+// unset permits no Client-initiated session mutations.
+//
+// The title and description provide the parent's display metadata for the
+// child. Agents SHOULD mirror known child state changes in the parent's
+// [SessionUpdateSubagentUpdate.State] using the same [StateUpdate] snapshot as the
+// ordinary `state_update` notification on the child session. This reports
+// child state, not a separate parent-owned lifecycle. Consumers should
+// treat duplicate reports idempotently.
+// Completing or cancelling work does not end the association: the parent may
+// message the same child again. Individual messages and their outcomes do not
+// change this association.
+//
+// SessionUpdateSubagentUpdate is the SessionUpdate variant with sessionUpdate "subagent_update".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionUpdateSubagentUpdate struct {
+	// The opaque session ID identifying the child in all ACP messages.
+	SessionID SessionID `json:"sessionId"`
+	// The parent's human-readable display title for this child. It need not be unique.
+	//
+	// Optional and nullable. Omitted means unchanged; `null` clears it. If no
+	// title is set, the Client chooses a fallback presentation.
+	Title *string `json:"title,omitzero"`
+	// The parent's human-readable description of the child's role or purpose.
+	//
+	// Optional and nullable. Omitted means unchanged; `null` clears it. This is
+	// current display metadata, not the history of instructions sent to the child.
+	Description *string `json:"description,omitzero"`
+	// Client-initiated session mutations permitted for this subagent session.
+	//
+	// Read-only operations retain their normal protocol semantics and
+	// capability requirements.
+	Capabilities *SubagentSessionCapabilities `json:"capabilities,omitzero"`
+	// The child's current foreground state, mirrored onto its parent association.
+	//
+	// Optional and nullable. Omitted means unchanged; `null` removes the
+	// current report and leaves activity unconfirmed (not idle or cancelled).
+	// A concrete [StateUpdate] replaces the entire previous snapshot.
+	State StateUpdate `json:"state,omitzero"`
+	// Omitted means no metadata update; `null` is an explicit clear signal.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (SessionUpdateSubagentUpdate) sessionUpdateVariant() {}
+
+// Tag returns "subagent_update".
+func (SessionUpdateSubagentUpdate) Tag() string { return "subagent_update" }
+
+type sessionUpdateSubagentUpdateFields SessionUpdateSubagentUpdate
+type sessionUpdateSubagentUpdateWire struct {
+	Tag                               string `json:"sessionUpdate"`
+	sessionUpdateSubagentUpdateFields `json:",inline"`
+}
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v SessionUpdateSubagentUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, sessionUpdateSubagentUpdateWire{"subagent_update", sessionUpdateSubagentUpdateFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *SessionUpdateSubagentUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w sessionUpdateSubagentUpdateWire
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != "subagent_update" {
+		return fmt.Errorf("SessionUpdateSubagentUpdate: expected sessionUpdate \"subagent_update\", got %q", w.Tag)
+	}
+	*v = SessionUpdateSubagentUpdate(w.sessionUpdateSubagentUpdateFields)
+	return nil
+}
+
+// SessionUpdateSessionMessage is an upsert for an inter-session message.
+//
+// SessionUpdateSessionMessage is the SessionUpdate variant with sessionUpdate "session_message".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionUpdateSessionMessage struct {
+	// Identifier of this message within the enclosing session's transcript.
+	MessageID MessageID `json:"messageId"`
+	// Optional sending session identity; omission or `null` retains a known value.
+	SenderSessionID *SessionID `json:"senderSessionId,omitzero"`
+	// Optional receiving session identity; omission or `null` retains a known value.
+	RecipientSessionID *SessionID `json:"recipientSessionId,omitzero"`
+	// Omitted leaves content unchanged; `null` clears it; a concrete array
+	// replaces the whole content collection.
+	Content []ContentBlock `json:"content,omitzero"`
+	// Omitted leaves metadata unchanged; `null` clears it.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (SessionUpdateSessionMessage) sessionUpdateVariant() {}
+
+// Tag returns "session_message".
+func (SessionUpdateSessionMessage) Tag() string { return "session_message" }
+
+type sessionUpdateSessionMessageFields SessionUpdateSessionMessage
+type sessionUpdateSessionMessageWire struct {
+	Tag                               string `json:"sessionUpdate"`
+	sessionUpdateSessionMessageFields `json:",inline"`
+}
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v SessionUpdateSessionMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, sessionUpdateSessionMessageWire{"session_message", sessionUpdateSessionMessageFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *SessionUpdateSessionMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w sessionUpdateSessionMessageWire
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != "session_message" {
+		return fmt.Errorf("SessionUpdateSessionMessage: expected sessionUpdate \"session_message\", got %q", w.Tag)
+	}
+	*v = SessionUpdateSessionMessage(w.sessionUpdateSessionMessageFields)
+	return nil
+}
+
+// SessionUpdateSessionMessageChunk is a streamed content block of an inter-session message.
+//
+// SessionUpdateSessionMessageChunk is the SessionUpdate variant with sessionUpdate "session_message_chunk".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionUpdateSessionMessageChunk struct {
+	// Identifier of this message within the enclosing session's transcript.
+	MessageID MessageID `json:"messageId"`
+	// Optional sending session identity; omission or `null` retains a known value.
+	SenderSessionID *SessionID `json:"senderSessionId,omitzero"`
+	// Optional receiving session identity; omission or `null` retains a known value.
+	RecipientSessionID *SessionID `json:"recipientSessionId,omitzero"`
+	// A single content block appended to the message.
+	Content ContentBlock `json:"content"`
+	// Optional and nullable chunk-scoped metadata; omitted or `null` means none.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (SessionUpdateSessionMessageChunk) sessionUpdateVariant() {}
+
+// Tag returns "session_message_chunk".
+func (SessionUpdateSessionMessageChunk) Tag() string { return "session_message_chunk" }
+
+type sessionUpdateSessionMessageChunkFields SessionUpdateSessionMessageChunk
+type sessionUpdateSessionMessageChunkWire struct {
+	Tag                                    string `json:"sessionUpdate"`
+	sessionUpdateSessionMessageChunkFields `json:",inline"`
+}
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v SessionUpdateSessionMessageChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, sessionUpdateSessionMessageChunkWire{"session_message_chunk", sessionUpdateSessionMessageChunkFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *SessionUpdateSessionMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w sessionUpdateSessionMessageChunkWire
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != "session_message_chunk" {
+		return fmt.Errorf("SessionUpdateSessionMessageChunk: expected sessionUpdate \"session_message_chunk\", got %q", w.Tag)
+	}
+	*v = SessionUpdateSessionMessageChunk(w.sessionUpdateSessionMessageChunkFields)
+	return nil
+}
+
 // SessionUpdateCustom holds SessionUpdate values with an unrecognized "sessionUpdate", keeping every member.
 type SessionUpdateCustom struct {
 	// Custom or future session update type.
@@ -4002,7 +4357,7 @@ func (v SessionUpdateCustom) Tag() string { return v.SessionUpdate }
 // while `idle`. Those notifications do not change this state.
 type StateUpdate struct{ value StateUpdateVariant }
 
-// StateUpdateVariant is implemented by [StateUpdateRunning], [StateUpdateIdle], [StateUpdateRequiresAction], [StateUpdateCustom].
+// StateUpdateVariant is implemented by [StateUpdateRunning], [StateUpdateIdle], [StateUpdateRequiresAction], [StateUpdateUnknown], [StateUpdateCustom].
 type StateUpdateVariant interface {
 	stateUpdateVariant()
 	Tag() string
@@ -4015,6 +4370,7 @@ type StateUpdateVariants interface {
 	StateUpdateRunning |
 		StateUpdateIdle |
 		StateUpdateRequiresAction |
+		StateUpdateUnknown |
 		StateUpdateCustom
 	StateUpdateVariant
 }
@@ -4085,6 +4441,12 @@ func unmarshalStateUpdateVariant(dec *jsontext.Decoder, out *StateUpdateVariant)
 		*out = v
 	case "requires_action":
 		var v StateUpdateRequiresAction
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "unknown":
+		var v StateUpdateUnknown
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -4216,6 +4578,53 @@ func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 		return fmt.Errorf("StateUpdateRequiresAction: expected state \"requires_action\", got %q", w.Tag)
 	}
 	*v = StateUpdateRequiresAction(w.stateUpdateRequiresActionFields)
+	return nil
+}
+
+// StateUpdateUnknown is the Agent cannot currently determine foreground activity.
+//
+// Report this when activity becomes unobservable, not merely because the session
+// has been quiet. The Client MUST stop presenting the previous state as confirmed
+// current activity, but may retain it as last known. A later state replaces this
+// snapshot normally.
+//
+// This is not a task outcome or session closure. It does not cancel work, resolve
+// pending requests, or revoke capabilities; capabilities are updated separately.
+//
+// StateUpdateUnknown is the StateUpdate variant with state "unknown".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type StateUpdateUnknown struct {
+	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (StateUpdateUnknown) stateUpdateVariant() {}
+
+// Tag returns "unknown".
+func (StateUpdateUnknown) Tag() string { return "unknown" }
+
+type stateUpdateUnknownFields StateUpdateUnknown
+type stateUpdateUnknownWire struct {
+	Tag                      string `json:"state"`
+	stateUpdateUnknownFields `json:",inline"`
+}
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v StateUpdateUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stateUpdateUnknownWire{"unknown", stateUpdateUnknownFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *StateUpdateUnknown) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w stateUpdateUnknownWire
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != "unknown" {
+		return fmt.Errorf("StateUpdateUnknown: expected state \"unknown\", got %q", w.Tag)
+	}
+	*v = StateUpdateUnknown(w.stateUpdateUnknownFields)
 	return nil
 }
 
@@ -4489,155 +4898,6 @@ func (PlanUpdateContentCustom) planUpdateContentVariant() {}
 // Tag returns the "type" member.
 func (v PlanUpdateContentCustom) Tag() string { return v.Type }
 
-// AvailableCommandInput is the input specification for a command.
-//
-// AvailableCommandInput is a tagged union discriminated by the "type" member. Use [NewAvailableCommandInput]
-// or a type switch on [AvailableCommandInput.Variant] to work with it. The zero value holds no
-// variant: an omitzero field omits it, and encoding it anywhere else fails.
-type AvailableCommandInput struct{ value AvailableCommandInputVariant }
-
-// AvailableCommandInputVariant is implemented by [AvailableCommandInputText], [AvailableCommandInputCustom].
-type AvailableCommandInputVariant interface {
-	availableCommandInputVariant()
-	Tag() string
-}
-
-// AvailableCommandInputVariants is the set of AvailableCommandInput variant types. It lists the types
-// themselves: a pointer to a variant also has the AvailableCommandInputVariant
-// methods, but is not one.
-type AvailableCommandInputVariants interface {
-	AvailableCommandInputText |
-		AvailableCommandInputCustom
-	AvailableCommandInputVariant
-}
-
-// NewAvailableCommandInput wraps a variant.
-func NewAvailableCommandInput[T AvailableCommandInputVariants](v T) AvailableCommandInput {
-	return AvailableCommandInput{value: v}
-}
-
-// Variant returns the wrapped variant, or nil for the zero value.
-func (u AvailableCommandInput) Variant() AvailableCommandInputVariant { return u.value }
-
-// As returns the variant if it is a T, like a type assertion on Variant
-// with T checked against the union's variants at compile time.
-func (u AvailableCommandInput) As[T AvailableCommandInputVariants]() (T, bool) {
-	v, ok := u.value.(T)
-	return v, ok
-}
-
-// Tag returns the "type" discriminator, or "" for the zero value.
-func (u AvailableCommandInput) Tag() string {
-	if u.value == nil {
-		return ""
-	}
-	return u.value.Tag()
-}
-
-// IsZero reports whether no variant is set, so omitzero omits the field.
-func (u AvailableCommandInput) IsZero() bool { return u.value == nil }
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (u AvailableCommandInput) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if u.value == nil {
-		return errors.New("AvailableCommandInput: no variant set; use NewAvailableCommandInput")
-	}
-	return json.MarshalEncode(enc, u.value)
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (u *AvailableCommandInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalAvailableCommandInputVariant(dec, &u.value)
-}
-
-// unmarshalAvailableCommandInputVariant decodes a AvailableCommandInputVariant by its "type" member; it backs Unmarshalers.
-func unmarshalAvailableCommandInputVariant(dec *jsontext.Decoder, out *AvailableCommandInputVariant) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if raw.Kind() == 'n' {
-		*out = nil
-		return nil
-	}
-	if raw.Kind() != '{' {
-		return fmt.Errorf("AvailableCommandInput: expected object, got %s", raw.Kind())
-	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
-	if err != nil {
-		return fmt.Errorf("AvailableCommandInput: %w", err)
-	}
-	switch tag {
-	case "text":
-		var v AvailableCommandInputText
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	default:
-		var v AvailableCommandInputCustom
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	}
-	return nil
-}
-
-// AvailableCommandInputText is the AvailableCommandInput variant with type "text".
-//
-// All text that was typed after the command name is provided as input.
-type AvailableCommandInputText struct {
-	// A hint to display when the input hasn't been provided yet
-	Hint string `json:"hint"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-func (AvailableCommandInputText) availableCommandInputVariant() {}
-
-// Tag returns "text".
-func (AvailableCommandInputText) Tag() string { return "text" }
-
-type availableCommandInputTextFields AvailableCommandInputText
-type availableCommandInputTextWire struct {
-	Tag                             string `json:"type"`
-	availableCommandInputTextFields `json:",inline"`
-}
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v AvailableCommandInputText) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, availableCommandInputTextWire{"text", availableCommandInputTextFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *AvailableCommandInputText) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w availableCommandInputTextWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "text" {
-		return fmt.Errorf("AvailableCommandInputText: expected type \"text\", got %q", w.Tag)
-	}
-	*v = AvailableCommandInputText(w.availableCommandInputTextFields)
-	return nil
-}
-
-// AvailableCommandInputCustom holds AvailableCommandInput values with an unrecognized "type", keeping every member.
-type AvailableCommandInputCustom struct {
-	// Custom or future command input type.
-	//
-	// Values beginning with `_` are reserved for implementation-specific
-	// extensions. Unknown values that do not begin with `_` are reserved for
-	// future ACP variants.
-	Type                 string                    `json:"type"`
-	AdditionalProperties map[string]jsontext.Value `json:",embed"`
-}
-
-func (AvailableCommandInputCustom) availableCommandInputVariant() {}
-
-// Tag returns the "type" member.
-func (v AvailableCommandInputCustom) Tag() string { return v.Type }
-
 // MCPServer is a tagged union discriminated by the "type" member. Use [NewMCPServer]
 // or a type switch on [MCPServer.Variant] to work with it. The zero value holds no
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
@@ -4796,7 +5056,7 @@ func (v *MCPServerHTTP) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // ACP transport configuration for MCP.
 //
 // The MCP server is provided by an ACP component and communicates over the ACP channel
-// using `mcp/connect`, `mcp/message`, and `mcp/disconnect`.
+// using `mcp/message`.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MCPServerACP struct {
@@ -5734,6 +5994,69 @@ func (v *ElicitationContentValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	return nil
 }
 
+// MessageMCPResponse preserves the complete JSON payload, including future variants.
+// Use [MessageMCPResponse.As] to read one alternative and [NewMessageMCPResponse] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
+//
+// The successful outer ACP `mcp/message` response carries exactly one
+// inner MCP outcome: an opaque result (including JSON null), or an MCP error.
+// Outer ACP errors are reserved for binding and runtime failures.
+//
+// Both branches require their carrier key. An error must be a non-null object.
+// Unknown outer fields are ignored; inner result and error fields are preserved.
+// Carrier `_meta` is optional; null or invalid values are treated as absent.
+// Senders must include exactly one outcome; receivers prefer `result` if both are present.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type MessageMCPResponse struct{ raw jsontext.Value }
+
+// MessageMCPResponseAlternative is the set of Go types MessageMCPResponse can hold.
+type MessageMCPResponseAlternative interface {
+	MessageMCPResponseResult | MessageMCPResponseError
+}
+
+var messageMCPResponseAlternatives = union.Table(
+	union.Alt[MessageMCPResponseResult](union.Rule{NonNull: true, Required: []string{"result"}}),
+	union.Alt[MessageMCPResponseError](union.Rule{NonNull: true, Required: []string{"error"}, NotNull: []string{"error"}}),
+)
+
+// NewMessageMCPResponse encodes value, one of the MessageMCPResponseAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewMessageMCPResponse[T MessageMCPResponseAlternative](value T) (MessageMCPResponse, error) {
+	raw, err := union.New("MessageMCPResponse", messageMCPResponseAlternatives, value)
+	return MessageMCPResponse{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v MessageMCPResponse) As[T MessageMCPResponseAlternative]() (T, error) {
+	return union.As[T]("MessageMCPResponse", messageMCPResponseAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v MessageMCPResponse) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v MessageMCPResponse) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v MessageMCPResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return errors.New("MessageMCPResponse: no value set; use NewMessageMCPResponse")
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *MessageMCPResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
 // Unmarshalers returns the unmarshalers that decode the tagged-union variant
 // interfaces directly, for callers that declare fields of those interface
 // types instead of the wrapper structs:
@@ -5750,11 +6073,11 @@ var unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalMultiSelectItemsVariant),
 	json.UnmarshalFromFunc(unmarshalAuthMethodVariant),
 	json.UnmarshalFromFunc(unmarshalSessionConfigOptionVariant),
+	json.UnmarshalFromFunc(unmarshalAvailableCommandInputVariant),
 	json.UnmarshalFromFunc(unmarshalNesSuggestionVariant),
 	json.UnmarshalFromFunc(unmarshalSessionUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalStateUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalPlanUpdateContentVariant),
-	json.UnmarshalFromFunc(unmarshalAvailableCommandInputVariant),
 	json.UnmarshalFromFunc(unmarshalMCPServerVariant),
 	json.UnmarshalFromFunc(unmarshalReplayFromVariant),
 	json.UnmarshalFromFunc(unmarshalSetSessionConfigOptionRequestVariant),

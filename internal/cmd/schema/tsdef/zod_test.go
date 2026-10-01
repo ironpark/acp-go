@@ -39,6 +39,16 @@ func TestZodWrappersAndLiterals(t *testing.T) {
 		t.Fatal("lost string constraints")
 	}
 }
+func TestZodLooseObject(t *testing.T) {
+	schemas, err := ParseZod("zod.ts", []byte(`export const zError = z.looseObject({ code: z.int(), data: z.unknown().optional() });`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if z := schemas["zError"]; z.Kind != "object" || !z.Loose || len(z.Fields) != 2 {
+		t.Fatalf("looseObject parsed as %+v", z)
+	}
+}
+
 func TestUnsupportedZodFails(t *testing.T) {
 	for _, source := range []string{
 		`export const zX = z.string().transform(v=>v);`,

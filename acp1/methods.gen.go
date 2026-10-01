@@ -163,17 +163,15 @@ type DocumentHandler interface {
 	DidFocusDocument(ctx context.Context, params *DidFocusDocumentNotification) error
 }
 
-// MCPMessageHandler receives the traffic an MCP server the client provides
-// sends back to the agent over mcp/message: requests, answered with the MCP
-// result, and notifications. Implementing it advertises the
+// MCPMessageHandler receives the request-scoped MCP notifications, such as
+// progress, that an MCP server the client provides sends over mcp/message
+// while it works on a request the agent made. Implementing it advertises the
 // `mcpCapabilities.acp` agent capability through [CapabilitiesOf].
 //
 // MCP-over-ACP is an RFD-stage draft; the wire format may still change.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MCPMessageHandler interface {
-	MessageMCP(ctx context.Context, params *MessageMCPRequest) (*MessageMCPResponse, error)
-
 	NotifyMCP(ctx context.Context, params *MessageMCPNotification) error
 }
 
@@ -235,21 +233,16 @@ type TerminalHandler interface {
 	KillTerminal(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error)
 }
 
-// MCPConnector serves the MCP servers the client lists with the "acp"
-// transport in session/new: mcp/connect opens a connection to one, mcp/message
-// carries requests and notifications over it, and mcp/disconnect closes it.
+// MCPProvider serves the MCP servers the client lists with the "acp"
+// transport in session/new. Each mcp/message request is one MCP operation for
+// the server its serverId names, identified by its own requestId; there is no
+// MCP connection or initialization handshake.
 //
 // MCP-over-ACP is an RFD-stage draft; the wire format may still change.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
-type MCPConnector interface {
-	ConnectMCP(ctx context.Context, params *ConnectMCPRequest) (*ConnectMCPResponse, error)
-
+type MCPProvider interface {
 	MessageMCP(ctx context.Context, params *MessageMCPRequest) (*MessageMCPResponse, error)
-
-	NotifyMCP(ctx context.Context, params *MessageMCPNotification) error
-
-	DisconnectMCP(ctx context.Context, params *DisconnectMCPRequest) (*DisconnectMCPResponse, error)
 }
 
 // ElicitationHandler handles elicitation/create and the elicitation/complete
@@ -480,14 +473,7 @@ func (c *ClientSideConnection) DidFocusDocument(ctx context.Context, params *Did
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidFocus, params)
 }
 
-// MessageMCP forwards an MCP request to the agent and returns its result.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) MessageMCP(ctx context.Context, params *MessageMCPRequest) (*MessageMCPResponse, error) {
-	return acpconn.Call[MessageMCPResponse](ctx, c.conn, schema.AgentMethodsMCPMessage, params)
-}
-
-// NotifyMCP forwards an MCP notification to the agent.
+// NotifyMCP sends the agent a notification belonging to one of its MCP requests.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) NotifyMCP(ctx context.Context, params *MessageMCPNotification) error {
@@ -545,32 +531,12 @@ func (c *AgentSideConnection) KillTerminal(ctx context.Context, params *KillTerm
 	return acpconn.Call[KillTerminalResponse](ctx, c.conn, schema.ClientMethodsTerminalKill, params)
 }
 
-// ConnectMCP opens a connection to an MCP server the client provides.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *AgentSideConnection) ConnectMCP(ctx context.Context, params *ConnectMCPRequest) (*ConnectMCPResponse, error) {
-	return acpconn.Call[ConnectMCPResponse](ctx, c.conn, schema.ClientMethodsMCPConnect, params)
-}
-
-// MessageMCP sends an MCP request over a connection and returns its result.
+// MessageMCP sends one MCP request to a server the client provides and returns
+// its outcome: the MCP result, or the MCP error, which is not an ACP error.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 func (c *AgentSideConnection) MessageMCP(ctx context.Context, params *MessageMCPRequest) (*MessageMCPResponse, error) {
 	return acpconn.Call[MessageMCPResponse](ctx, c.conn, schema.ClientMethodsMCPMessage, params)
-}
-
-// NotifyMCP sends an MCP notification over a connection.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *AgentSideConnection) NotifyMCP(ctx context.Context, params *MessageMCPNotification) error {
-	return c.conn.SendNotification(ctx, schema.ClientMethodsMCPMessage, params)
-}
-
-// DisconnectMCP closes an MCP connection.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *AgentSideConnection) DisconnectMCP(ctx context.Context, params *DisconnectMCPRequest) (*DisconnectMCPResponse, error) {
-	return acpconn.Call[DisconnectMCPResponse](ctx, c.conn, schema.ClientMethodsMCPDisconnect, params)
 }
 
 // CreateElicitation asks the client to collect input from the user. Requires
@@ -656,10 +622,6 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 		if h, ok := c.agent.(NesHandler); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.CloseNes)
 		}
-	case schema.AgentMethodsMCPMessage:
-		if h, ok := c.agent.(MCPMessageHandler); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.MessageMCP)
-		}
 	default:
 		if h, ok := c.agent.(ExtMethodHandler); ok {
 			return h.ServeExtMethod(ctx, method, params)
@@ -744,17 +706,9 @@ func (c *ClientSideConnection) handleRequest(ctx context.Context, method string,
 		if h, ok := c.client.(TerminalHandler); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.KillTerminal)
 		}
-	case schema.ClientMethodsMCPConnect:
-		if h, ok := c.client.(MCPConnector); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.ConnectMCP)
-		}
 	case schema.ClientMethodsMCPMessage:
-		if h, ok := c.client.(MCPConnector); ok {
+		if h, ok := c.client.(MCPProvider); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.MessageMCP)
-		}
-	case schema.ClientMethodsMCPDisconnect:
-		if h, ok := c.client.(MCPConnector); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.DisconnectMCP)
 		}
 	case schema.ClientMethodsElicitationCreate:
 		if h, ok := c.client.(ElicitationHandler); ok {
@@ -772,10 +726,6 @@ func (c *ClientSideConnection) handleNotification(ctx context.Context, method st
 	switch method {
 	case schema.ClientMethodsSessionUpdate:
 		return acpconn.Notify(ctx, schema.Validated(), params, c.sessionUpdate)
-	case schema.ClientMethodsMCPMessage:
-		if h, ok := c.client.(MCPConnector); ok {
-			return acpconn.Notify(ctx, schema.Validated(), params, h.NotifyMCP)
-		}
 	case schema.ClientMethodsElicitationComplete:
 		if h, ok := c.client.(ElicitationHandler); ok {
 			return acpconn.Notify(ctx, schema.Validated(), params, h.CompleteElicitation)

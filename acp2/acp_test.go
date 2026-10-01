@@ -2,6 +2,7 @@ package acp2_test
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"testing"
 	"time"
 
@@ -15,8 +16,9 @@ type testSession struct{ cwd acp2.AbsolutePath }
 
 func (s *testSession) SessionInfo() acp2.SessionInfo { return acp2.SessionInfo{Cwd: s.cwd} }
 
-// testAgent implements the required Agent methods plus MCP message handling,
-// so the request-versus-notification split of mcp/message is exercised.
+// testAgent implements the required Agent methods plus the MCP notifications
+// of mcp/message; testClient answers its requests, so the split of
+// mcp/message by direction is exercised.
 type testAgent struct {
 	*acp2.SessionManager[*testSession]
 	client acp2.Client
@@ -67,11 +69,6 @@ func (a *testAgent) CancelSession(_ context.Context, params *acp2.CancelSessionN
 	return nil
 }
 
-func (a *testAgent) MessageMCP(_ context.Context, params *acp2.MessageMCPRequest) (*acp2.MessageMCPResponse, error) {
-	result := acp2.MessageMCPResponse(`{"echo":"` + params.Method + `"}`)
-	return &result, nil
-}
-
 func (a *testAgent) NotifyMCP(_ context.Context, params *acp2.MessageMCPNotification) error {
 	a.mcpNotified <- params.Method
 	return nil
@@ -97,6 +94,16 @@ func (c *testClient) RequestPermission(_ context.Context, params *acp2.RequestPe
 		}),
 	}, nil
 }
+
+func (c *testClient) MessageMCP(_ context.Context, params *acp2.MessageMCPRequest) (*acp2.MessageMCPResponse, error) {
+	result, err := schema.NewMessageMCPResponse(schema.MessageMCPResponseResult{
+		Result: jsontext.Value(`{"echo":"` + params.Method + `"}`),
+	})
+	return &result, err
+}
+
+// bareClient hides testClient's optional methods.
+type bareClient struct{ acp2.Client }
 
 func connect(t *testing.T, agent *testAgent, client acp2.Client) (*acp2.ClientSideConnection, *acp2.AgentSideConnection) {
 	t.Helper()
@@ -159,23 +166,24 @@ func TestPromptTurn(t *testing.T) {
 
 func TestMCPMessageRequestAndNotificationAreSplit(t *testing.T) {
 	agent := newTestAgent()
-	conn, _ := connect(t, agent, newTestClient())
+	conn, agentConn := connect(t, agent, newTestClient())
 	ctx := t.Context()
 
-	result, err := conn.MessageMCP(ctx, &acp2.MessageMCPRequest{ConnectionID: "c1", Method: "tools/list"})
+	response, err := agentConn.MessageMCP(ctx, &acp2.MessageMCPRequest{ServerID: "s1", RequestID: "r1", Method: "tools/list"})
 	if err != nil {
 		t.Fatalf("MessageMCP: %v", err)
 	}
-	if string(*result) != `{"echo":"tools/list"}` {
-		t.Errorf("mcp result = %s", *result)
+	outcome, err := response.As[schema.MessageMCPResponseResult]()
+	if err != nil || string(outcome.Result) != `{"echo":"tools/list"}` {
+		t.Errorf("mcp outcome = %s, %v", response.RawJSON(), err)
 	}
 
-	if err := conn.NotifyMCP(ctx, &acp2.MessageMCPNotification{ConnectionID: "c1", Method: "notifications/initialized"}); err != nil {
+	if err := conn.NotifyMCP(ctx, &acp2.MessageMCPNotification{ServerID: "s1", RequestID: "r1", Method: "notifications/progress"}); err != nil {
 		t.Fatalf("NotifyMCP: %v", err)
 	}
 	select {
 	case method := <-agent.mcpNotified:
-		if method != "notifications/initialized" {
+		if method != "notifications/progress" {
 			t.Errorf("notified method = %q", method)
 		}
 	case <-time.After(2 * time.Second):
@@ -225,9 +233,9 @@ func TestUnimplementedOptionalMethodIsMethodNotFound(t *testing.T) {
 	if _, err := conn.Login(t.Context(), &acp2.LoginAuthRequest{MethodID: "oauth"}); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Errorf("Login error = %v, want method not found", err)
 	}
-	_, agentConn := connect(t, newTestAgent(), newTestClient())
-	if _, err := agentConn.ConnectMCP(t.Context(), &acp2.ConnectMCPRequest{ServerID: "s1"}); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
-		t.Errorf("ConnectMCP error = %v, want method not found", err)
+	_, agentConn := connect(t, newTestAgent(), bareClient{newTestClient()})
+	if _, err := agentConn.MessageMCP(t.Context(), &acp2.MessageMCPRequest{ServerID: "s1", RequestID: "r1", Method: "tools/list"}); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
+		t.Errorf("MessageMCP error = %v, want method not found", err)
 	}
 }
 

@@ -12,7 +12,8 @@ import schema "github.com/ironpark/acp-go/schema/v2"
 // session/list, session/resume and session/close have no capability flag in
 // v2. Group capabilities with their own sub-flags — auth, providers and nes —
 // are set to empty objects, which advertises the group; fill in the sub-flags
-// the agent supports. Prompt, MCP and position encoding capabilities describe
+// the agent supports. [MCPMessageHandler] sets session.mcp.acp. Prompt
+// capabilities, the other MCP transports and position encoding describe
 // content rather than methods and are left for the agent to set.
 func CapabilitiesOf(agent Agent) *AgentCapabilities {
 	caps := &schema.AgentCapabilities{}
@@ -24,6 +25,10 @@ func CapabilitiesOf(agent Agent) *AgentCapabilities {
 	}
 	if _, ok := agent.(SessionForker); ok {
 		session.Fork = &schema.SessionForkCapabilities{}
+		advertise = true
+	}
+	if _, ok := agent.(MCPMessageHandler); ok {
+		session.MCP = &schema.MCPCapabilities{ACP: &schema.MCPACPCapabilities{}}
 		advertise = true
 	}
 	if advertise {

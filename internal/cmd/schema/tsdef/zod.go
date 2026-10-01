@@ -27,6 +27,7 @@ type Zod struct {
 	Tags    []string       `json:"tags,omitzero"`
 	Pattern string         `json:"pattern,omitzero"`
 	Offset  bool           `json:"offset,omitzero"`
+	Loose   bool           `json:"loose,omitzero"` // object: keeps undeclared properties
 }
 
 // Children returns the rules nested directly in z.
@@ -335,13 +336,14 @@ func (r reader) zod(n *ts.Node) (*Zod, error) {
 		if err != nil {
 			return nil, err
 		}
-	case "object":
+	case "object", "looseObject":
 		if err := arity(1, 1); err != nil {
 			return nil, err
 		}
 		if args[0].Kind() != "object" {
 			return nil, r.fail(args[0], "expected literal object shape")
 		}
+		z.Kind, z.Loose = "object", method == "looseObject"
 		seen := map[string]bool{}
 		for _, pair := range children(args[0]) {
 			if pair.Kind() == "comment" {

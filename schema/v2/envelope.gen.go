@@ -250,15 +250,13 @@ type AgentRequestParams struct{ raw jsontext.Value }
 
 // AgentRequestParamsAlternative is the set of Go types AgentRequestParams can hold.
 type AgentRequestParamsAlternative interface {
-	RequestPermissionRequest | CreateElicitationRequest | ConnectMCPRequest | MessageMCPRequest | DisconnectMCPRequest | jsontext.Value
+	RequestPermissionRequest | CreateElicitationRequest | MessageMCPRequest | jsontext.Value
 }
 
 var agentRequestParamsAlternatives = union.Table(
 	union.Alt[RequestPermissionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "title", "options"}, NotNull: []string{"sessionId", "title", "options"}}),
 	union.Alt[CreateElicitationRequest](union.Rule{NonNull: true}),
-	union.Alt[ConnectMCPRequest](union.Rule{NonNull: true, Required: []string{"serverId"}, NotNull: []string{"serverId"}}),
-	union.Alt[MessageMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
-	union.Alt[DisconnectMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId"}, NotNull: []string{"connectionId"}}),
+	union.Alt[MessageMCPRequest](union.Rule{NonNull: true, Required: []string{"serverId", "requestId", "method"}, NotNull: []string{"serverId", "requestId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -319,13 +317,12 @@ type AgentNotificationParams struct{ raw jsontext.Value }
 
 // AgentNotificationParamsAlternative is the set of Go types AgentNotificationParams can hold.
 type AgentNotificationParamsAlternative interface {
-	UpdateSessionNotification | CompleteElicitationNotification | MessageMCPNotification | jsontext.Value
+	UpdateSessionNotification | CompleteElicitationNotification | jsontext.Value
 }
 
 var agentNotificationParamsAlternatives = union.Table(
 	union.Alt[UpdateSessionNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "update"}, NotNull: []string{"sessionId", "update"}}),
 	union.Alt[CompleteElicitationNotification](union.Rule{NonNull: true, Required: []string{"elicitationId"}, NotNull: []string{"elicitationId"}}),
-	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -372,7 +369,7 @@ type ClientRequestParams struct{ raw jsontext.Value }
 
 // ClientRequestParamsAlternative is the set of Go types ClientRequestParams can hold.
 type ClientRequestParamsAlternative interface {
-	InitializeRequest | LoginAuthRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutAuthRequest | NewSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionConfigOptionRequest | PromptRequest | StartNesRequest | SuggestNesRequest | CloseNesRequest | MessageMCPRequest | jsontext.Value
+	InitializeRequest | LoginAuthRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutAuthRequest | NewSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionConfigOptionRequest | PromptRequest | StartNesRequest | SuggestNesRequest | CloseNesRequest | jsontext.Value
 }
 
 var clientRequestParamsAlternatives = union.Table(
@@ -393,7 +390,6 @@ var clientRequestParamsAlternatives = union.Table(
 	union.Alt[StartNesRequest](union.Rule{NonNull: true}),
 	union.Alt[SuggestNesRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "position", "triggerKind"}, NotNull: []string{"sessionId", "uri", "version", "position", "triggerKind"}}),
 	union.Alt[CloseNesRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
-	union.Alt[MessageMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -466,7 +462,7 @@ var clientNotificationParamsAlternatives = union.Table(
 	union.Alt[DidFocusDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "position", "visibleRange"}, NotNull: []string{"sessionId", "uri", "version", "position", "visibleRange"}}),
 	union.Alt[AcceptNesNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "suggestionId"}, NotNull: []string{"sessionId", "suggestionId"}}),
 	union.Alt[RejectNesNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "suggestionId"}, NotNull: []string{"sessionId", "suggestionId"}}),
-	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
+	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"serverId", "requestId", "method"}, NotNull: []string{"serverId", "requestId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -523,11 +519,11 @@ var agentResponseResultResultAlternatives = union.Table(
 	union.Alt[SetProviderResponse](union.Rule{NonNull: true}),
 	union.Alt[DisableProviderResponse](union.Rule{NonNull: true}),
 	union.Alt[LogoutAuthResponse](union.Rule{NonNull: true}),
-	union.Alt[NewSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId", "configOptions"}}),
+	union.Alt[NewSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId", "configOptions", "availableCommands"}}),
 	union.Alt[ListSessionsResponse](union.Rule{NonNull: true, Required: []string{"sessions"}, NotNull: []string{"sessions"}}),
 	union.Alt[DeleteSessionResponse](union.Rule{NonNull: true}),
-	union.Alt[ForkSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId", "configOptions"}}),
-	union.Alt[ResumeSessionResponse](union.Rule{NonNull: true, NotNull: []string{"configOptions"}}),
+	union.Alt[ForkSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId", "configOptions", "availableCommands"}}),
+	union.Alt[ResumeSessionResponse](union.Rule{NonNull: true, NotNull: []string{"configOptions", "availableCommands"}}),
 	union.Alt[CloseSessionResponse](union.Rule{NonNull: true}),
 	union.Alt[SetSessionConfigOptionResponse](union.Rule{NonNull: true, Required: []string{"configOptions"}, NotNull: []string{"configOptions"}}),
 	union.Alt[PromptResponse](union.Rule{NonNull: true, Required: []string{"messageId"}, NotNull: []string{"messageId"}}),
@@ -580,14 +576,13 @@ type ClientResponseResultResult struct{ raw jsontext.Value }
 
 // ClientResponseResultResultAlternative is the set of Go types ClientResponseResultResult can hold.
 type ClientResponseResultResultAlternative interface {
-	RequestPermissionResponse | CreateElicitationResponse | ConnectMCPResponse | DisconnectMCPResponse | jsontext.Value
+	RequestPermissionResponse | CreateElicitationResponse | MessageMCPResponse | jsontext.Value
 }
 
 var clientResponseResultResultAlternatives = union.Table(
 	union.Alt[RequestPermissionResponse](union.Rule{NonNull: true, Required: []string{"outcome"}, NotNull: []string{"outcome"}}),
 	union.Alt[CreateElicitationResponse](union.Rule{NonNull: true}),
-	union.Alt[ConnectMCPResponse](union.Rule{NonNull: true, Required: []string{"connectionId"}, NotNull: []string{"connectionId"}}),
-	union.Alt[DisconnectMCPResponse](union.Rule{NonNull: true}),
+	union.Alt[MessageMCPResponse](union.Rule{NonNull: true}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 

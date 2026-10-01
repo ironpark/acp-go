@@ -68,6 +68,7 @@ type Rule struct {
 	Tags    []string
 	Regexp  *regexp.Regexp
 	Offset  bool
+	Loose   bool // KindObject: keep the input's undeclared properties (z.looseObject)
 
 	// Set by Link, which every registry goes through before evaluation.
 	target   *Rule            // KindRef: the rule Ref names
@@ -228,6 +229,7 @@ func (l *linker) flatten(s *Rule) {
 		if o == nil {
 			return
 		}
+		flat.Loose = flat.Loose || o.Loose
 		for _, f := range o.Fields {
 			if names[f.Name] {
 				return

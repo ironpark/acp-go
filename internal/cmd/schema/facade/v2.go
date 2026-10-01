@@ -146,14 +146,12 @@ client's open editors.`,
 		{
 			Interface:    "MCPMessageHandler",
 			Experimental: true,
-			Doc: `MCPMessageHandler receives MCP traffic the client forwards to the agent over
-mcp/message. The method carries either a request, answered with the MCP
-result, or a notification, which has no response.`,
+			Doc: `MCPMessageHandler receives the request-scoped MCP notifications, such as
+progress, that an MCP server the client provides sends over mcp/message
+while it works on a request the agent made.`,
 			Methods: []Method{
-				{Wire: "mcp/message", Name: "MessageMCP", Params: "MessageMCPRequest", Response: "MessageMCPResponse",
-					CallDoc: `MessageMCP forwards an MCP request to the agent and returns its result.`},
 				{Wire: "mcp/message", Name: "NotifyMCP", Params: "MessageMCPNotification",
-					CallDoc: `NotifyMCP forwards an MCP notification to the agent.`},
+					CallDoc: `NotifyMCP sends the agent a notification belonging to one of its MCP requests.`},
 			},
 		},
 	},
@@ -188,21 +186,17 @@ than leaving the request pending.`,
 			},
 		},
 		{
-			Interface:    "MCPConnector",
+			Interface:    "MCPProvider",
 			Experimental: true,
-			Doc: `MCPConnector lets the agent reach MCP servers through the client: mcp/connect
-opens a connection, mcp/message carries requests and notifications over it,
-and mcp/disconnect closes it. In v2 this replaces the v1 fs/* and terminal/*
-methods.`,
+			Doc: `MCPProvider serves the MCP servers the client lists with the "acp"
+transport in session setup. Each mcp/message request is one MCP operation for
+the server its serverId names, identified by its own requestId; there is no
+MCP connection or initialization handshake. In v2 this replaces the v1 fs/*
+and terminal/* methods.`,
 			Methods: []Method{
-				{Wire: "mcp/connect", Name: "ConnectMCP", Params: "ConnectMCPRequest", Response: "ConnectMCPResponse",
-					CallDoc: `ConnectMCP opens an MCP connection through the client.`},
 				{Wire: "mcp/message", Name: "MessageMCP", Params: "MessageMCPRequest", Response: "MessageMCPResponse",
-					CallDoc: `MessageMCP sends an MCP request over a connection and returns its result.`},
-				{Wire: "mcp/message", Name: "NotifyMCP", Params: "MessageMCPNotification",
-					CallDoc: `NotifyMCP sends an MCP notification over a connection.`},
-				{Wire: "mcp/disconnect", Name: "DisconnectMCP", Params: "DisconnectMCPRequest", Response: "DisconnectMCPResponse",
-					CallDoc: `DisconnectMCP closes an MCP connection.`},
+					CallDoc: `MessageMCP sends one MCP request to a server the client provides and returns
+its outcome: the MCP result, or the MCP error, which is not an ACP error.`},
 			},
 		},
 		{

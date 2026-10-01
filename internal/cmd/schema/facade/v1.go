@@ -192,17 +192,15 @@ client's open editors.`,
 		{
 			Interface:    "MCPMessageHandler",
 			Experimental: true,
-			Doc: `MCPMessageHandler receives the traffic an MCP server the client provides
-sends back to the agent over mcp/message: requests, answered with the MCP
-result, and notifications. Implementing it advertises the
+			Doc: `MCPMessageHandler receives the request-scoped MCP notifications, such as
+progress, that an MCP server the client provides sends over mcp/message
+while it works on a request the agent made. Implementing it advertises the
 ` + "`mcpCapabilities.acp`" + ` agent capability through [CapabilitiesOf].
 
 MCP-over-ACP is an RFD-stage draft; the wire format may still change.`,
 			Methods: []Method{
-				{Wire: "mcp/message", Name: "MessageMCP", Params: "MessageMCPRequest", Response: "MessageMCPResponse",
-					CallDoc: `MessageMCP forwards an MCP request to the agent and returns its result.`},
 				{Wire: "mcp/message", Name: "NotifyMCP", Params: "MessageMCPNotification",
-					CallDoc: `NotifyMCP forwards an MCP notification to the agent.`},
+					CallDoc: `NotifyMCP sends the agent a notification belonging to one of its MCP requests.`},
 			},
 		},
 	},
@@ -287,22 +285,18 @@ a handle bound to the new terminal.`},
 			},
 		},
 		{
-			Interface:    "MCPConnector",
+			Interface:    "MCPProvider",
 			Experimental: true,
-			Doc: `MCPConnector serves the MCP servers the client lists with the "acp"
-transport in session/new: mcp/connect opens a connection to one, mcp/message
-carries requests and notifications over it, and mcp/disconnect closes it.
+			Doc: `MCPProvider serves the MCP servers the client lists with the "acp"
+transport in session/new. Each mcp/message request is one MCP operation for
+the server its serverId names, identified by its own requestId; there is no
+MCP connection or initialization handshake.
 
 MCP-over-ACP is an RFD-stage draft; the wire format may still change.`,
 			Methods: []Method{
-				{Wire: "mcp/connect", Name: "ConnectMCP", Params: "ConnectMCPRequest", Response: "ConnectMCPResponse",
-					CallDoc: `ConnectMCP opens a connection to an MCP server the client provides.`},
 				{Wire: "mcp/message", Name: "MessageMCP", Params: "MessageMCPRequest", Response: "MessageMCPResponse",
-					CallDoc: `MessageMCP sends an MCP request over a connection and returns its result.`},
-				{Wire: "mcp/message", Name: "NotifyMCP", Params: "MessageMCPNotification",
-					CallDoc: `NotifyMCP sends an MCP notification over a connection.`},
-				{Wire: "mcp/disconnect", Name: "DisconnectMCP", Params: "DisconnectMCPRequest", Response: "DisconnectMCPResponse",
-					CallDoc: `DisconnectMCP closes an MCP connection.`},
+					CallDoc: `MessageMCP sends one MCP request to a server the client provides and returns
+its outcome: the MCP result, or the MCP error, which is not an ACP error.`},
 			},
 		},
 		{

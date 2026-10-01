@@ -1,8 +1,8 @@
 # Zod reference fixtures
 
 `zod-v1.json` and `zod-v2.json` contain results captured from the TypeScript SDK
-commit recorded in `../typescript/REVISION`, using **Zod 4.5.4** (the SDK lockfile
-version when captured) and Node.js 24. Each entry is the result of
+commit recorded in `../typescript/REVISION`, using **Zod 4.6.5** (the SDK lockfile
+version when captured) and Node.js 26. Each entry is the result of
 `schema.safeParse(input)` using the named export from that version's `zod.gen.ts`.
 Successful `output` values are serialized with `JSON.stringify`, so JavaScript
 `undefined` properties are omitted.

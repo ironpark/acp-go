@@ -300,6 +300,9 @@ func renderZod(z *tsdef.Zod, child func(*tsdef.Zod) string, multiline bool) stri
 	if z.Offset {
 		parts = append(parts, "Offset: true")
 	}
+	if z.Loose {
+		parts = append(parts, "Loose: true")
+	}
 	return "&zod.Rule{" + strings.Join(parts, ", ") + "}"
 }
 

@@ -43,7 +43,7 @@ func (o outcome) objects() []*Rule {
 // name of their input.
 func (o outcome) evaluated(name string) bool {
 	return o.record || slices.ContainsFunc(o.objects(), func(s *Rule) bool {
-		return slices.ContainsFunc(s.Fields, func(f Field) bool { return f.Name == name })
+		return s.Loose || s.declares(name)
 	})
 }
 
@@ -148,6 +148,11 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		}
 		return value, nil
 	case KindUnknown, KindAny:
+		// Zod accepts any value, but an object property under these rules
+		// must still be present unless it is optional.
+		if n == nil {
+			return fail("required value is missing")
+		}
 		return pass()
 	case KindNever:
 		return fail("value is not permitted")
@@ -416,13 +421,20 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 				kept++
 			}
 		}
-		if output == nil && kept == len(n.members) {
+		if output == nil && (s.Loose || kept == len(n.members)) {
 			return outcome{n: n, object: s}, nil
 		}
 		if output == nil { // only undeclared properties were dropped
 			for _, field := range s.Fields {
 				if v := n.get(field.Name); v != nil {
 					output = append(output, member{field.Name, v})
+				}
+			}
+		}
+		if s.Loose { // a field changed: keep the undeclared properties too
+			for _, m := range n.members {
+				if !s.declares(m.name) {
+					output = append(output, m)
 				}
 			}
 		}
@@ -558,4 +570,9 @@ func same(a, b *node) bool {
 		return a == b
 	}
 	return a == b || Equal(encode(nil, a), encode(nil, b))
+}
+
+// declares reports whether the object rule s has a field named name.
+func (s *Rule) declares(name string) bool {
+	return slices.ContainsFunc(s.Fields, func(f Field) bool { return f.Name == name })
 }

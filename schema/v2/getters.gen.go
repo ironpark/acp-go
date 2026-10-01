@@ -1160,6 +1160,68 @@ func (x *SessionUpdateSessionInfoUpdate) GetUpdatedAt() string {
 	return zero
 }
 
+// GetSenderSessionID returns the value of SenderSessionID, or the zero value if x or SenderSessionID is nil.
+func (x *SessionUpdateSessionMessage) GetSenderSessionID() SessionID {
+	if x != nil && x.SenderSessionID != nil {
+		return *x.SenderSessionID
+	}
+	var zero SessionID
+	return zero
+}
+
+// GetRecipientSessionID returns the value of RecipientSessionID, or the zero value if x or RecipientSessionID is nil.
+func (x *SessionUpdateSessionMessage) GetRecipientSessionID() SessionID {
+	if x != nil && x.RecipientSessionID != nil {
+		return *x.RecipientSessionID
+	}
+	var zero SessionID
+	return zero
+}
+
+// GetSenderSessionID returns the value of SenderSessionID, or the zero value if x or SenderSessionID is nil.
+func (x *SessionUpdateSessionMessageChunk) GetSenderSessionID() SessionID {
+	if x != nil && x.SenderSessionID != nil {
+		return *x.SenderSessionID
+	}
+	var zero SessionID
+	return zero
+}
+
+// GetRecipientSessionID returns the value of RecipientSessionID, or the zero value if x or RecipientSessionID is nil.
+func (x *SessionUpdateSessionMessageChunk) GetRecipientSessionID() SessionID {
+	if x != nil && x.RecipientSessionID != nil {
+		return *x.RecipientSessionID
+	}
+	var zero SessionID
+	return zero
+}
+
+// GetTitle returns the value of Title, or the zero value if x or Title is nil.
+func (x *SessionUpdateSubagentUpdate) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	var zero string
+	return zero
+}
+
+// GetDescription returns the value of Description, or the zero value if x or Description is nil.
+func (x *SessionUpdateSubagentUpdate) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	var zero string
+	return zero
+}
+
+// GetCapabilities returns Capabilities, or nil if x is nil.
+func (x *SessionUpdateSubagentUpdate) GetCapabilities() *SubagentSessionCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Capabilities
+}
+
 // GetCommand returns the value of Command, or the zero value if x or Command is nil.
 func (x *SessionUpdateTerminalUpdate) GetCommand() string {
 	if x != nil && x.Command != nil {
@@ -1270,6 +1332,14 @@ func (x *StateUpdateIdle) GetUsage() *Usage {
 		return nil
 	}
 	return x.Usage
+}
+
+// GetCancel returns Cancel, or nil if x is nil.
+func (x *SubagentSessionCapabilities) GetCancel() *SessionCancelCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Cancel
 }
 
 // GetSelection returns Selection, or nil if x is nil.

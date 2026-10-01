@@ -45,9 +45,7 @@ const (
 	ClientMethodsTerminalRelease          = "terminal/release"
 	ClientMethodsTerminalWaitForExit      = "terminal/wait_for_exit"
 	ClientMethodsTerminalKill             = "terminal/kill"
-	ClientMethodsMCPConnect               = "mcp/connect"
 	ClientMethodsMCPMessage               = "mcp/message"
-	ClientMethodsMCPDisconnect            = "mcp/disconnect"
 	ClientMethodsElicitationCreate        = "elicitation/create"
 	ClientMethodsElicitationComplete      = "elicitation/complete"
 )

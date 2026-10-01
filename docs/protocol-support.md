@@ -39,7 +39,7 @@ The next two tables describe **ACP v1**.
 | `logout` | `LogoutHandler` |
 | `nes/*` | `NesHandler` (unstable) |
 | `document/did*` | `DocumentHandler` (unstable) |
-| `mcp/message` | `MCPMessageHandler` (unstable) |
+| `mcp/message` (notifications) | `MCPMessageHandler` (unstable) |
 
 ## Client methods (agent → client)
 
@@ -50,7 +50,7 @@ The next two tables describe **ACP v1**.
 | `fs/write_text_file` | `FileWriter` |
 | `terminal/*` | `TerminalHandler` |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
-| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
+| `mcp/message` (requests) | `MCPProvider` (unstable) |
 
 `$/cancel_request` is handled by the connection itself.
 
@@ -71,14 +71,14 @@ The next two tables describe **ACP v1**.
 | `providers/*` | `ProviderManager` (unstable) |
 | `nes/*` | `NesHandler` (unstable) |
 | `document/did*` | `DocumentHandler` (unstable) |
-| `mcp/message` (agent side) | `MCPMessageHandler` (unstable) |
+| `mcp/message` (notifications) | `MCPMessageHandler` (unstable) |
 
 ### Client methods (agent → client)
 
 | Method | Go interface |
 | --- | --- |
 | `session/update`, `session/request_permission` | `Client` (required) |
-| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
+| `mcp/message` (requests) | `MCPProvider` (unstable) |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
 
 ### Turn behavior

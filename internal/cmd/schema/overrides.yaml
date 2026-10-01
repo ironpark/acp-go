@@ -22,3 +22,4 @@ numbers:
   DidFocusDocumentNotification.version: int64
   NesUserAction.timestampMs: uint64
   NesOpenFile.lastFocusedMs: uint64
+  McpError.code: int32

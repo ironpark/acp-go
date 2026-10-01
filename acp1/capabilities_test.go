@@ -31,9 +31,6 @@ type logoutAgent struct{ bareAgent }
 
 type mcpAgent struct{ bareAgent }
 
-func (mcpAgent) MessageMCP(context.Context, *acp1.MessageMCPRequest) (*acp1.MessageMCPResponse, error) {
-	return nil, nil
-}
 func (mcpAgent) NotifyMCP(context.Context, *acp1.MessageMCPNotification) error { return nil }
 
 func (logoutAgent) Logout(context.Context, *acp1.LogoutRequest) (*acp1.LogoutResponse, error) {

@@ -285,21 +285,14 @@ type TitledMultiSelectItems struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Request parameters for `mcp/connect`.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type ConnectMCPRequest struct {
-	// The ACP MCP server ID that was provided by the component declaring the MCP server.
-	ServerID MCPServerACPID `json:"serverId"`
-	Meta     Meta           `json:"_meta,omitzero"`
-}
-
 // Request parameters for `mcp/message`.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MessageMCPRequest struct {
-	// The MCP-over-ACP connection this message is sent on.
-	ConnectionID MCPConnectionID `json:"connectionId"`
+	// The declared ACP MCP server receiving this request.
+	ServerID MCPServerACPID `json:"serverId"`
+	// The caller-generated identifier for the inner MCP request.
+	RequestID MCPRequestID `json:"requestId"`
 	// The inner MCP method name.
 	Method string `json:"method"`
 	// Optional inner MCP params.
@@ -307,15 +300,6 @@ type MessageMCPRequest struct {
 	// If omitted or set to `null`, the inner MCP message has no params.
 	Params map[string]jsontext.Value `json:"params,omitzero"`
 	Meta   Meta                      `json:"_meta,omitzero"`
-}
-
-// Request parameters for `mcp/disconnect`.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type DisconnectMCPRequest struct {
-	// The MCP-over-ACP connection to close.
-	ConnectionID MCPConnectionID `json:"connectionId"`
-	Meta         Meta            `json:"_meta,omitzero"`
 }
 
 // Allows for sending an arbitrary request that is not part of the ACP spec.
@@ -1017,13 +1001,6 @@ type CloseNesResponse struct {
 // [Extensibility]: https://agentclientprotocol.com/protocol/extensibility
 type ExtResponse = jsontext.Value
 
-// MessageMCPResponse is a response to `mcp/message`.
-//
-// This is the inner MCP response result payload. Any JSON value is valid.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type MessageMCPResponse = jsontext.Value
-
 // Notification containing a session update from the agent.
 //
 // Used to stream real-time progress and results during prompt processing.
@@ -1101,30 +1078,35 @@ type Cost struct {
 	Meta     Meta   `json:"_meta,omitzero"`
 }
 
+// Client-initiated session mutations permitted for a specific subagent session.
+//
+// A mutation requires an explicit per-child capability; support for the method
+// on ordinary sessions does not grant support on a child.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SubagentSessionCapabilities struct {
+	// Permits the client to cancel this child's current work without ending
+	// the session. Omitted or `null` means unsupported; an object (including
+	// `{}`) means supported.
+	Cancel *SessionCancelCapabilities `json:"cancel,omitzero"`
+	Meta   Meta                       `json:"_meta,omitzero"`
+}
+
+// Capability to cancel work in a subagent session without ending that session.
+//
+// Supplying `{}` advertises support; an omitted or `null` `cancel` does not.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionCancelCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
 // Notification sent by the agent when a URL-based elicitation is complete.
 type CompleteElicitationNotification struct {
 	// The ID of the elicitation that completed.
 	ElicitationID ElicitationID `json:"elicitationId"`
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Notification parameters for `mcp/message`.
-//
-// This is used when the wrapped MCP message is a notification and the outer JSON-RPC
-// envelope has no `id`.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type MessageMCPNotification struct {
-	// The MCP-over-ACP connection this message is sent on.
-	ConnectionID MCPConnectionID `json:"connectionId"`
-	// The inner MCP method name.
-	Method string `json:"method"`
-	// Optional inner MCP params.
-	//
-	// If omitted or set to `null`, the inner MCP message has no params.
-	Params map[string]jsontext.Value `json:"params,omitzero"`
-	Meta   Meta                      `json:"_meta,omitzero"`
 }
 
 // Allows the Agent to send an arbitrary notification that is not part of the ACP spec.
@@ -1174,6 +1156,15 @@ type ClientCapabilities struct {
 	// Optional. Omitted or `null` both mean the client does not advertise any
 	// session-related extensions.
 	Session *ClientSessionCapabilities `json:"session,omitzero"`
+	// Whether the client understands exposed subagent sessions.
+	//
+	// Optional and nullable. Omitted or `null` both mean the client does not
+	// advertise support.
+	// Supplying `{}` means the client understands child associations, work-state
+	// snapshots, session-directed messages, and restricted-session semantics.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Subagents *SubagentCapabilities `json:"subagents,omitzero"`
 	// Whether the client supports `plan_update` and `plan_removed` session updates.
 	//
 	// Optional. Omitted or `null` both mean the client does not advertise support.
@@ -1268,6 +1259,18 @@ type BooleanConfigOptionCapabilities struct {
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type NoticeCapabilities = map[string]jsontext.Value
+
+// Capability marker for exposing reusable child sessions as restricted ACP sessions.
+//
+// Supplying `{}` advertises support for child association and state updates,
+// session-directed messages, and restricted-session semantics. The client
+// must advertise this capability before the agent sends subagent updates or
+// session-directed messages.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SubagentCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
 
 // Capabilities for receiving `plan_update` and `plan_removed` session updates.
 //
@@ -1808,20 +1811,20 @@ type ElicitationAcceptAction struct {
 	Content map[string]ElicitationContentValue `json:"content,omitzero"`
 }
 
-// ConnectMCPResponse is a response to `mcp/connect`.
+// MCPError is an inner MCP error, distinct from an outer ACP binding or runtime error.
+//
+// `code` and `message` are required and non-null. `data` is optional;
+// explicit `null` is preserved separately from an omitted key.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
-type ConnectMCPResponse struct {
-	// The unique identifier for this MCP-over-ACP connection.
-	ConnectionID MCPConnectionID `json:"connectionId"`
-	Meta         Meta            `json:"_meta,omitzero"`
-}
-
-// DisconnectMCPResponse is a response to `mcp/disconnect`.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type DisconnectMCPResponse struct {
-	Meta Meta `json:"_meta,omitzero"`
+type MCPError struct {
+	// Inner MCP error code; never an ACP error code.
+	Code int32 `json:"code"`
+	// Inner MCP error message.
+	Message string `json:"message"`
+	// Optional error data; explicit null is retained.
+	Data                 jsontext.Value            `json:"data,omitzero"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 // CancelNotification is a notification to cancel ongoing operations for a session.
@@ -1926,6 +1929,26 @@ type RejectNesNotification struct {
 	// The reason for rejection.
 	Reason *NesRejectReason `json:"reason,omitzero"`
 	Meta   Meta             `json:"_meta,omitzero"`
+}
+
+// Notification parameters for `mcp/message`.
+//
+// Sent by the provider to the consumer for an active request (including
+// subscription acknowledgements and updates); the outer envelope has no `id`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type MessageMCPNotification struct {
+	// The declared ACP MCP server handling the associated request.
+	ServerID MCPServerACPID `json:"serverId"`
+	// The identifier of the active inner MCP request.
+	RequestID MCPRequestID `json:"requestId"`
+	// The inner MCP method name.
+	Method string `json:"method"`
+	// Optional inner MCP params.
+	//
+	// If omitted or set to `null`, the inner MCP message has no params.
+	Params map[string]jsontext.Value `json:"params,omitzero"`
+	Meta   Meta                      `json:"_meta,omitzero"`
 }
 
 // CancelRequestNotification is a notification to cancel an ongoing request.
@@ -2110,6 +2133,20 @@ type ElicitationURLModeRequest struct {
 	ElicitationID ElicitationID `json:"elicitationId"`
 	// The URL to direct the user to.
 	URL string `json:"url"`
+}
+
+type MessageMCPResponseResult struct {
+	// Required, even if JSON null.
+	Result jsontext.Value `json:"result"`
+	// Optional ACP carrier metadata.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+type MessageMCPResponseError struct {
+	// Required, non-null MCP error object.
+	Error MCPError `json:"error"`
+	// Optional ACP carrier metadata.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Meta is the _meta extension object reserved on protocol messages.

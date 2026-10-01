@@ -36,9 +36,7 @@ const (
 const (
 	ClientMethodsSessionRequestPermission = "session/request_permission"
 	ClientMethodsSessionUpdate            = "session/update"
-	ClientMethodsMCPConnect               = "mcp/connect"
 	ClientMethodsMCPMessage               = "mcp/message"
-	ClientMethodsMCPDisconnect            = "mcp/disconnect"
 	ClientMethodsElicitationCreate        = "elicitation/create"
 	ClientMethodsElicitationComplete      = "elicitation/complete"
 )

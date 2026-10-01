@@ -20,9 +20,7 @@ type (
 	WaitForTerminalExitRequest      = schema.WaitForTerminalExitRequest
 	KillTerminalRequest             = schema.KillTerminalRequest
 	CreateElicitationRequest        = schema.CreateElicitationRequest
-	ConnectMCPRequest               = schema.ConnectMCPRequest
 	MessageMCPRequest               = schema.MessageMCPRequest
-	DisconnectMCPRequest            = schema.DisconnectMCPRequest
 	ExtRequest                      = schema.ExtRequest
 	InitializeResponse              = schema.InitializeResponse
 	AuthenticateResponse            = schema.AuthenticateResponse
@@ -44,10 +42,8 @@ type (
 	SuggestNesResponse              = schema.SuggestNesResponse
 	CloseNesResponse                = schema.CloseNesResponse
 	ExtResponse                     = schema.ExtResponse
-	MessageMCPResponse              = schema.MessageMCPResponse
 	SessionNotification             = schema.SessionNotification
 	CompleteElicitationNotification = schema.CompleteElicitationNotification
-	MessageMCPNotification          = schema.MessageMCPNotification
 	ExtNotification                 = schema.ExtNotification
 	InitializeRequest               = schema.InitializeRequest
 	AuthenticateRequest             = schema.AuthenticateRequest
@@ -77,8 +73,7 @@ type (
 	WaitForTerminalExitResponse     = schema.WaitForTerminalExitResponse
 	KillTerminalResponse            = schema.KillTerminalResponse
 	CreateElicitationResponse       = schema.CreateElicitationResponse
-	ConnectMCPResponse              = schema.ConnectMCPResponse
-	DisconnectMCPResponse           = schema.DisconnectMCPResponse
+	MessageMCPResponse              = schema.MessageMCPResponse
 	CancelNotification              = schema.CancelNotification
 	DidOpenDocumentNotification     = schema.DidOpenDocumentNotification
 	DidChangeDocumentNotification   = schema.DidChangeDocumentNotification
@@ -87,6 +82,7 @@ type (
 	DidFocusDocumentNotification    = schema.DidFocusDocumentNotification
 	AcceptNesNotification           = schema.AcceptNesNotification
 	RejectNesNotification           = schema.RejectNesNotification
+	MessageMCPNotification          = schema.MessageMCPNotification
 	CancelRequestNotification       = schema.CancelRequestNotification
 )
 
@@ -164,7 +160,8 @@ type (
 	LLMProtocol                              = schema.LLMProtocol
 	LogoutCapabilities                       = schema.LogoutCapabilities
 	MCPCapabilities                          = schema.MCPCapabilities
-	MCPConnectionID                          = schema.MCPConnectionID
+	MCPError                                 = schema.MCPError
+	MCPRequestID                             = schema.MCPRequestID
 	MCPServer                                = schema.MCPServer
 	MCPServerACP                             = schema.MCPServerACP
 	MCPServerACPID                           = schema.MCPServerACPID
@@ -174,6 +171,9 @@ type (
 	MCPServerVariant                         = schema.MCPServerVariant
 	MCPServerVariants                        = schema.MCPServerVariants
 	MessageID                                = schema.MessageID
+	MessageMCPResponseAlternative            = schema.MessageMCPResponseAlternative
+	MessageMCPResponseError                  = schema.MessageMCPResponseError
+	MessageMCPResponseResult                 = schema.MessageMCPResponseResult
 	Meta                                     = schema.Meta
 	MultiSelectItems                         = schema.MultiSelectItems
 	MultiSelectItemsCustom                   = schema.MultiSelectItemsCustom
@@ -255,6 +255,7 @@ type (
 	RequestPermissionOutcomeVariants         = schema.RequestPermissionOutcomeVariants
 	Role                                     = schema.Role
 	SessionAdditionalDirectoriesCapabilities = schema.SessionAdditionalDirectoriesCapabilities
+	SessionCancelCapabilities                = schema.SessionCancelCapabilities
 	SessionCapabilities                      = schema.SessionCapabilities
 	SessionCloseCapabilities                 = schema.SessionCloseCapabilities
 	SessionConfigGroupID                     = schema.SessionConfigGroupID
@@ -294,6 +295,9 @@ type (
 	SessionUpdatePlanRemoved                 = schema.SessionUpdatePlanRemoved
 	SessionUpdatePlanUpdate                  = schema.SessionUpdatePlanUpdate
 	SessionUpdateSessionInfoUpdate           = schema.SessionUpdateSessionInfoUpdate
+	SessionUpdateSessionMessage              = schema.SessionUpdateSessionMessage
+	SessionUpdateSessionMessageChunk         = schema.SessionUpdateSessionMessageChunk
+	SessionUpdateSubagentUpdate              = schema.SessionUpdateSubagentUpdate
 	SessionUpdateToolCall                    = schema.SessionUpdateToolCall
 	SessionUpdateToolCallUpdate              = schema.SessionUpdateToolCallUpdate
 	SessionUpdateUnknown                     = schema.SessionUpdateUnknown
@@ -305,8 +309,18 @@ type (
 	SetSessionConfigOptionRequestUntagged    = schema.SetSessionConfigOptionRequestUntagged
 	SetSessionConfigOptionRequestVariant     = schema.SetSessionConfigOptionRequestVariant
 	SetSessionConfigOptionRequestVariants    = schema.SetSessionConfigOptionRequestVariants
+	StateUpdate                              = schema.StateUpdate
+	StateUpdateCustom                        = schema.StateUpdateCustom
+	StateUpdateIdle                          = schema.StateUpdateIdle
+	StateUpdateRequiresAction                = schema.StateUpdateRequiresAction
+	StateUpdateRunning                       = schema.StateUpdateRunning
+	StateUpdateUnknown                       = schema.StateUpdateUnknown
+	StateUpdateVariant                       = schema.StateUpdateVariant
+	StateUpdateVariants                      = schema.StateUpdateVariants
 	StopReason                               = schema.StopReason
 	StringFormat                             = schema.StringFormat
+	SubagentCapabilities                     = schema.SubagentCapabilities
+	SubagentSessionCapabilities              = schema.SubagentSessionCapabilities
 	TerminalExitStatus                       = schema.TerminalExitStatus
 	TerminalID                               = schema.TerminalID
 	TextDocumentContentChangeEvent           = schema.TextDocumentContentChangeEvent
@@ -435,6 +449,11 @@ func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T)
 // NewMCPServer wraps a variant.
 func NewMCPServer[T MCPServerVariants](v T) MCPServer { return schema.NewMCPServer(v) }
 
+// NewMessageMCPResponse encodes value, one of the MessageMCPResponseAlternative types.
+func NewMessageMCPResponse[T MessageMCPResponseAlternative](value T) (MessageMCPResponse, error) {
+	return schema.NewMessageMCPResponse(value)
+}
+
 // NewMultiSelectItems wraps a variant.
 func NewMultiSelectItems[T MultiSelectItemsVariants](v T) MultiSelectItems {
 	return schema.NewMultiSelectItems(v)
@@ -475,6 +494,9 @@ func NewSessionUpdate[T SessionUpdateVariants](v T) SessionUpdate { return schem
 func NewSetSessionConfigOptionRequest[T SetSessionConfigOptionRequestVariants](v T) SetSessionConfigOptionRequest {
 	return schema.NewSetSessionConfigOptionRequest(v)
 }
+
+// NewStateUpdate wraps a variant.
+func NewStateUpdate[T StateUpdateVariants](v T) StateUpdate { return schema.NewStateUpdate(v) }
 
 // NewToolCallContent wraps a variant.
 func NewToolCallContent[T ToolCallContentVariants](v T) ToolCallContent {

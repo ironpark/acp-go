@@ -110,5 +110,85 @@
       "enum": "bad"
     },
     "success": false
+  },
+  {
+    "schema": "zMessageMcpResponse",
+    "input": {
+      "error": {
+        "code": -32602,
+        "message": "Unknown tool",
+        "data": null,
+        "retryAfter": {
+          "ms": 5
+        }
+      },
+      "zzUnknown": 1
+    },
+    "success": true,
+    "output": {
+      "error": {
+        "code": -32602,
+        "message": "Unknown tool",
+        "data": null,
+        "retryAfter": {
+          "ms": 5
+        }
+      }
+    }
+  },
+  {
+    "schema": "zMessageMcpResponse",
+    "input": {
+      "result": null,
+      "_meta": "x"
+    },
+    "success": true,
+    "output": {
+      "result": null
+    }
+  },
+  {
+    "schema": "zMcpError",
+    "input": {
+      "code": 1.5,
+      "message": "m"
+    },
+    "success": false
+  },
+  {
+    "schema": "zAgentResponse",
+    "input": {
+      "id": "s",
+      "error": {
+        "code": -32002,
+        "message": "s",
+        "data": {
+          "any": 1
+        }
+      }
+    },
+    "success": true,
+    "output": {
+      "id": "s",
+      "error": {
+        "code": -32002,
+        "message": "s",
+        "data": {
+          "any": 1
+        }
+      }
+    }
+  },
+  {
+    "schema": "zAgentResponse",
+    "input": {
+      "id": "s"
+    },
+    "success": false
+  },
+  {
+    "schema": "zMessageMcpResponse",
+    "input": {},
+    "success": false
   }
 ]

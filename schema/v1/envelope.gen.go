@@ -242,7 +242,7 @@ type AgentRequestParams struct{ raw jsontext.Value }
 
 // AgentRequestParamsAlternative is the set of Go types AgentRequestParams can hold.
 type AgentRequestParamsAlternative interface {
-	WriteTextFileRequest | ReadTextFileRequest | RequestPermissionRequest | CreateTerminalRequest | TerminalOutputRequest | ReleaseTerminalRequest | WaitForTerminalExitRequest | KillTerminalRequest | CreateElicitationRequest | ConnectMCPRequest | MessageMCPRequest | DisconnectMCPRequest | jsontext.Value
+	WriteTextFileRequest | ReadTextFileRequest | RequestPermissionRequest | CreateTerminalRequest | TerminalOutputRequest | ReleaseTerminalRequest | WaitForTerminalExitRequest | KillTerminalRequest | CreateElicitationRequest | MessageMCPRequest | jsontext.Value
 }
 
 var agentRequestParamsAlternatives = union.Table(
@@ -255,9 +255,7 @@ var agentRequestParamsAlternatives = union.Table(
 	union.Alt[WaitForTerminalExitRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "terminalId"}, NotNull: []string{"sessionId", "terminalId"}}),
 	union.Alt[KillTerminalRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "terminalId"}, NotNull: []string{"sessionId", "terminalId"}}),
 	union.Alt[CreateElicitationRequest](union.Rule{NonNull: true}),
-	union.Alt[ConnectMCPRequest](union.Rule{NonNull: true, Required: []string{"serverId"}, NotNull: []string{"serverId"}}),
-	union.Alt[MessageMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
-	union.Alt[DisconnectMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId"}, NotNull: []string{"connectionId"}}),
+	union.Alt[MessageMCPRequest](union.Rule{NonNull: true, Required: []string{"serverId", "requestId", "method"}, NotNull: []string{"serverId", "requestId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -318,13 +316,12 @@ type AgentNotificationParams struct{ raw jsontext.Value }
 
 // AgentNotificationParamsAlternative is the set of Go types AgentNotificationParams can hold.
 type AgentNotificationParamsAlternative interface {
-	SessionNotification | CompleteElicitationNotification | MessageMCPNotification | jsontext.Value
+	SessionNotification | CompleteElicitationNotification | jsontext.Value
 }
 
 var agentNotificationParamsAlternatives = union.Table(
 	union.Alt[SessionNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "update"}, NotNull: []string{"sessionId", "update"}}),
 	union.Alt[CompleteElicitationNotification](union.Rule{NonNull: true, Required: []string{"elicitationId"}, NotNull: []string{"elicitationId"}}),
-	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -371,7 +368,7 @@ type ClientRequestParams struct{ raw jsontext.Value }
 
 // ClientRequestParamsAlternative is the set of Go types ClientRequestParams can hold.
 type ClientRequestParamsAlternative interface {
-	InitializeRequest | AuthenticateRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutRequest | NewSessionRequest | LoadSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionModeRequest | SetSessionConfigOptionRequest | PromptRequest | StartNesRequest | SuggestNesRequest | CloseNesRequest | MessageMCPRequest | jsontext.Value
+	InitializeRequest | AuthenticateRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutRequest | NewSessionRequest | LoadSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionModeRequest | SetSessionConfigOptionRequest | PromptRequest | StartNesRequest | SuggestNesRequest | CloseNesRequest | jsontext.Value
 }
 
 var clientRequestParamsAlternatives = union.Table(
@@ -394,7 +391,6 @@ var clientRequestParamsAlternatives = union.Table(
 	union.Alt[StartNesRequest](union.Rule{NonNull: true}),
 	union.Alt[SuggestNesRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "position", "triggerKind"}, NotNull: []string{"sessionId", "uri", "version", "position", "triggerKind"}}),
 	union.Alt[CloseNesRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
-	union.Alt[MessageMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -467,7 +463,7 @@ var clientNotificationParamsAlternatives = union.Table(
 	union.Alt[DidFocusDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "position", "visibleRange"}, NotNull: []string{"sessionId", "uri", "version", "position", "visibleRange"}}),
 	union.Alt[AcceptNesNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "id"}, NotNull: []string{"sessionId", "id"}}),
 	union.Alt[RejectNesNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "id"}, NotNull: []string{"sessionId", "id"}}),
-	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
+	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"serverId", "requestId", "method"}, NotNull: []string{"serverId", "requestId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -583,7 +579,7 @@ type ClientResponseResultResult struct{ raw jsontext.Value }
 
 // ClientResponseResultResultAlternative is the set of Go types ClientResponseResultResult can hold.
 type ClientResponseResultResultAlternative interface {
-	WriteTextFileResponse | ReadTextFileResponse | RequestPermissionResponse | CreateTerminalResponse | TerminalOutputResponse | ReleaseTerminalResponse | WaitForTerminalExitResponse | KillTerminalResponse | CreateElicitationResponse | ConnectMCPResponse | DisconnectMCPResponse | jsontext.Value
+	WriteTextFileResponse | ReadTextFileResponse | RequestPermissionResponse | CreateTerminalResponse | TerminalOutputResponse | ReleaseTerminalResponse | WaitForTerminalExitResponse | KillTerminalResponse | CreateElicitationResponse | MessageMCPResponse | jsontext.Value
 }
 
 var clientResponseResultResultAlternatives = union.Table(
@@ -596,8 +592,7 @@ var clientResponseResultResultAlternatives = union.Table(
 	union.Alt[WaitForTerminalExitResponse](union.Rule{NonNull: true}),
 	union.Alt[KillTerminalResponse](union.Rule{NonNull: true}),
 	union.Alt[CreateElicitationResponse](union.Rule{NonNull: true}),
-	union.Alt[ConnectMCPResponse](union.Rule{NonNull: true, Required: []string{"connectionId"}, NotNull: []string{"connectionId"}}),
-	union.Alt[DisconnectMCPResponse](union.Rule{NonNull: true}),
+	union.Alt[MessageMCPResponse](union.Rule{NonNull: true}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 

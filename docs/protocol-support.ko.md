@@ -39,7 +39,7 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `logout` | `LogoutHandler` |
 | `nes/*` | `NesHandler` (unstable) |
 | `document/did*` | `DocumentHandler` (unstable) |
-| `mcp/message` | `MCPMessageHandler` (unstable) |
+| `mcp/message` (알림) | `MCPMessageHandler` (unstable) |
 
 ## 클라이언트 메서드 (에이전트 → 클라이언트)
 
@@ -50,7 +50,7 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `fs/write_text_file` | `FileWriter` |
 | `terminal/*` | `TerminalHandler` |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
-| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
+| `mcp/message` (요청) | `MCPProvider` (unstable) |
 
 `$/cancel_request`는 연결이 직접 처리합니다.
 
@@ -71,14 +71,14 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `providers/*` | `ProviderManager` (unstable) |
 | `nes/*` | `NesHandler` (unstable) |
 | `document/did*` | `DocumentHandler` (unstable) |
-| `mcp/message` (에이전트 측) | `MCPMessageHandler` (unstable) |
+| `mcp/message` (알림) | `MCPMessageHandler` (unstable) |
 
 ### 클라이언트 메서드 (에이전트 → 클라이언트)
 
 | 메서드 | Go 인터페이스 |
 | --- | --- |
 | `session/update`, `session/request_permission` | `Client` (필수) |
-| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
+| `mcp/message` (요청) | `MCPProvider` (unstable) |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
 
 ### 턴 처리
