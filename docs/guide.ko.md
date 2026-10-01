@@ -237,7 +237,14 @@ stream.WithMeta(meta).SendText(ctx, "…")                                    //
 tool call id는 세션
 안에서 유일해야 하며, `acp1.GenerateToolCallID`와 `acp1.GenerateMessageID`가 `GenerateSessionID`처럼 시간순으로 정렬되는 고유 id(접두사와 UUIDv7)를
 만듭니다. v2 `SessionStream`은
-메시지마다 id를 받고, 명시적인 턴 상태를 위한 `Running`, `RequiresAction`, `Idle`을 제공합니다.
+메시지마다 id를 받고, 명시적인 턴 상태를 위한 `Running`, `RequiresAction`, `Idle`, `Unknown`을 제공합니다.
+
+작업을 자식 세션에 맡기는 에이전트는 그 세션을 서브에이전트로 노출할 수 있습니다(불안정).
+`stream.StartSubagent(ctx, childID, title, opts...)`는 부모 세션에 자식을 알리고 `SubagentStream`을
+돌려줍니다. 내장된 `SessionStream`은 자식 자신의 업데이트를 보내고, `Running`, `RequiresAction`, `Idle`,
+`Unknown`은 자식의 작업 상태를 보고합니다. v1은 부모의 `subagent_update`로, v2는 자식 스트림에 보내고
+부모에도 같은 상태를 미러링합니다. v1에서는 클라이언트가 `subagents` capability를 광고하지 않았으면
+`errors.ErrUnsupported`로 실패합니다.
 
 ### 취소
 

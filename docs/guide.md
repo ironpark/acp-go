@@ -252,8 +252,15 @@ response is queued, and the connection writes in order.
 
 Tool call ids must be unique within a session; `acp1.GenerateToolCallID` and
 `acp1.GenerateMessageID` mint random ones, like `GenerateSessionID`. The v2
-`SessionStream` takes a message id on every message and adds `Running`, `RequiresAction` and
-`Idle` for the explicit turn state.
+`SessionStream` takes a message id on every message and adds `Running`, `RequiresAction`, `Idle`
+and `Unknown` for the explicit turn state.
+
+An agent that delegates work to child sessions can expose them as subagents (unstable).
+`stream.StartSubagent(ctx, childID, title, opts...)` announces the child on the parent session and
+returns a `SubagentStream`: its embedded `SessionStream` reports the child's own updates, and its
+`Running`, `RequiresAction`, `Idle` and `Unknown` report the child's work — on the parent's
+`subagent_update` in v1, and on the child's stream mirrored to the parent in v2. In v1 it fails
+with `errors.ErrUnsupported` unless the client advertised the `subagents` capability.
 
 ### Cancellation
 

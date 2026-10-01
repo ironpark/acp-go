@@ -196,6 +196,13 @@ func (s *SessionStream) RequiresAction(ctx context.Context) error {
 	return s.state(ctx, schema.StateUpdateRequiresAction{})
 }
 
+// Unknown reports that the agent cannot currently tell whether foreground
+// work is in progress, such as after losing a remote worker's event feed. It
+// does not end the turn; a later state replaces it.
+func (s *SessionStream) Unknown(ctx context.Context) error {
+	return s.state(ctx, schema.StateUpdateUnknown{})
+}
+
 // Idle reports that the agent is ready for a new prompt, ending the turn with
 // the given reason. Clients treat this as the end of the turn.
 func (s *SessionStream) Idle(ctx context.Context, reason StopReason) error {
