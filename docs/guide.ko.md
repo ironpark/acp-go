@@ -168,8 +168,9 @@ return a.RunTurnResponse(ctx, params.SessionID, func(ctx context.Context, s *MyS
 
 에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다. 세션 상태가 `SessionModesReporter`나
 `SessionConfigOptionsReporter`를 구현하면 session/new와 session/resume 응답에 모드와 설정 옵션이 실립니다.
-`SessionCommandsReporter`를 구현하면 그 응답 직후 슬래시 명령이 `available_commands_update`로 전송되므로,
-업데이트가 가리키는 세션보다 먼저 클라이언트에 도착하는 일이 없습니다. `acp.TurnCancelled(ctx)`는
+`SessionCommandsReporter`를 구현하면 v1에서는 그 응답 직후 슬래시 명령이 `available_commands_update`로
+전송되므로, 업데이트가 가리키는 세션보다 먼저 클라이언트에 도착하는 일이 없습니다. v2에서는 응답의
+`availableCommands`에 직접 실립니다. `acp.TurnCancelled(ctx)`는
 `session/cancel`로 취소된 턴을 다른 취소와 구분합니다.
 
 매니저는 에이전트만 아는 대화를 재생해야 하는 `session/load`와, v1에서는 선택 사항인 `session/list`를 제공하지

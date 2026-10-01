@@ -168,7 +168,8 @@ func (s *SessionStream) SendPlan(ctx context.Context, id PlanID, entries []PlanE
 	})
 }
 
-// SendCommands reports the slash commands available in this session.
+// SendCommands reports the slash commands available in this session,
+// replacing the list reported before; an empty list clears it.
 func (s *SessionStream) SendCommands(ctx context.Context, commands []AvailableCommand) error {
 	return s.Send(ctx, schema.SessionUpdateAvailableCommandsUpdate{AvailableCommands: commands})
 }

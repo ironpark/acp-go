@@ -55,29 +55,22 @@ func connectHelper(t *testing.T, store acp2.SessionStore[commandSession], client
 }
 
 func TestSessionManagerAdvertisesCommands(t *testing.T) {
-	client := &acp2test.Client{}
-	conn, _ := connectHelper(t, acp2.NewMemoryStore[commandSession](), client)
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
+	conn, _ := connectHelper(t, acp2.NewMemoryStore[commandSession](), &acp2test.Client{})
+	ctx := t.Context()
 
 	created, err := conn.NewSession(ctx, &acp2.NewSessionRequest{Cwd: "/tmp"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.ResumeSession(ctx, &acp2.ResumeSessionRequest{SessionID: created.SessionID, Cwd: "/tmp"}); err != nil {
+	if len(created.AvailableCommands) != 1 || created.AvailableCommands[0].Name != "compact" {
+		t.Errorf("session/new commands = %+v", created.AvailableCommands)
+	}
+	resumed, err := conn.ResumeSession(ctx, &acp2.ResumeSessionRequest{SessionID: created.SessionID, Cwd: "/tmp"})
+	if err != nil {
 		t.Fatal(err)
 	}
-	seen := 0
-	if _, err := client.WaitFor(ctx, func(n *acp2.UpdateSessionNotification) bool {
-		if update, ok := n.Update.As[acp2.SessionUpdateAvailableCommandsUpdate](); ok && n.SessionID == created.SessionID {
-			if len(update.AvailableCommands) != 1 || update.AvailableCommands[0].Name != "compact" {
-				t.Errorf("commands = %+v", update.AvailableCommands)
-			}
-			seen++
-		}
-		return seen == 2
-	}); err != nil {
-		t.Fatalf("commands after session/new and session/resume: saw %d, %v", seen, err)
+	if len(resumed.AvailableCommands) != 1 || resumed.AvailableCommands[0].Name != "compact" {
+		t.Errorf("session/resume commands = %+v", resumed.AvailableCommands)
 	}
 }
 

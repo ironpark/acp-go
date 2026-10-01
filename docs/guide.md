@@ -174,8 +174,9 @@ return a.RunTurnResponse(ctx, params.SessionID, func(ctx context.Context, s *MyS
 Override any of those by declaring the method on the agent itself. Session state that implements
 `SessionModesReporter` or `SessionConfigOptionsReporter` has its modes and config options reported
 in the session/new and session/resume responses. State that implements `SessionCommandsReporter`
-has its slash commands sent in an `available_commands_update` right after those responses, so the
-update never reaches the client before the session it names. `acp.TurnCancelled(ctx)` tells a
+has its slash commands sent in an `available_commands_update` right after those responses in v1, so
+the update never reaches the client before the session it names; v2 returns them in the responses'
+`availableCommands` instead. `acp.TurnCancelled(ctx)` tells a
 turn cancelled by `session/cancel` apart from other cancellation.
 
 The manager leaves out `session/load`, which must

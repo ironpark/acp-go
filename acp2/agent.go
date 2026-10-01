@@ -36,21 +36,10 @@ func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, transport
 	return c
 }
 
-// agentConnKey carries the [AgentSideConnection] serving a request in the
-// request's context, so helpers the agent calls, such as the
-// [SessionManager], can reach the client without being handed it.
-type agentConnKey struct{}
-
-// agentConnFrom returns the connection serving the request ctx belongs to.
-func agentConnFrom(ctx context.Context) (*AgentSideConnection, bool) {
-	c, ok := ctx.Value(agentConnKey{}).(*AgentSideConnection)
-	return c, ok
-}
-
-// serveRequest dispatches a request with the connection in its context, and
-// records the client's capabilities once an initialize request succeeds.
+// serveRequest dispatches a request, and records the client's capabilities
+// once an initialize request succeeds.
 func (c *AgentSideConnection) serveRequest(ctx context.Context, method string, params jsontext.Value) (any, error) {
-	result, err := c.handleRequest(context.WithValue(ctx, agentConnKey{}, c), method, params)
+	result, err := c.handleRequest(ctx, method, params)
 	if err == nil && method == schema.AgentMethodsInitialize {
 		var request InitializeRequest
 		if json.Unmarshal(params, &request) == nil {

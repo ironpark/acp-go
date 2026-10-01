@@ -54,10 +54,10 @@ type SessionConfigOptionsReporter interface {
 }
 
 // SessionCommandsReporter is implemented by session state that offers slash
-// commands. After answering session/new or session/resume, the
-// [SessionManager] sends them in an available_commands_update, which reaches
-// the client after the response that names the session. Send an update
-// whenever the commands change.
+// commands. The [SessionManager] reports them as the initial commands of its
+// session/new and session/resume responses; an agent's own ForkSession or
+// ResumeSession reports them the same way. Send an available_commands_update
+// whenever the commands change; it replaces the whole list.
 type SessionCommandsReporter interface {
 	AvailableCommands() []AvailableCommand
 }
@@ -93,7 +93,7 @@ type SessionInfoReporter interface {
 // there. When the session state implements
 // [SessionConfigOptionsReporter], the session/new and session/resume
 // responses carry its config options, and when it implements
-// [SessionCommandsReporter], its commands follow the response.
+// [SessionCommandsReporter], its commands.
 // [WithAutoSave] saves a session whenever its turn ends.
 //
 // v2 has no session/load: session/resume replays the history the agent
@@ -313,8 +313,7 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 	if err := m.store.Set(ctx, id, session); err != nil {
 		return nil, err
 	}
-	advertiseCommands(ctx, id, session)
-	return &NewSessionResponse{SessionID: id, ConfigOptions: configOptions(session)}, nil
+	return &NewSessionResponse{SessionID: id, ConfigOptions: configOptions(session), AvailableCommands: availableCommands(session)}, nil
 }
 
 // ListSessions answers session/list from the store, describing each session
@@ -406,8 +405,7 @@ func (m *SessionManager[T]) ResumeSession(ctx context.Context, params *ResumeSes
 	if err != nil {
 		return nil, err
 	}
-	advertiseCommands(ctx, params.SessionID, session)
-	return &ResumeSessionResponse{ConfigOptions: configOptions(session)}, nil
+	return &ResumeSessionResponse{ConfigOptions: configOptions(session), AvailableCommands: availableCommands(session)}, nil
 }
 
 // CloseSession cancels the session's turn in progress. The session stays in
@@ -428,20 +426,11 @@ func configOptions(session any) []SessionConfigOption {
 	return nil
 }
 
-// advertiseCommands sends the commands of a session that has them once the
-// response to the request ctx belongs to has gone out, for a request an
-// [AgentSideConnection] serves.
-func advertiseCommands(ctx context.Context, id SessionID, session any) {
-	reporter, ok := session.(SessionCommandsReporter)
-	if !ok {
-		return
+// availableCommands returns the commands session reports, if any. An empty
+// list is nil, so the response omits it.
+func availableCommands(session any) []AvailableCommand {
+	if r, ok := session.(SessionCommandsReporter); ok && len(r.AvailableCommands()) > 0 {
+		return r.AvailableCommands()
 	}
-	conn, ok := agentConnFrom(ctx)
-	if !ok {
-		return
-	}
-	acp.AfterReply(ctx, func(ctx context.Context) {
-		// A failure means the connection is gone; there is no one to tell.
-		_ = NewSessionStream(conn, id).SendCommands(ctx, reporter.AvailableCommands())
-	})
+	return nil
 }
