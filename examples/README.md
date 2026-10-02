@@ -151,6 +151,7 @@ $ git clone https://github.com/ironpark/acp-go.git
         "."
       ],
       "env": {}
+    }
   }
 ```
 

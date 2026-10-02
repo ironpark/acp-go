@@ -9,6 +9,8 @@ import (
 )
 
 // render prints one update with a type switch over the SessionUpdate union.
+// SessionUpdate calls it, so an update is shown before any request the agent
+// sends after it, such as the permission request for a proposed tool call.
 func (c *exampleClient) render(update acp1.SessionUpdate) {
 	switch update := update.Variant().(type) {
 	case acp1.SessionUpdateAgentMessageChunk:
@@ -28,7 +30,7 @@ func (c *exampleClient) render(update acp1.SessionUpdate) {
 			fmt.Printf(" (%s)", *update.Status)
 		}
 		fmt.Println()
-		c.renderContent(update.Content)
+		c.renderContent(update.ToolCallID, update.Content)
 	case acp1.SessionUpdateToolCallUpdate:
 		// Updates name the tool call by its id; show the title it started with.
 		title := cmp.Or(update.GetTitle(), c.toolTitle(update.ToolCallID))
@@ -37,7 +39,10 @@ func (c *exampleClient) render(update acp1.SessionUpdate) {
 			fmt.Printf(": %s", *update.Status)
 		}
 		fmt.Println()
-		c.renderContent(update.Content)
+		c.renderContent(update.ToolCallID, update.Content)
+		if status := update.GetStatus(); status == acp1.ToolCallStatusCompleted || status == acp1.ToolCallStatusFailed {
+			c.renderTerminals(update.ToolCallID)
+		}
 	case acp1.SessionUpdatePlan:
 		fmt.Println("\n📋 Plan")
 		for _, entry := range update.Entries {
@@ -57,9 +62,10 @@ var planMarks = map[acp1.PlanEntryStatus]string{
 	acp1.PlanEntryStatusCompleted:  "[x]",
 }
 
-// renderContent prints a tool call's output: text, a file diff, or the
-// output of a terminal the agent ran a command in.
-func (c *exampleClient) renderContent(content []acp1.ToolCallContent) {
+// renderContent prints a tool call's output: text or a file diff. A terminal
+// is still running when it is shown, so its output is printed once the tool
+// call ends, by renderTerminals.
+func (c *exampleClient) renderContent(id acp1.ToolCallID, content []acp1.ToolCallContent) {
 	for _, item := range content {
 		switch item := item.Variant().(type) {
 		case acp1.ToolCallContentContent:
@@ -73,10 +79,24 @@ func (c *exampleClient) renderContent(content []acp1.ToolCallContent) {
 			}
 			fmt.Print(indent(item.NewText, "   + "))
 		case acp1.ToolCallContentTerminal:
-			if t, err := c.terminals.get(item.TerminalID); err == nil {
-				output, _, _ := t.snapshot()
-				fmt.Print(indent(output, "   $ "))
-			}
+			c.mu.Lock()
+			c.toolTerminals[id] = append(c.toolTerminals[id], item.TerminalID)
+			c.mu.Unlock()
+		}
+	}
+}
+
+// renderTerminals prints the output of the terminals shown in a tool call
+// that has ended. A released terminal keeps its output for this.
+func (c *exampleClient) renderTerminals(id acp1.ToolCallID) {
+	c.mu.Lock()
+	ids := c.toolTerminals[id]
+	delete(c.toolTerminals, id)
+	c.mu.Unlock()
+	for _, terminalID := range ids {
+		if t, err := c.terminals.get(terminalID); err == nil {
+			output, _, _ := t.snapshot()
+			fmt.Print(indent(output, "   $ "))
 		}
 	}
 }

@@ -108,6 +108,12 @@ if err != nil {
 }
 ```
 
+`Turn.Updates` suits a reader that only follows its turn. It is not ordered with the agent's
+requests: a permission request can arrive before the reader has rendered the tool call it is
+about. An interactive client renders in `Client.SessionUpdate` instead, which the connection
+handles before any request the agent sends after the update, as
+[`examples/client`](../examples/client/) does.
+
 `SpawnAgent` already runs the read loop; `agent.Wait()` reports how the process and connection
 ended. The agent's stderr goes to the parent's unless `cmd.Stderr` is set. `acp1.Pipe` connects
 an agent and a client in memory, which is handy in tests; `acp1test.Connect` wraps it for a test, and

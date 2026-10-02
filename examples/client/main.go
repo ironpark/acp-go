@@ -4,8 +4,8 @@
 //	go run ./examples/client go run ./examples/echo # any agent command
 //
 // It shows the client side of ACP: spawning an agent, driving turns with
-// ClientSession and Turn, rendering updates with a type switch over the
-// SessionUpdate union (render.go), cancelling a turn on Ctrl-C, answering
+// ClientSession and Turn, rendering updates as they arrive with a type
+// switch over the SessionUpdate union (render.go), cancelling a turn on Ctrl-C, answering
 // permission requests, switching session modes, serving the optional file
 // system methods and running commands in terminals for the agent
 // (terminal.go), and calling a typed extension method with acp.CallExt.
@@ -48,6 +48,8 @@ type exampleClient struct {
 	// toolTitles maps each tool call to its title: updates and permission
 	// requests name a tool call by its id and carry only what changed.
 	toolTitles map[acp1.ToolCallID]string
+	// toolTerminals maps each tool call to the terminals it shows.
+	toolTerminals map[acp1.ToolCallID][]acp1.TerminalID
 	// cancelled is closed when the user cancels the running turn.
 	cancelled chan struct{}
 }
@@ -77,10 +79,14 @@ func readLines(r io.Reader) <-chan string {
 	return lines
 }
 
-// SessionUpdate receives every update the agent sends. This client renders
-// the updates of its own turns from Turn.Updates instead, so it has nothing
-// to do here; a UI that shows background activity would update its state.
-func (c *exampleClient) SessionUpdate(context.Context, *acp1.SessionNotification) error {
+// SessionUpdate receives every update the agent sends and renders it. The
+// connection handles an update before any request the agent sends after it,
+// so a tool call is on screen before the permission request about it.
+// Turn.Updates delivers the same updates to a reader that only follows its
+// own turn; an interactive client renders here instead, where the order
+// with the agent's requests holds.
+func (c *exampleClient) SessionUpdate(_ context.Context, n *acp1.SessionNotification) error {
+	c.render(n.Update)
 	return nil
 }
 
@@ -93,7 +99,7 @@ func (c *exampleClient) RequestPermission(ctx context.Context, params *acp1.Requ
 	c.mu.Unlock()
 
 	fmt.Printf("\n🔐 Permission requested: %s\n", cmp.Or(params.ToolCall.GetTitle(), c.toolTitle(params.ToolCall.ToolCallID)))
-	c.renderContent(params.ToolCall.Content) // the change the agent proposes
+	c.renderContent(params.ToolCall.ToolCallID, params.ToolCall.Content) // the change the agent proposes
 	for i, option := range params.Options {
 		fmt.Printf("   %d. %s (%s)\n", i+1, option.Name, option.Kind)
 	}
@@ -191,9 +197,10 @@ func run(ctx context.Context, command []string, verbose bool) error {
 	}
 
 	client := &exampleClient{
-		terminals:  &terminals{},
-		lines:      readLines(os.Stdin),
-		toolTitles: map[acp1.ToolCallID]string{},
+		terminals:     &terminals{},
+		lines:         readLines(os.Stdin),
+		toolTitles:    map[acp1.ToolCallID]string{},
+		toolTerminals: map[acp1.ToolCallID][]acp1.TerminalID{},
 	}
 	agent, err := acp1.SpawnAgent(ctx, cmd, func(*acp1.ClientSideConnection) acp1.Client {
 		return client
@@ -291,9 +298,7 @@ func (c *exampleClient) prompt(ctx context.Context, session *acp1.ClientSession,
 		}
 	}()
 
-	for update := range turn.Updates() {
-		c.render(update)
-	}
+	// SessionUpdate renders the turn as it runs; wait for its result.
 	result, err := turn.Wait()
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
