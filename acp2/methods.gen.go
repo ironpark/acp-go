@@ -63,8 +63,9 @@ type SessionForker interface {
 	ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error)
 }
 
-// SessionResumer handles session/resume, continuing a session without
-// replaying its history.
+// SessionResumer handles session/resume, continuing a session. v2 has no
+// session/load: when the request's ReplayFrom asks for it, the agent replays
+// the history it retains before answering.
 type SessionResumer interface {
 	ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error)
 }
@@ -274,7 +275,8 @@ func (c *ClientSideConnection) ForkSession(ctx context.Context, params *ForkSess
 	return acpconn.Call[ForkSessionResponse](ctx, c.conn, schema.AgentMethodsSessionFork, params)
 }
 
-// ResumeSession continues a session without replaying its history.
+// ResumeSession continues a session, replaying its history first when
+// ReplayFrom asks for it.
 func (c *ClientSideConnection) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
 	return acpconn.Call[ResumeSessionResponse](ctx, c.conn, schema.AgentMethodsSessionResume, params)
 }

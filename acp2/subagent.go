@@ -50,7 +50,10 @@ func (s *SessionStream) StartSubagent(ctx context.Context, child SessionID, titl
 		SessionStream: &SessionStream{client: s.client, sessionID: child, meta: s.meta},
 		parent:        s,
 	}
-	return sub, sub.Update(ctx, append([]SubagentOption{func(u *SessionUpdateSubagentUpdate) { u.Title = &title }}, opts...)...)
+	if err := sub.Update(ctx, append([]SubagentOption{func(u *SessionUpdateSubagentUpdate) { u.Title = &title }}, opts...)...); err != nil {
+		return nil, err
+	}
+	return sub, nil
 }
 
 // Update reports changes to the subagent's title, description or controls on

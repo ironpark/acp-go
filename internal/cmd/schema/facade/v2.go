@@ -88,11 +88,13 @@ original history.`,
 		},
 		{
 			Interface: "SessionResumer",
-			Doc: `SessionResumer handles session/resume, continuing a session without
-replaying its history.`,
+			Doc: `SessionResumer handles session/resume, continuing a session. v2 has no
+session/load: when the request's ReplayFrom asks for it, the agent replays
+the history it retains before answering.`,
 			Methods: []Method{{
 				Wire: "session/resume", Name: "ResumeSession", Params: "ResumeSessionRequest", Response: "ResumeSessionResponse",
-				CallDoc: `ResumeSession continues a session without replaying its history.`,
+				CallDoc: `ResumeSession continues a session, replaying its history first when
+ReplayFrom asks for it.`,
 			}},
 		},
 		{
