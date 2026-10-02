@@ -2,6 +2,7 @@ package acp2_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -76,6 +77,7 @@ type cancellableAgent struct {
 	*acp2.SessionManager[bareSession]
 	client  acp2.Client
 	started chan struct{}
+	ended   chan error // receives the cause the work's context ended with, if set
 }
 
 func (cancellableAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
@@ -89,6 +91,9 @@ func (a *cancellableAgent) Prompt(ctx context.Context, params *acp2.PromptReques
 	joined, err := a.StartTurn(ctx, params.SessionID, stream, func(turn context.Context, _ bareSession) acp2.StopReason {
 		close(a.started)
 		<-turn.Done()
+		if a.ended != nil {
+			a.ended <- context.Cause(turn)
+		}
 		return acp2.StopReasonEndTurn
 	})
 	if err != nil {
@@ -337,5 +342,41 @@ func TestPanickingTurnWorkEndsTheTurn(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			t.Fatal("no idle update carried the panic")
 		}
+	}
+}
+
+// TestTurnEndsWithTheConnection closes the client's connection while a turn
+// runs: the turn's work sees its context end, not cancelled by the client.
+func TestTurnEndsWithTheConnection(t *testing.T) {
+	ended := make(chan error, 1)
+	agent := &cancellableAgent{
+		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[bareSession](),
+			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, bareSession, error) {
+				return acp2.GenerateSessionID(), bareSession{}, nil
+			}),
+		started: make(chan struct{}),
+	}
+	agent.ended = ended
+	_, conn := acp2.Pipe(t.Context(), func(c *acp2.AgentSideConnection) acp2.Agent {
+		agent.client = c
+		return agent
+	}, func(*acp2.ClientSideConnection) acp2.Client { return newTestClient() })
+
+	session, err := conn.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := session.Prompt(t.Context(), acp2.TextBlock("work")); err != nil {
+		t.Fatal(err)
+	}
+	<-agent.started
+	conn.Close()
+	select {
+	case cause := <-ended:
+		if cause == nil || errors.Is(cause, acp.ErrTurnCancelled) {
+			t.Errorf("turn ended with cause %v, want the connection's", cause)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the turn outlived the connection")
 	}
 }

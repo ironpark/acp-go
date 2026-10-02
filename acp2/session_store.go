@@ -278,7 +278,9 @@ func runWork[T any](ctx context.Context, session T, work func(context.Context, T
 //
 // The turn outlives the prompt request, so its context keeps ctx's values but
 // not its cancellation; [SessionManager.CancelSession] cancels it with
-// [acp.ErrTurnCancelled]:
+// [acp.ErrTurnCancelled], and it ends when the connection serving the prompt
+// closes, since its updates could reach no one. A client that reconnects
+// resumes the session and prompts again:
 //
 //	func (a *myAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
 //		turn, done, joined := a.JoinTurn(ctx, params.SessionID)

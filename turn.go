@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/ironpark/acp-go/internal/acpconn"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // ErrTurnCancelled is the cause of a turn context cancelled by the client's
@@ -39,7 +40,10 @@ var ErrTurnInProgress = acpconn.ErrTurnInProgress
 // A turn started from a session/prompt request's context is also cancelled by
 // a session/cancel that arrived after the prompt but before the turn began,
 // so an agent may do work, such as loading the session, before it starts the
-// turn without losing an early cancel.
+// turn without losing an early cancel. It also ends when the connection
+// serving that request closes, even when it was started from a context
+// detached from the request, as a v2 turn is; [TurnCancelled] then reports
+// false.
 //
 // The two ways to start a turn follow the protocol versions: in v1 a prompt
 // occupies the session until it ends, so [TurnTracker.Begin] refuses a second
@@ -128,6 +132,7 @@ func (t *TurnTracker[ID]) Settle(id ID) bool {
 // start registers a new turn; t.mu must be held.
 func (t *TurnTracker[ID]) start(ctx context.Context, id ID) (context.Context, func()) {
 	signal := acpconn.PromptCancelSignal(ctx)
+	conn := jsonrpc.ConnectionContext(ctx)
 	ctx, cancel := context.WithCancelCause(ctx)
 	stop := func() bool { return false }
 	if signal != nil {
@@ -136,6 +141,12 @@ func (t *TurnTracker[ID]) start(ctx context.Context, id ID) (context.Context, fu
 		} else {
 			stop = context.AfterFunc(signal, func() { cancel(ErrTurnCancelled) })
 		}
+	}
+	// A turn detached from its request still ends with the connection: no
+	// one is left to report it to.
+	stopConn := func() bool { return false }
+	if conn != nil {
+		stopConn = context.AfterFunc(conn, func() { cancel(context.Cause(conn)) })
 	}
 	token := &turn{ctx: ctx, cancel: cancel, ended: make(chan struct{})}
 	if t.turns == nil {
@@ -150,6 +161,7 @@ func (t *TurnTracker[ID]) start(ctx context.Context, id ID) (context.Context, fu
 		t.mu.Unlock()
 		close(token.ended)
 		stop()
+		stopConn()
 		cancel(nil)
 	})
 }

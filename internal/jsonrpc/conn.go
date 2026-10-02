@@ -398,10 +398,23 @@ func (c *Connection) trySend(msg wireMessage) bool {
 	return err == nil
 }
 
+type connectionKey struct{}
+
+// ConnectionContext returns the context of the connection serving the
+// request ctx derives from, or nil for any other context. It ends, with the
+// connection's cause, when the connection closes, so work that outlives the
+// request can still end with the connection. Contexts detached from the
+// request with [context.WithoutCancel] carry it too.
+func ConnectionContext(ctx context.Context) context.Context {
+	conn, _ := ctx.Value(connectionKey{}).(context.Context)
+	return conn
+}
+
 // acceptRequest creates an incoming request's context and registers it for
 // $/cancel_request.
 func (c *Connection) acceptRequest(msg wireMessage) (context.Context, context.CancelCauseFunc) {
 	ctx, cancel := context.WithCancelCause(c.ctx)
+	ctx = context.WithValue(ctx, connectionKey{}, c.ctx)
 	c.incoming.Store(IDKey(msg.ID), cancel)
 	if c.requestContext != nil {
 		ctx = c.requestContext(ctx, msg.Method, msg.Params)
