@@ -253,6 +253,15 @@ func (v2Agent) Prompt(context.Context, *acp2.PromptRequest) (*acp2.PromptRespons
 	return &acp2.PromptResponse{MessageID: "m"}, nil
 }
 func (v2Agent) CancelSession(context.Context, *acp2.CancelSessionNotification) error { return nil }
+func (v2Agent) ListSessions(context.Context, *acp2.ListSessionsRequest) (*acp2.ListSessionsResponse, error) {
+	return &acp2.ListSessionsResponse{}, nil
+}
+func (v2Agent) ResumeSession(context.Context, *acp2.ResumeSessionRequest) (*acp2.ResumeSessionResponse, error) {
+	return &acp2.ResumeSessionResponse{}, nil
+}
+func (v2Agent) CloseSession(context.Context, *acp2.CloseSessionRequest) (*acp2.CloseSessionResponse, error) {
+	return &acp2.CloseSessionResponse{}, nil
+}
 
 type v2Client struct {
 	acp2.UnimplementedClient

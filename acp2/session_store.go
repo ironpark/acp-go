@@ -83,9 +83,9 @@ type SessionInfoReporter interface {
 //		},
 //	)}
 //
-// Embedding it satisfies [Agent]'s NewSession and CancelSession plus
-// [SessionLister], [SessionDeleter], [SessionResumer] and [SessionCloser], the
-// session baseline v2 requires; override any of them by declaring the method
+// Embedding it satisfies [Agent]'s session lifecycle methods — NewSession,
+// ListSessions, ResumeSession, CloseSession and CancelSession, the session
+// baseline v2 requires — plus [SessionDeleter]; override any of them by declaring the method
 // on the agent itself. [CapabilitiesOf] advertises what the agent ends up
 // implementing. CancelSession stops the context of the turn started with
 // [SessionManager.JoinTurn]. Every v2 agent answers session/list, so the

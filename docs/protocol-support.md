@@ -60,13 +60,10 @@ The next two tables describe **ACP v1**.
 
 | Method | Go interface |
 | --- | --- |
-| `initialize`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (required) |
+| `initialize`, `session/new`, `session/list`, `session/resume`, `session/close`, `session/prompt`, `session/cancel` | `Agent` (required) |
 | `auth/login`, `auth/logout` | `AuthHandler` |
-| `session/list` | `SessionLister` |
 | `session/delete` | `SessionDeleter` |
 | `session/fork` | `SessionForker` |
-| `session/resume` | `SessionResumer` |
-| `session/close` | `SessionCloser` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/*` | `ProviderManager` (unstable) |
 | `nes/*` | `NesHandler` (unstable) |

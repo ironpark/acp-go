@@ -18,9 +18,11 @@ import (
 	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
-// Agent is the set of methods every ACP v2 agent must handle. Implement the
-// optional interfaces for the rest; unimplemented methods are answered with
-// "method not found".
+// Agent is the set of methods every ACP v2 agent must handle: the baseline
+// session methods the session capability advertises, which v2 requires
+// together. Embedding a [SessionManager] provides the session lifecycle ones.
+// Implement the optional interfaces for the rest; unimplemented methods are
+// answered with "method not found".
 type Agent interface {
 	// Initialize negotiates the protocol version and exchanges capabilities.
 	Initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error)
@@ -28,11 +30,25 @@ type Agent interface {
 	// NewSession creates a conversation session with its own context.
 	NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error)
 
-	// Prompt runs one prompt turn and returns once it stops.
+	// ListSessions lists the agent's sessions, optionally filtered and paginated.
+	ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error)
+
+	// ResumeSession continues a session. v2 has no session/load: when the
+	// request's ReplayFrom asks for it, the agent replays the history it retains
+	// before answering.
+	ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error)
+
+	// CloseSession cancels the session's ongoing work, as session/cancel does,
+	// and frees the resources it holds on this connection.
+	CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error)
+
+	// Prompt accepts a user message into the session, starting foreground work
+	// or contributing to the work already running, and returns once the message
+	// is accepted. The work reports running and idle with state updates.
 	Prompt(ctx context.Context, params *PromptRequest) (*PromptResponse, error)
 
-	// CancelSession is a notification asking the agent to abort the current
-	// turn. The pending Prompt call should return with the cancelled outcome.
+	// CancelSession is a notification asking the agent to stop the session's
+	// foreground work, which then reports idle with the cancelled stop reason.
 	CancelSession(ctx context.Context, params *CancelSessionNotification) error
 }
 
@@ -42,11 +58,6 @@ type AuthHandler interface {
 	Login(ctx context.Context, params *LoginAuthRequest) (*LoginAuthResponse, error)
 
 	Logout(ctx context.Context, params *LogoutAuthRequest) (*LogoutAuthResponse, error)
-}
-
-// SessionLister handles session/list.
-type SessionLister interface {
-	ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error)
 }
 
 // SessionDeleter handles session/delete. Advertise it with the
@@ -61,18 +72,6 @@ type SessionDeleter interface {
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionForker interface {
 	ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error)
-}
-
-// SessionResumer handles session/resume, continuing a session. v2 has no
-// session/load: when the request's ReplayFrom asks for it, the agent replays
-// the history it retains before answering.
-type SessionResumer interface {
-	ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error)
-}
-
-// SessionCloser handles session/close.
-type SessionCloser interface {
-	CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error)
 }
 
 // SessionConfigOptionSetter handles session/set_config_option. The response
@@ -235,14 +234,30 @@ func (c *ClientSideConnection) NewSession(ctx context.Context, params *NewSessio
 	return acpconn.Call[NewSessionResponse](ctx, c.conn, schema.AgentMethodsSessionNew, params)
 }
 
-// Prompt runs one prompt turn and returns once the agent stops. Cancelling
-// ctx cancels the JSON-RPC request; to cancel the turn itself with the
-// protocol's own semantics, send [ClientSideConnection.CancelSession].
+// ListSessions lists sessions, optionally filtered and paginated.
+func (c *ClientSideConnection) ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error) {
+	return acpconn.Call[ListSessionsResponse](ctx, c.conn, schema.AgentMethodsSessionList, params)
+}
+
+// ResumeSession continues a session, replaying its history first when
+// ReplayFrom asks for it.
+func (c *ClientSideConnection) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
+	return acpconn.Call[ResumeSessionResponse](ctx, c.conn, schema.AgentMethodsSessionResume, params)
+}
+
+// CloseSession cancels any ongoing work and frees the session's resources.
+func (c *ClientSideConnection) CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
+	return acpconn.Call[CloseSessionResponse](ctx, c.conn, schema.AgentMethodsSessionClose, params)
+}
+
+// Prompt sends a user message and returns once the agent accepts it; the
+// work it starts ends when the agent reports idle. [ClientSession.Prompt]
+// follows the turn.
 func (c *ClientSideConnection) Prompt(ctx context.Context, params *PromptRequest) (*PromptResponse, error) {
 	return acpconn.Call[PromptResponse](ctx, c.conn, schema.AgentMethodsSessionPrompt, params)
 }
 
-// CancelSession asks the agent to end the current turn.
+// CancelSession asks the agent to stop the session's foreground work.
 func (c *ClientSideConnection) CancelSession(ctx context.Context, params *CancelSessionNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsSessionCancel, params)
 }
@@ -257,11 +272,6 @@ func (c *ClientSideConnection) Logout(ctx context.Context, params *LogoutAuthReq
 	return acpconn.Call[LogoutAuthResponse](ctx, c.conn, schema.AgentMethodsAuthLogout, params)
 }
 
-// ListSessions lists sessions, optionally filtered and paginated.
-func (c *ClientSideConnection) ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error) {
-	return acpconn.Call[ListSessionsResponse](ctx, c.conn, schema.AgentMethodsSessionList, params)
-}
-
 // DeleteSession deletes a session and its stored history.
 func (c *ClientSideConnection) DeleteSession(ctx context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error) {
 	return acpconn.Call[DeleteSessionResponse](ctx, c.conn, schema.AgentMethodsSessionDelete, params)
@@ -273,17 +283,6 @@ func (c *ClientSideConnection) DeleteSession(ctx context.Context, params *Delete
 // Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error) {
 	return acpconn.Call[ForkSessionResponse](ctx, c.conn, schema.AgentMethodsSessionFork, params)
-}
-
-// ResumeSession continues a session, replaying its history first when
-// ReplayFrom asks for it.
-func (c *ClientSideConnection) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
-	return acpconn.Call[ResumeSessionResponse](ctx, c.conn, schema.AgentMethodsSessionResume, params)
-}
-
-// CloseSession cancels any ongoing work and frees the session's resources.
-func (c *ClientSideConnection) CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
-	return acpconn.Call[CloseSessionResponse](ctx, c.conn, schema.AgentMethodsSessionClose, params)
 }
 
 // SetSessionConfigOption sets one configuration option. The response returns
@@ -427,6 +426,12 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 		return acpconn.Request(ctx, schema.Validated(), params, c.agent.Initialize)
 	case schema.AgentMethodsSessionNew:
 		return acpconn.Request(ctx, schema.Validated(), params, c.agent.NewSession)
+	case schema.AgentMethodsSessionList:
+		return acpconn.Request(ctx, schema.Validated(), params, c.agent.ListSessions)
+	case schema.AgentMethodsSessionResume:
+		return acpconn.Request(ctx, schema.Validated(), params, c.agent.ResumeSession)
+	case schema.AgentMethodsSessionClose:
+		return acpconn.Request(ctx, schema.Validated(), params, c.agent.CloseSession)
 	case schema.AgentMethodsSessionPrompt:
 		return acpconn.Request(ctx, schema.Validated(), params, c.agent.Prompt)
 	case schema.AgentMethodsAuthLogin:
@@ -437,10 +442,6 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 		if h, ok := c.agent.(AuthHandler); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.Logout)
 		}
-	case schema.AgentMethodsSessionList:
-		if h, ok := c.agent.(SessionLister); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.ListSessions)
-		}
 	case schema.AgentMethodsSessionDelete:
 		if h, ok := c.agent.(SessionDeleter); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.DeleteSession)
@@ -448,14 +449,6 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 	case schema.AgentMethodsSessionFork:
 		if h, ok := c.agent.(SessionForker); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.ForkSession)
-		}
-	case schema.AgentMethodsSessionResume:
-		if h, ok := c.agent.(SessionResumer); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.ResumeSession)
-		}
-	case schema.AgentMethodsSessionClose:
-		if h, ok := c.agent.(SessionCloser); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.CloseSession)
 		}
 	case schema.AgentMethodsSessionSetConfigOption:
 		if h, ok := c.agent.(SessionConfigOptionSetter); ok {

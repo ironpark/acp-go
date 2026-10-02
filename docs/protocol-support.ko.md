@@ -60,13 +60,10 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 
 | 메서드 | Go 인터페이스 |
 | --- | --- |
-| `initialize`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (필수) |
+| `initialize`, `session/new`, `session/list`, `session/resume`, `session/close`, `session/prompt`, `session/cancel` | `Agent` (필수) |
 | `auth/login`, `auth/logout` | `AuthHandler` |
-| `session/list` | `SessionLister` |
 | `session/delete` | `SessionDeleter` |
 | `session/fork` | `SessionForker` |
-| `session/resume` | `SessionResumer` |
-| `session/close` | `SessionCloser` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/*` | `ProviderManager` (unstable) |
 | `nes/*` | `NesHandler` (unstable) |

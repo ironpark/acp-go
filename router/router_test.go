@@ -52,6 +52,15 @@ func (a *v2Agent) Prompt(context.Context, *acp2.PromptRequest) (*acp2.PromptResp
 	return nil, nil
 }
 func (a *v2Agent) CancelSession(context.Context, *acp2.CancelSessionNotification) error { return nil }
+func (a *v2Agent) ListSessions(context.Context, *acp2.ListSessionsRequest) (*acp2.ListSessionsResponse, error) {
+	return &acp2.ListSessionsResponse{}, nil
+}
+func (a *v2Agent) ResumeSession(context.Context, *acp2.ResumeSessionRequest) (*acp2.ResumeSessionResponse, error) {
+	return &acp2.ResumeSessionResponse{}, nil
+}
+func (a *v2Agent) CloseSession(context.Context, *acp2.CloseSessionRequest) (*acp2.CloseSessionResponse, error) {
+	return &acp2.CloseSessionResponse{}, nil
+}
 
 // peer is a raw JSON-RPC client talking to a routed agent over pipes.
 type peer struct {

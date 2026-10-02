@@ -9,30 +9,26 @@ import schema "github.com/ironpark/acp-go/schema/v2"
 //	caps := acp2.CapabilitiesOf(a)
 //	return &acp2.InitializeResponse{ProtocolVersion: acp2.ProtocolVersion, Info: info, Capabilities: caps}, nil
 //
-// session/list, session/resume and session/close have no capability flag in
-// v2. Group capabilities with their own sub-flags — auth, providers and nes —
-// are set to empty objects, which advertises the group; fill in the sub-flags
-// the agent supports. [MCPMessageHandler] sets session.mcp.acp. Prompt
+// The session object is always set: every [Agent] handles the baseline
+// session methods it advertises, session/new, session/list, session/resume,
+// session/close, session/prompt and session/cancel. Group capabilities with
+// their own sub-flags — auth, providers and nes — are set to empty objects,
+// which advertises the group; fill in the sub-flags the agent supports. [MCPMessageHandler] sets session.mcp.acp. Prompt
 // capabilities, the other MCP transports and position encoding describe
 // content rather than methods and are left for the agent to set.
 func CapabilitiesOf(agent Agent) *AgentCapabilities {
-	caps := &schema.AgentCapabilities{}
+	// Every Agent implements the baseline session methods, which an empty
+	// session object advertises; the optional ones add their markers.
 	session := &schema.SessionCapabilities{}
-	advertise := false
+	caps := &schema.AgentCapabilities{Session: session}
 	if _, ok := agent.(SessionDeleter); ok {
 		session.Delete = &schema.SessionDeleteCapabilities{}
-		advertise = true
 	}
 	if _, ok := agent.(SessionForker); ok {
 		session.Fork = &schema.SessionForkCapabilities{}
-		advertise = true
 	}
 	if _, ok := agent.(MCPMessageHandler); ok {
 		session.MCP = &schema.MCPCapabilities{ACP: &schema.MCPACPCapabilities{}}
-		advertise = true
-	}
-	if advertise {
-		caps.Session = session
 	}
 	if _, ok := agent.(AuthHandler); ok {
 		caps.Auth = &schema.AgentAuthCapabilities{}

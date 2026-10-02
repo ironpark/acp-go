@@ -14,9 +14,11 @@ var V2 = &Spec{
 		{
 			Interface: "Agent",
 			Required:  true,
-			Doc: `Agent is the set of methods every ACP v2 agent must handle. Implement the
-optional interfaces for the rest; unimplemented methods are answered with
-"method not found".`,
+			Doc: `Agent is the set of methods every ACP v2 agent must handle: the baseline
+session methods the session capability advertises, which v2 requires
+together. Embedding a [SessionManager] provides the session lifecycle ones.
+Implement the optional interfaces for the rest; unimplemented methods are
+answered with "method not found".`,
 			Methods: []Method{
 				{
 					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse", CallVia: "initialize",
@@ -33,17 +35,38 @@ package in that case.`,
 					CallDoc: `NewSession creates a session. It may fail with an auth-required error.`,
 				},
 				{
+					Wire: "session/list", Name: "ListSessions", Params: "ListSessionsRequest", Response: "ListSessionsResponse",
+					Doc:     `ListSessions lists the agent's sessions, optionally filtered and paginated.`,
+					CallDoc: `ListSessions lists sessions, optionally filtered and paginated.`,
+				},
+				{
+					Wire: "session/resume", Name: "ResumeSession", Params: "ResumeSessionRequest", Response: "ResumeSessionResponse",
+					Doc: `ResumeSession continues a session. v2 has no session/load: when the
+request's ReplayFrom asks for it, the agent replays the history it retains
+before answering.`,
+					CallDoc: `ResumeSession continues a session, replaying its history first when
+ReplayFrom asks for it.`,
+				},
+				{
+					Wire: "session/close", Name: "CloseSession", Params: "CloseSessionRequest", Response: "CloseSessionResponse",
+					Doc: `CloseSession cancels the session's ongoing work, as session/cancel does,
+and frees the resources it holds on this connection.`,
+					CallDoc: `CloseSession cancels any ongoing work and frees the session's resources.`,
+				},
+				{
 					Wire: "session/prompt", Name: "Prompt", Params: "PromptRequest", Response: "PromptResponse",
-					Doc: `Prompt runs one prompt turn and returns once it stops.`,
-					CallDoc: `Prompt runs one prompt turn and returns once the agent stops. Cancelling
-ctx cancels the JSON-RPC request; to cancel the turn itself with the
-protocol's own semantics, send [ClientSideConnection.CancelSession].`,
+					Doc: `Prompt accepts a user message into the session, starting foreground work
+or contributing to the work already running, and returns once the message
+is accepted. The work reports running and idle with state updates.`,
+					CallDoc: `Prompt sends a user message and returns once the agent accepts it; the
+work it starts ends when the agent reports idle. [ClientSession.Prompt]
+follows the turn.`,
 				},
 				{
 					Wire: "session/cancel", Name: "CancelSession", Params: "CancelSessionNotification",
-					Doc: `CancelSession is a notification asking the agent to abort the current
-turn. The pending Prompt call should return with the cancelled outcome.`,
-					CallDoc: `CancelSession asks the agent to end the current turn.`,
+					Doc: `CancelSession is a notification asking the agent to stop the session's
+foreground work, which then reports idle with the cancelled stop reason.`,
+					CallDoc: `CancelSession asks the agent to stop the session's foreground work.`,
 				},
 			},
 		},
@@ -57,14 +80,6 @@ turn. The pending Prompt call should return with the cancelled outcome.`,
 				{Wire: "auth/logout", Name: "Logout", Params: "LogoutAuthRequest", Response: "LogoutAuthResponse",
 					CallDoc: `Logout clears the credentials the agent holds.`},
 			},
-		},
-		{
-			Interface: "SessionLister",
-			Doc:       `SessionLister handles session/list.`,
-			Methods: []Method{{
-				Wire: "session/list", Name: "ListSessions", Params: "ListSessionsRequest", Response: "ListSessionsResponse",
-				CallDoc: `ListSessions lists sessions, optionally filtered and paginated.`,
-			}},
 		},
 		{
 			Interface: "SessionDeleter",
@@ -84,25 +99,6 @@ turn. The pending Prompt call should return with the cancelled outcome.`,
 				Wire: "session/fork", Name: "ForkSession", Params: "ForkSessionRequest", Response: "ForkSessionResponse",
 				CallDoc: `ForkSession branches a session so work continues without touching the
 original history.`,
-			}},
-		},
-		{
-			Interface: "SessionResumer",
-			Doc: `SessionResumer handles session/resume, continuing a session. v2 has no
-session/load: when the request's ReplayFrom asks for it, the agent replays
-the history it retains before answering.`,
-			Methods: []Method{{
-				Wire: "session/resume", Name: "ResumeSession", Params: "ResumeSessionRequest", Response: "ResumeSessionResponse",
-				CallDoc: `ResumeSession continues a session, replaying its history first when
-ReplayFrom asks for it.`,
-			}},
-		},
-		{
-			Interface: "SessionCloser",
-			Doc:       `SessionCloser handles session/close.`,
-			Methods: []Method{{
-				Wire: "session/close", Name: "CloseSession", Params: "CloseSessionRequest", Response: "CloseSessionResponse",
-				CallDoc: `CloseSession cancels any ongoing work and frees the session's resources.`,
 			}},
 		},
 		{
