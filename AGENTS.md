@@ -36,7 +36,7 @@ ACP(Agent Client Protocol) for golang
 - `acp1/acp1test` / `acp2/acp2test`: test helpers for agents — a recording client and an in-memory `Connect`.
 - `router`: `ProtocolRouter` serving both versions on one endpoint, and `ClientConnector` for the client side with v2→v1 fallback (imports root and both façades).
 - `internal/jsonrpc`: JSON-RPC 2.0 core. `internal/acpconn`: generic dispatch, process spawn/pipe, client turn buffering and agent-side prompt cancel tracking used by the façades.
-- `acpmcp` (separate module, `replace`s the root): MCP-over-ACP bridged to the MCP Go SDK; unstable, like the RFD it implements. Test it from its own directory.
+- `acpmcp` (separate module that requires a released root; the repository's `go.work` points it at the local root): MCP-over-ACP bridged to the MCP Go SDK; unstable, like the RFD it implements. Test it from its own directory.
 - `schema/meta`: the `_meta` map type every schema version aliases as `Meta`. `schema/optional`: `optional.Value[T]`, the absent/null/value type of the members `overrides.yaml` lists as tristate. `schema/internal/union`, `schema/internal/zod`: generated-code runtimes, importable only by the schema packages.
 
 ### SDK

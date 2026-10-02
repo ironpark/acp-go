@@ -3,7 +3,7 @@ module github.com/ironpark/acp-go/acpmcp
 go 1.27.0
 
 require (
-	github.com/ironpark/acp-go v0.0.0-00010101000000-000000000000
+	github.com/ironpark/acp-go v0.1.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 )
 
@@ -17,7 +17,3 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 )
-
-// The SDK and this module are developed together; a released acpmcp requires
-// a released SDK version instead.
-replace github.com/ironpark/acp-go => ../

@@ -6,6 +6,12 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `acpmcp` requires the released `github.com/ironpark/acp-go v0.1.0` instead of a `replace` of the
+  root, so it can be fetched on its own. Its first tag is `acpmcp/v0.1.0`. A `go.work` at the
+  repository root keeps local development on the working tree.
+
 ## [0.1.0] - 2026-10-02
 
 First tagged release. It supports ACP schema v1.24.1 and the v2 draft 2.0.0-alpha.7. The entries
