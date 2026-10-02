@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/ironpark/acp-go/schema/internal/union"
+	"github.com/ironpark/acp-go/schema/optional"
 )
 
 // RequestPermissionSubject is the operation requiring permission.
@@ -88,9 +89,12 @@ func unmarshalRequestPermissionSubjectVariant(dec *jsontext.Decoder, out *Reques
 	if raw.Kind() != '{' {
 		return fmt.Errorf("RequestPermissionSubject: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("RequestPermissionSubject: %w", err)
+	}
+	if !present {
+		return errors.New("RequestPermissionSubject: missing \"type\" member")
 	}
 	switch tag {
 	case "tool_call":
@@ -129,27 +133,15 @@ func (RequestPermissionSubjectToolCall) requestPermissionSubjectVariant() {}
 func (RequestPermissionSubjectToolCall) Tag() string { return "tool_call" }
 
 type requestPermissionSubjectToolCallFields RequestPermissionSubjectToolCall
-type requestPermissionSubjectToolCallWire struct {
-	Tag                                    string `json:"type"`
-	requestPermissionSubjectToolCallFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestPermissionSubjectToolCall) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, requestPermissionSubjectToolCallWire{"tool_call", requestPermissionSubjectToolCallFields(v)})
+	return json.MarshalEncode(enc, typeTagged[requestPermissionSubjectToolCallFields]{"tool_call", requestPermissionSubjectToolCallFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestPermissionSubjectToolCall) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w requestPermissionSubjectToolCallWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "tool_call" {
-		return fmt.Errorf("RequestPermissionSubjectToolCall: expected type \"tool_call\", got %q", w.Tag)
-	}
-	*v = RequestPermissionSubjectToolCall(w.requestPermissionSubjectToolCallFields)
-	return nil
+	return unmarshalTypeTagged(dec, "RequestPermissionSubjectToolCall", "tool_call", (*requestPermissionSubjectToolCallFields)(v))
 }
 
 // RequestPermissionSubjectCommand is the RequestPermissionSubject variant with type "command".
@@ -174,27 +166,15 @@ func (RequestPermissionSubjectCommand) requestPermissionSubjectVariant() {}
 func (RequestPermissionSubjectCommand) Tag() string { return "command" }
 
 type requestPermissionSubjectCommandFields RequestPermissionSubjectCommand
-type requestPermissionSubjectCommandWire struct {
-	Tag                                   string `json:"type"`
-	requestPermissionSubjectCommandFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestPermissionSubjectCommand) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, requestPermissionSubjectCommandWire{"command", requestPermissionSubjectCommandFields(v)})
+	return json.MarshalEncode(enc, typeTagged[requestPermissionSubjectCommandFields]{"command", requestPermissionSubjectCommandFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestPermissionSubjectCommand) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w requestPermissionSubjectCommandWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "command" {
-		return fmt.Errorf("RequestPermissionSubjectCommand: expected type \"command\", got %q", w.Tag)
-	}
-	*v = RequestPermissionSubjectCommand(w.requestPermissionSubjectCommandFields)
-	return nil
+	return unmarshalTypeTagged(dec, "RequestPermissionSubjectCommand", "command", (*requestPermissionSubjectCommandFields)(v))
 }
 
 // RequestPermissionSubjectCustom holds RequestPermissionSubject values with an unrecognized "type", keeping every member.
@@ -296,9 +276,12 @@ func unmarshalToolCallContentVariant(dec *jsontext.Decoder, out *ToolCallContent
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ToolCallContent: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("ToolCallContent: %w", err)
+	}
+	if !present {
+		return errors.New("ToolCallContent: missing \"type\" member")
 	}
 	switch tag {
 	case "content":
@@ -344,27 +327,15 @@ func (ToolCallContentContent) toolCallContentVariant() {}
 func (ToolCallContentContent) Tag() string { return "content" }
 
 type toolCallContentContentFields ToolCallContentContent
-type toolCallContentContentWire struct {
-	Tag                          string `json:"type"`
-	toolCallContentContentFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ToolCallContentContent) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, toolCallContentContentWire{"content", toolCallContentContentFields(v)})
+	return json.MarshalEncode(enc, typeTagged[toolCallContentContentFields]{"content", toolCallContentContentFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ToolCallContentContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w toolCallContentContentWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "content" {
-		return fmt.Errorf("ToolCallContentContent: expected type \"content\", got %q", w.Tag)
-	}
-	*v = ToolCallContentContent(w.toolCallContentContentFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ToolCallContentContent", "content", (*toolCallContentContentFields)(v))
 }
 
 // ToolCallContentDiff is the ToolCallContent variant with type "diff".
@@ -398,27 +369,15 @@ func (ToolCallContentDiff) toolCallContentVariant() {}
 func (ToolCallContentDiff) Tag() string { return "diff" }
 
 type toolCallContentDiffFields ToolCallContentDiff
-type toolCallContentDiffWire struct {
-	Tag                       string `json:"type"`
-	toolCallContentDiffFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ToolCallContentDiff) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, toolCallContentDiffWire{"diff", toolCallContentDiffFields(v)})
+	return json.MarshalEncode(enc, typeTagged[toolCallContentDiffFields]{"diff", toolCallContentDiffFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ToolCallContentDiff) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w toolCallContentDiffWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "diff" {
-		return fmt.Errorf("ToolCallContentDiff: expected type \"diff\", got %q", w.Tag)
-	}
-	*v = ToolCallContentDiff(w.toolCallContentDiffFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ToolCallContentDiff", "diff", (*toolCallContentDiffFields)(v))
 }
 
 // ToolCallContentTerminal is a display-only reference to an agent-owned terminal.
@@ -440,27 +399,15 @@ func (ToolCallContentTerminal) toolCallContentVariant() {}
 func (ToolCallContentTerminal) Tag() string { return "terminal" }
 
 type toolCallContentTerminalFields ToolCallContentTerminal
-type toolCallContentTerminalWire struct {
-	Tag                           string `json:"type"`
-	toolCallContentTerminalFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ToolCallContentTerminal) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, toolCallContentTerminalWire{"terminal", toolCallContentTerminalFields(v)})
+	return json.MarshalEncode(enc, typeTagged[toolCallContentTerminalFields]{"terminal", toolCallContentTerminalFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ToolCallContentTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w toolCallContentTerminalWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "terminal" {
-		return fmt.Errorf("ToolCallContentTerminal: expected type \"terminal\", got %q", w.Tag)
-	}
-	*v = ToolCallContentTerminal(w.toolCallContentTerminalFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ToolCallContentTerminal", "terminal", (*toolCallContentTerminalFields)(v))
 }
 
 // ToolCallContentCustom holds ToolCallContent values with an unrecognized "type", keeping every member.
@@ -568,9 +515,12 @@ func unmarshalContentBlockVariant(dec *jsontext.Decoder, out *ContentBlockVarian
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ContentBlock: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("ContentBlock: %w", err)
+	}
+	if !present {
+		return errors.New("ContentBlock: missing \"type\" member")
 	}
 	switch tag {
 	case "text":
@@ -630,27 +580,15 @@ func (ContentBlockText) contentBlockVariant() {}
 func (ContentBlockText) Tag() string { return "text" }
 
 type contentBlockTextFields ContentBlockText
-type contentBlockTextWire struct {
-	Tag                    string `json:"type"`
-	contentBlockTextFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockText) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, contentBlockTextWire{"text", contentBlockTextFields(v)})
+	return json.MarshalEncode(enc, typeTagged[contentBlockTextFields]{"text", contentBlockTextFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockText) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w contentBlockTextWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "text" {
-		return fmt.Errorf("ContentBlockText: expected type \"text\", got %q", w.Tag)
-	}
-	*v = ContentBlockText(w.contentBlockTextFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ContentBlockText", "text", (*contentBlockTextFields)(v))
 }
 
 // ContentBlockImage is an image provided to or from an LLM.
@@ -674,27 +612,15 @@ func (ContentBlockImage) contentBlockVariant() {}
 func (ContentBlockImage) Tag() string { return "image" }
 
 type contentBlockImageFields ContentBlockImage
-type contentBlockImageWire struct {
-	Tag                     string `json:"type"`
-	contentBlockImageFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockImage) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, contentBlockImageWire{"image", contentBlockImageFields(v)})
+	return json.MarshalEncode(enc, typeTagged[contentBlockImageFields]{"image", contentBlockImageFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockImage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w contentBlockImageWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "image" {
-		return fmt.Errorf("ContentBlockImage: expected type \"image\", got %q", w.Tag)
-	}
-	*v = ContentBlockImage(w.contentBlockImageFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ContentBlockImage", "image", (*contentBlockImageFields)(v))
 }
 
 // ContentBlockAudio is the ContentBlock variant with type "audio".
@@ -716,27 +642,15 @@ func (ContentBlockAudio) contentBlockVariant() {}
 func (ContentBlockAudio) Tag() string { return "audio" }
 
 type contentBlockAudioFields ContentBlockAudio
-type contentBlockAudioWire struct {
-	Tag                     string `json:"type"`
-	contentBlockAudioFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockAudio) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, contentBlockAudioWire{"audio", contentBlockAudioFields(v)})
+	return json.MarshalEncode(enc, typeTagged[contentBlockAudioFields]{"audio", contentBlockAudioFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockAudio) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w contentBlockAudioWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "audio" {
-		return fmt.Errorf("ContentBlockAudio: expected type \"audio\", got %q", w.Tag)
-	}
-	*v = ContentBlockAudio(w.contentBlockAudioFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ContentBlockAudio", "audio", (*contentBlockAudioFields)(v))
 }
 
 // ContentBlockResourceLink is the ContentBlock variant with type "resource_link".
@@ -768,27 +682,15 @@ func (ContentBlockResourceLink) contentBlockVariant() {}
 func (ContentBlockResourceLink) Tag() string { return "resource_link" }
 
 type contentBlockResourceLinkFields ContentBlockResourceLink
-type contentBlockResourceLinkWire struct {
-	Tag                            string `json:"type"`
-	contentBlockResourceLinkFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockResourceLink) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, contentBlockResourceLinkWire{"resource_link", contentBlockResourceLinkFields(v)})
+	return json.MarshalEncode(enc, typeTagged[contentBlockResourceLinkFields]{"resource_link", contentBlockResourceLinkFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockResourceLink) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w contentBlockResourceLinkWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "resource_link" {
-		return fmt.Errorf("ContentBlockResourceLink: expected type \"resource_link\", got %q", w.Tag)
-	}
-	*v = ContentBlockResourceLink(w.contentBlockResourceLinkFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ContentBlockResourceLink", "resource_link", (*contentBlockResourceLinkFields)(v))
 }
 
 // ContentBlockResource is the contents of a resource, embedded into a prompt or tool call result.
@@ -808,27 +710,15 @@ func (ContentBlockResource) contentBlockVariant() {}
 func (ContentBlockResource) Tag() string { return "resource" }
 
 type contentBlockResourceFields ContentBlockResource
-type contentBlockResourceWire struct {
-	Tag                        string `json:"type"`
-	contentBlockResourceFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockResource) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, contentBlockResourceWire{"resource", contentBlockResourceFields(v)})
+	return json.MarshalEncode(enc, typeTagged[contentBlockResourceFields]{"resource", contentBlockResourceFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockResource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w contentBlockResourceWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "resource" {
-		return fmt.Errorf("ContentBlockResource: expected type \"resource\", got %q", w.Tag)
-	}
-	*v = ContentBlockResource(w.contentBlockResourceFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ContentBlockResource", "resource", (*contentBlockResourceFields)(v))
 }
 
 // ContentBlockCustom holds ContentBlock values with an unrecognized "type", keeping every member.
@@ -977,9 +867,12 @@ func unmarshalDiffChangeVariant(dec *jsontext.Decoder, out *DiffChangeVariant) e
 	if raw.Kind() != '{' {
 		return fmt.Errorf("DiffChange: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "operation", dec.Options())
+	tag, present, err := union.ReadTag(raw, "operation", dec.Options())
 	if err != nil {
 		return fmt.Errorf("DiffChange: %w", err)
+	}
+	if !present {
+		return errors.New("DiffChange: missing \"operation\" member")
 	}
 	switch tag {
 	case "add":
@@ -1043,27 +936,15 @@ func (DiffChangeAdd) diffChangeVariant() {}
 func (DiffChangeAdd) Tag() string { return "add" }
 
 type diffChangeAddFields DiffChangeAdd
-type diffChangeAddWire struct {
-	Tag                 string `json:"operation"`
-	diffChangeAddFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeAdd) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, diffChangeAddWire{"add", diffChangeAddFields(v)})
+	return json.MarshalEncode(enc, operationTagged[diffChangeAddFields]{"add", diffChangeAddFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeAdd) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w diffChangeAddWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "add" {
-		return fmt.Errorf("DiffChangeAdd: expected operation \"add\", got %q", w.Tag)
-	}
-	*v = DiffChangeAdd(w.diffChangeAddFields)
-	return nil
+	return unmarshalOperationTagged(dec, "DiffChangeAdd", "add", (*diffChangeAddFields)(v))
 }
 
 // DiffChangeDelete is the DiffChange variant with operation "delete".
@@ -1087,27 +968,15 @@ func (DiffChangeDelete) diffChangeVariant() {}
 func (DiffChangeDelete) Tag() string { return "delete" }
 
 type diffChangeDeleteFields DiffChangeDelete
-type diffChangeDeleteWire struct {
-	Tag                    string `json:"operation"`
-	diffChangeDeleteFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeDelete) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, diffChangeDeleteWire{"delete", diffChangeDeleteFields(v)})
+	return json.MarshalEncode(enc, operationTagged[diffChangeDeleteFields]{"delete", diffChangeDeleteFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeDelete) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w diffChangeDeleteWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "delete" {
-		return fmt.Errorf("DiffChangeDelete: expected operation \"delete\", got %q", w.Tag)
-	}
-	*v = DiffChangeDelete(w.diffChangeDeleteFields)
-	return nil
+	return unmarshalOperationTagged(dec, "DiffChangeDelete", "delete", (*diffChangeDeleteFields)(v))
 }
 
 // DiffChangeModify is the DiffChange variant with operation "modify".
@@ -1131,27 +1000,15 @@ func (DiffChangeModify) diffChangeVariant() {}
 func (DiffChangeModify) Tag() string { return "modify" }
 
 type diffChangeModifyFields DiffChangeModify
-type diffChangeModifyWire struct {
-	Tag                    string `json:"operation"`
-	diffChangeModifyFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeModify) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, diffChangeModifyWire{"modify", diffChangeModifyFields(v)})
+	return json.MarshalEncode(enc, operationTagged[diffChangeModifyFields]{"modify", diffChangeModifyFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeModify) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w diffChangeModifyWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "modify" {
-		return fmt.Errorf("DiffChangeModify: expected operation \"modify\", got %q", w.Tag)
-	}
-	*v = DiffChangeModify(w.diffChangeModifyFields)
-	return nil
+	return unmarshalOperationTagged(dec, "DiffChangeModify", "modify", (*diffChangeModifyFields)(v))
 }
 
 // DiffChangeMove is the DiffChange variant with operation "move".
@@ -1177,27 +1034,15 @@ func (DiffChangeMove) diffChangeVariant() {}
 func (DiffChangeMove) Tag() string { return "move" }
 
 type diffChangeMoveFields DiffChangeMove
-type diffChangeMoveWire struct {
-	Tag                  string `json:"operation"`
-	diffChangeMoveFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeMove) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, diffChangeMoveWire{"move", diffChangeMoveFields(v)})
+	return json.MarshalEncode(enc, operationTagged[diffChangeMoveFields]{"move", diffChangeMoveFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeMove) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w diffChangeMoveWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "move" {
-		return fmt.Errorf("DiffChangeMove: expected operation \"move\", got %q", w.Tag)
-	}
-	*v = DiffChangeMove(w.diffChangeMoveFields)
-	return nil
+	return unmarshalOperationTagged(dec, "DiffChangeMove", "move", (*diffChangeMoveFields)(v))
 }
 
 // DiffChangeCopy is the DiffChange variant with operation "copy".
@@ -1223,27 +1068,15 @@ func (DiffChangeCopy) diffChangeVariant() {}
 func (DiffChangeCopy) Tag() string { return "copy" }
 
 type diffChangeCopyFields DiffChangeCopy
-type diffChangeCopyWire struct {
-	Tag                  string `json:"operation"`
-	diffChangeCopyFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeCopy) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, diffChangeCopyWire{"copy", diffChangeCopyFields(v)})
+	return json.MarshalEncode(enc, operationTagged[diffChangeCopyFields]{"copy", diffChangeCopyFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeCopy) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w diffChangeCopyWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "copy" {
-		return fmt.Errorf("DiffChangeCopy: expected operation \"copy\", got %q", w.Tag)
-	}
-	*v = DiffChangeCopy(w.diffChangeCopyFields)
-	return nil
+	return unmarshalOperationTagged(dec, "DiffChangeCopy", "copy", (*diffChangeCopyFields)(v))
 }
 
 // DiffChangeCustom holds DiffChange values with an unrecognized "operation", keeping every member.
@@ -1417,9 +1250,12 @@ func unmarshalElicitationPropertySchemaVariant(dec *jsontext.Decoder, out *Elici
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ElicitationPropertySchema: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("ElicitationPropertySchema: %w", err)
+	}
+	if !present {
+		return errors.New("ElicitationPropertySchema: missing \"type\" member")
 	}
 	switch tag {
 	case "string":
@@ -1517,27 +1353,15 @@ func (ElicitationPropertySchemaString) elicitationPropertySchemaVariant() {}
 func (ElicitationPropertySchemaString) Tag() string { return "string" }
 
 type elicitationPropertySchemaStringFields ElicitationPropertySchemaString
-type elicitationPropertySchemaStringWire struct {
-	Tag                                   string `json:"type"`
-	elicitationPropertySchemaStringFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaString) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, elicitationPropertySchemaStringWire{"string", elicitationPropertySchemaStringFields(v)})
+	return json.MarshalEncode(enc, typeTagged[elicitationPropertySchemaStringFields]{"string", elicitationPropertySchemaStringFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaString) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w elicitationPropertySchemaStringWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "string" {
-		return fmt.Errorf("ElicitationPropertySchemaString: expected type \"string\", got %q", w.Tag)
-	}
-	*v = ElicitationPropertySchemaString(w.elicitationPropertySchemaStringFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ElicitationPropertySchemaString", "string", (*elicitationPropertySchemaStringFields)(v))
 }
 
 // ElicitationPropertySchemaNumber is the ElicitationPropertySchema variant with type "number".
@@ -1574,27 +1398,15 @@ func (ElicitationPropertySchemaNumber) elicitationPropertySchemaVariant() {}
 func (ElicitationPropertySchemaNumber) Tag() string { return "number" }
 
 type elicitationPropertySchemaNumberFields ElicitationPropertySchemaNumber
-type elicitationPropertySchemaNumberWire struct {
-	Tag                                   string `json:"type"`
-	elicitationPropertySchemaNumberFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaNumber) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, elicitationPropertySchemaNumberWire{"number", elicitationPropertySchemaNumberFields(v)})
+	return json.MarshalEncode(enc, typeTagged[elicitationPropertySchemaNumberFields]{"number", elicitationPropertySchemaNumberFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaNumber) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w elicitationPropertySchemaNumberWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "number" {
-		return fmt.Errorf("ElicitationPropertySchemaNumber: expected type \"number\", got %q", w.Tag)
-	}
-	*v = ElicitationPropertySchemaNumber(w.elicitationPropertySchemaNumberFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ElicitationPropertySchemaNumber", "number", (*elicitationPropertySchemaNumberFields)(v))
 }
 
 // ElicitationPropertySchemaInteger is the ElicitationPropertySchema variant with type "integer".
@@ -1631,27 +1443,15 @@ func (ElicitationPropertySchemaInteger) elicitationPropertySchemaVariant() {}
 func (ElicitationPropertySchemaInteger) Tag() string { return "integer" }
 
 type elicitationPropertySchemaIntegerFields ElicitationPropertySchemaInteger
-type elicitationPropertySchemaIntegerWire struct {
-	Tag                                    string `json:"type"`
-	elicitationPropertySchemaIntegerFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaInteger) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, elicitationPropertySchemaIntegerWire{"integer", elicitationPropertySchemaIntegerFields(v)})
+	return json.MarshalEncode(enc, typeTagged[elicitationPropertySchemaIntegerFields]{"integer", elicitationPropertySchemaIntegerFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaInteger) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w elicitationPropertySchemaIntegerWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "integer" {
-		return fmt.Errorf("ElicitationPropertySchemaInteger: expected type \"integer\", got %q", w.Tag)
-	}
-	*v = ElicitationPropertySchemaInteger(w.elicitationPropertySchemaIntegerFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ElicitationPropertySchemaInteger", "integer", (*elicitationPropertySchemaIntegerFields)(v))
 }
 
 // ElicitationPropertySchemaBoolean is the ElicitationPropertySchema variant with type "boolean".
@@ -1680,27 +1480,15 @@ func (ElicitationPropertySchemaBoolean) elicitationPropertySchemaVariant() {}
 func (ElicitationPropertySchemaBoolean) Tag() string { return "boolean" }
 
 type elicitationPropertySchemaBooleanFields ElicitationPropertySchemaBoolean
-type elicitationPropertySchemaBooleanWire struct {
-	Tag                                    string `json:"type"`
-	elicitationPropertySchemaBooleanFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, elicitationPropertySchemaBooleanWire{"boolean", elicitationPropertySchemaBooleanFields(v)})
+	return json.MarshalEncode(enc, typeTagged[elicitationPropertySchemaBooleanFields]{"boolean", elicitationPropertySchemaBooleanFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaBoolean) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w elicitationPropertySchemaBooleanWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "boolean" {
-		return fmt.Errorf("ElicitationPropertySchemaBoolean: expected type \"boolean\", got %q", w.Tag)
-	}
-	*v = ElicitationPropertySchemaBoolean(w.elicitationPropertySchemaBooleanFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ElicitationPropertySchemaBoolean", "boolean", (*elicitationPropertySchemaBooleanFields)(v))
 }
 
 // ElicitationPropertySchemaArray is the ElicitationPropertySchema variant with type "array".
@@ -1739,27 +1527,15 @@ func (ElicitationPropertySchemaArray) elicitationPropertySchemaVariant() {}
 func (ElicitationPropertySchemaArray) Tag() string { return "array" }
 
 type elicitationPropertySchemaArrayFields ElicitationPropertySchemaArray
-type elicitationPropertySchemaArrayWire struct {
-	Tag                                  string `json:"type"`
-	elicitationPropertySchemaArrayFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaArray) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, elicitationPropertySchemaArrayWire{"array", elicitationPropertySchemaArrayFields(v)})
+	return json.MarshalEncode(enc, typeTagged[elicitationPropertySchemaArrayFields]{"array", elicitationPropertySchemaArrayFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaArray) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w elicitationPropertySchemaArrayWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "array" {
-		return fmt.Errorf("ElicitationPropertySchemaArray: expected type \"array\", got %q", w.Tag)
-	}
-	*v = ElicitationPropertySchemaArray(w.elicitationPropertySchemaArrayFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ElicitationPropertySchemaArray", "array", (*elicitationPropertySchemaArrayFields)(v))
 }
 
 // ElicitationPropertySchemaCustom holds ElicitationPropertySchema values with an unrecognized "type", keeping every member.
@@ -1898,27 +1674,15 @@ func (MultiSelectItemsString) multiSelectItemsVariant() {}
 func (MultiSelectItemsString) Tag() string { return "string" }
 
 type multiSelectItemsStringFields MultiSelectItemsString
-type multiSelectItemsStringWire struct {
-	Tag                          string `json:"type"`
-	multiSelectItemsStringFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v MultiSelectItemsString) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, multiSelectItemsStringWire{"string", multiSelectItemsStringFields(v)})
+	return json.MarshalEncode(enc, typeTagged[multiSelectItemsStringFields]{"string", multiSelectItemsStringFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *MultiSelectItemsString) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w multiSelectItemsStringWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "string" {
-		return fmt.Errorf("MultiSelectItemsString: expected type \"string\", got %q", w.Tag)
-	}
-	*v = MultiSelectItemsString(w.multiSelectItemsStringFields)
-	return nil
+	return unmarshalTypeTagged(dec, "MultiSelectItemsString", "string", (*multiSelectItemsStringFields)(v))
 }
 
 // MultiSelectItemsCustom holds MultiSelectItems values with an unrecognized "type", keeping every member.
@@ -2122,9 +1886,12 @@ func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) e
 	if raw.Kind() != '{' {
 		return fmt.Errorf("AuthMethod: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("AuthMethod: %w", err)
+	}
+	if !present {
+		return errors.New("AuthMethod: missing \"type\" member")
 	}
 	switch tag {
 	case "terminal":
@@ -2180,27 +1947,15 @@ func (AuthMethodTerminal) authMethodVariant() {}
 func (AuthMethodTerminal) Tag() string { return "terminal" }
 
 type authMethodTerminalFields AuthMethodTerminal
-type authMethodTerminalWire struct {
-	Tag                      string `json:"type"`
-	authMethodTerminalFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v AuthMethodTerminal) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, authMethodTerminalWire{"terminal", authMethodTerminalFields(v)})
+	return json.MarshalEncode(enc, typeTagged[authMethodTerminalFields]{"terminal", authMethodTerminalFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AuthMethodTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w authMethodTerminalWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "terminal" {
-		return fmt.Errorf("AuthMethodTerminal: expected type \"terminal\", got %q", w.Tag)
-	}
-	*v = AuthMethodTerminal(w.authMethodTerminalFields)
-	return nil
+	return unmarshalTypeTagged(dec, "AuthMethodTerminal", "terminal", (*authMethodTerminalFields)(v))
 }
 
 // AuthMethodAgent is the AuthMethod variant with type "agent".
@@ -2224,27 +1979,15 @@ func (AuthMethodAgent) authMethodVariant() {}
 func (AuthMethodAgent) Tag() string { return "agent" }
 
 type authMethodAgentFields AuthMethodAgent
-type authMethodAgentWire struct {
-	Tag                   string `json:"type"`
-	authMethodAgentFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v AuthMethodAgent) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, authMethodAgentWire{"agent", authMethodAgentFields(v)})
+	return json.MarshalEncode(enc, typeTagged[authMethodAgentFields]{"agent", authMethodAgentFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AuthMethodAgent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w authMethodAgentWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "agent" {
-		return fmt.Errorf("AuthMethodAgent: expected type \"agent\", got %q", w.Tag)
-	}
-	*v = AuthMethodAgent(w.authMethodAgentFields)
-	return nil
+	return unmarshalTypeTagged(dec, "AuthMethodAgent", "agent", (*authMethodAgentFields)(v))
 }
 
 // AuthMethodCustom holds AuthMethod values with an unrecognized "type", keeping every member.
@@ -2345,9 +2088,12 @@ func unmarshalSessionConfigOptionVariant(dec *jsontext.Decoder, out *SessionConf
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SessionConfigOption: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("SessionConfigOption: %w", err)
+	}
+	if !present {
+		return errors.New("SessionConfigOption: missing \"type\" member")
 	}
 	switch tag {
 	case "select":
@@ -2395,27 +2141,15 @@ func (SessionConfigOptionSelect) sessionConfigOptionVariant() {}
 func (SessionConfigOptionSelect) Tag() string { return "select" }
 
 type sessionConfigOptionSelectFields SessionConfigOptionSelect
-type sessionConfigOptionSelectWire struct {
-	Tag                             string `json:"type"`
-	sessionConfigOptionSelectFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionConfigOptionSelect) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionConfigOptionSelectWire{"select", sessionConfigOptionSelectFields(v)})
+	return json.MarshalEncode(enc, typeTagged[sessionConfigOptionSelectFields]{"select", sessionConfigOptionSelectFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionConfigOptionSelect) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionConfigOptionSelectWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "select" {
-		return fmt.Errorf("SessionConfigOptionSelect: expected type \"select\", got %q", w.Tag)
-	}
-	*v = SessionConfigOptionSelect(w.sessionConfigOptionSelectFields)
-	return nil
+	return unmarshalTypeTagged(dec, "SessionConfigOptionSelect", "select", (*sessionConfigOptionSelectFields)(v))
 }
 
 // SessionConfigOptionBoolean is the SessionConfigOption variant with type "boolean".
@@ -2439,27 +2173,15 @@ func (SessionConfigOptionBoolean) sessionConfigOptionVariant() {}
 func (SessionConfigOptionBoolean) Tag() string { return "boolean" }
 
 type sessionConfigOptionBooleanFields SessionConfigOptionBoolean
-type sessionConfigOptionBooleanWire struct {
-	Tag                              string `json:"type"`
-	sessionConfigOptionBooleanFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionConfigOptionBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionConfigOptionBooleanWire{"boolean", sessionConfigOptionBooleanFields(v)})
+	return json.MarshalEncode(enc, typeTagged[sessionConfigOptionBooleanFields]{"boolean", sessionConfigOptionBooleanFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionConfigOptionBoolean) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionConfigOptionBooleanWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "boolean" {
-		return fmt.Errorf("SessionConfigOptionBoolean: expected type \"boolean\", got %q", w.Tag)
-	}
-	*v = SessionConfigOptionBoolean(w.sessionConfigOptionBooleanFields)
-	return nil
+	return unmarshalTypeTagged(dec, "SessionConfigOptionBoolean", "boolean", (*sessionConfigOptionBooleanFields)(v))
 }
 
 // SessionConfigOptionCustom holds SessionConfigOption values with an unrecognized "type", keeping every member.
@@ -2615,9 +2337,12 @@ func unmarshalAvailableCommandInputVariant(dec *jsontext.Decoder, out *Available
 	if raw.Kind() != '{' {
 		return fmt.Errorf("AvailableCommandInput: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("AvailableCommandInput: %w", err)
+	}
+	if !present {
+		return errors.New("AvailableCommandInput: missing \"type\" member")
 	}
 	switch tag {
 	case "text":
@@ -2651,27 +2376,15 @@ func (AvailableCommandInputText) availableCommandInputVariant() {}
 func (AvailableCommandInputText) Tag() string { return "text" }
 
 type availableCommandInputTextFields AvailableCommandInputText
-type availableCommandInputTextWire struct {
-	Tag                             string `json:"type"`
-	availableCommandInputTextFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v AvailableCommandInputText) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, availableCommandInputTextWire{"text", availableCommandInputTextFields(v)})
+	return json.MarshalEncode(enc, typeTagged[availableCommandInputTextFields]{"text", availableCommandInputTextFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AvailableCommandInputText) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w availableCommandInputTextWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "text" {
-		return fmt.Errorf("AvailableCommandInputText: expected type \"text\", got %q", w.Tag)
-	}
-	*v = AvailableCommandInputText(w.availableCommandInputTextFields)
-	return nil
+	return unmarshalTypeTagged(dec, "AvailableCommandInputText", "text", (*availableCommandInputTextFields)(v))
 }
 
 // AvailableCommandInputCustom holds AvailableCommandInput values with an unrecognized "type", keeping every member.
@@ -2762,9 +2475,12 @@ func unmarshalNesSuggestionVariant(dec *jsontext.Decoder, out *NesSuggestionVari
 	if raw.Kind() != '{' {
 		return fmt.Errorf("NesSuggestion: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "kind", dec.Options())
+	tag, present, err := union.ReadTag(raw, "kind", dec.Options())
 	if err != nil {
 		return fmt.Errorf("NesSuggestion: %w", err)
+	}
+	if !present {
+		return errors.New("NesSuggestion: missing \"kind\" member")
 	}
 	switch tag {
 	case "edit":
@@ -2822,27 +2538,15 @@ func (NesSuggestionEdit) nesSuggestionVariant() {}
 func (NesSuggestionEdit) Tag() string { return "edit" }
 
 type nesSuggestionEditFields NesSuggestionEdit
-type nesSuggestionEditWire struct {
-	Tag                     string `json:"kind"`
-	nesSuggestionEditFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionEdit) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, nesSuggestionEditWire{"edit", nesSuggestionEditFields(v)})
+	return json.MarshalEncode(enc, kindTagged[nesSuggestionEditFields]{"edit", nesSuggestionEditFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *NesSuggestionEdit) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w nesSuggestionEditWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "edit" {
-		return fmt.Errorf("NesSuggestionEdit: expected kind \"edit\", got %q", w.Tag)
-	}
-	*v = NesSuggestionEdit(w.nesSuggestionEditFields)
-	return nil
+	return unmarshalKindTagged(dec, "NesSuggestionEdit", "edit", (*nesSuggestionEditFields)(v))
 }
 
 // NesSuggestionJump is a jump-to-location suggestion.
@@ -2864,27 +2568,15 @@ func (NesSuggestionJump) nesSuggestionVariant() {}
 func (NesSuggestionJump) Tag() string { return "jump" }
 
 type nesSuggestionJumpFields NesSuggestionJump
-type nesSuggestionJumpWire struct {
-	Tag                     string `json:"kind"`
-	nesSuggestionJumpFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionJump) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, nesSuggestionJumpWire{"jump", nesSuggestionJumpFields(v)})
+	return json.MarshalEncode(enc, kindTagged[nesSuggestionJumpFields]{"jump", nesSuggestionJumpFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *NesSuggestionJump) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w nesSuggestionJumpWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "jump" {
-		return fmt.Errorf("NesSuggestionJump: expected kind \"jump\", got %q", w.Tag)
-	}
-	*v = NesSuggestionJump(w.nesSuggestionJumpFields)
-	return nil
+	return unmarshalKindTagged(dec, "NesSuggestionJump", "jump", (*nesSuggestionJumpFields)(v))
 }
 
 // NesSuggestionRename is a rename symbol suggestion.
@@ -2908,27 +2600,15 @@ func (NesSuggestionRename) nesSuggestionVariant() {}
 func (NesSuggestionRename) Tag() string { return "rename" }
 
 type nesSuggestionRenameFields NesSuggestionRename
-type nesSuggestionRenameWire struct {
-	Tag                       string `json:"kind"`
-	nesSuggestionRenameFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionRename) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, nesSuggestionRenameWire{"rename", nesSuggestionRenameFields(v)})
+	return json.MarshalEncode(enc, kindTagged[nesSuggestionRenameFields]{"rename", nesSuggestionRenameFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *NesSuggestionRename) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w nesSuggestionRenameWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "rename" {
-		return fmt.Errorf("NesSuggestionRename: expected kind \"rename\", got %q", w.Tag)
-	}
-	*v = NesSuggestionRename(w.nesSuggestionRenameFields)
-	return nil
+	return unmarshalKindTagged(dec, "NesSuggestionRename", "rename", (*nesSuggestionRenameFields)(v))
 }
 
 // NesSuggestionSearchAndReplace is a search-and-replace suggestion.
@@ -2954,27 +2634,15 @@ func (NesSuggestionSearchAndReplace) nesSuggestionVariant() {}
 func (NesSuggestionSearchAndReplace) Tag() string { return "searchAndReplace" }
 
 type nesSuggestionSearchAndReplaceFields NesSuggestionSearchAndReplace
-type nesSuggestionSearchAndReplaceWire struct {
-	Tag                                 string `json:"kind"`
-	nesSuggestionSearchAndReplaceFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionSearchAndReplace) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, nesSuggestionSearchAndReplaceWire{"searchAndReplace", nesSuggestionSearchAndReplaceFields(v)})
+	return json.MarshalEncode(enc, kindTagged[nesSuggestionSearchAndReplaceFields]{"searchAndReplace", nesSuggestionSearchAndReplaceFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *NesSuggestionSearchAndReplace) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w nesSuggestionSearchAndReplaceWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "searchAndReplace" {
-		return fmt.Errorf("NesSuggestionSearchAndReplace: expected kind \"searchAndReplace\", got %q", w.Tag)
-	}
-	*v = NesSuggestionSearchAndReplace(w.nesSuggestionSearchAndReplaceFields)
-	return nil
+	return unmarshalKindTagged(dec, "NesSuggestionSearchAndReplace", "searchAndReplace", (*nesSuggestionSearchAndReplaceFields)(v))
 }
 
 // NesSuggestionCustom holds NesSuggestion values with an unrecognized "kind", keeping every member.
@@ -3092,9 +2760,12 @@ func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVari
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SessionUpdate: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "sessionUpdate", dec.Options())
+	tag, present, err := union.ReadTag(raw, "sessionUpdate", dec.Options())
 	if err != nil {
 		return fmt.Errorf("SessionUpdate: %w", err)
+	}
+	if !present {
+		return errors.New("SessionUpdate: missing \"sessionUpdate\" member")
 	}
 	switch tag {
 	case "user_message_chunk":
@@ -3264,27 +2935,15 @@ func (SessionUpdateUserMessageChunk) sessionUpdateVariant() {}
 func (SessionUpdateUserMessageChunk) Tag() string { return "user_message_chunk" }
 
 type sessionUpdateUserMessageChunkFields SessionUpdateUserMessageChunk
-type sessionUpdateUserMessageChunkWire struct {
-	Tag                                 string `json:"sessionUpdate"`
-	sessionUpdateUserMessageChunkFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateUserMessageChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateUserMessageChunkWire{"user_message_chunk", sessionUpdateUserMessageChunkFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateUserMessageChunkFields]{"user_message_chunk", sessionUpdateUserMessageChunkFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateUserMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateUserMessageChunkWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "user_message_chunk" {
-		return fmt.Errorf("SessionUpdateUserMessageChunk: expected sessionUpdate \"user_message_chunk\", got %q", w.Tag)
-	}
-	*v = SessionUpdateUserMessageChunk(w.sessionUpdateUserMessageChunkFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateUserMessageChunk", "user_message_chunk", (*sessionUpdateUserMessageChunkFields)(v))
 }
 
 // SessionUpdateUserMessage is a user message upsert.
@@ -3306,9 +2965,9 @@ type SessionUpdateUserMessage struct {
 	// A unique identifier for the message.
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this message.
-	Content []ContentBlock `json:"content,omitzero"`
+	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
 	// Omitted means no metadata update; `null` is an explicit clear signal.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateUserMessage) sessionUpdateVariant() {}
@@ -3317,27 +2976,15 @@ func (SessionUpdateUserMessage) sessionUpdateVariant() {}
 func (SessionUpdateUserMessage) Tag() string { return "user_message" }
 
 type sessionUpdateUserMessageFields SessionUpdateUserMessage
-type sessionUpdateUserMessageWire struct {
-	Tag                            string `json:"sessionUpdate"`
-	sessionUpdateUserMessageFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateUserMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateUserMessageWire{"user_message", sessionUpdateUserMessageFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateUserMessageFields]{"user_message", sessionUpdateUserMessageFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateUserMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateUserMessageWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "user_message" {
-		return fmt.Errorf("SessionUpdateUserMessage: expected sessionUpdate \"user_message\", got %q", w.Tag)
-	}
-	*v = SessionUpdateUserMessage(w.sessionUpdateUserMessageFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateUserMessage", "user_message", (*sessionUpdateUserMessageFields)(v))
 }
 
 // SessionUpdateAgentMessageChunk is the SessionUpdate variant with sessionUpdate "agent_message_chunk".
@@ -3359,27 +3006,15 @@ func (SessionUpdateAgentMessageChunk) sessionUpdateVariant() {}
 func (SessionUpdateAgentMessageChunk) Tag() string { return "agent_message_chunk" }
 
 type sessionUpdateAgentMessageChunkFields SessionUpdateAgentMessageChunk
-type sessionUpdateAgentMessageChunkWire struct {
-	Tag                                  string `json:"sessionUpdate"`
-	sessionUpdateAgentMessageChunkFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAgentMessageChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateAgentMessageChunkWire{"agent_message_chunk", sessionUpdateAgentMessageChunkFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateAgentMessageChunkFields]{"agent_message_chunk", sessionUpdateAgentMessageChunkFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAgentMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateAgentMessageChunkWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "agent_message_chunk" {
-		return fmt.Errorf("SessionUpdateAgentMessageChunk: expected sessionUpdate \"agent_message_chunk\", got %q", w.Tag)
-	}
-	*v = SessionUpdateAgentMessageChunk(w.sessionUpdateAgentMessageChunkFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateAgentMessageChunk", "agent_message_chunk", (*sessionUpdateAgentMessageChunkFields)(v))
 }
 
 // SessionUpdateAgentMessage is an agent message upsert.
@@ -3401,9 +3036,9 @@ type SessionUpdateAgentMessage struct {
 	// A unique identifier for the message.
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this message.
-	Content []ContentBlock `json:"content,omitzero"`
+	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
 	// Omitted means no metadata update; `null` is an explicit clear signal.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateAgentMessage) sessionUpdateVariant() {}
@@ -3412,27 +3047,15 @@ func (SessionUpdateAgentMessage) sessionUpdateVariant() {}
 func (SessionUpdateAgentMessage) Tag() string { return "agent_message" }
 
 type sessionUpdateAgentMessageFields SessionUpdateAgentMessage
-type sessionUpdateAgentMessageWire struct {
-	Tag                             string `json:"sessionUpdate"`
-	sessionUpdateAgentMessageFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAgentMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateAgentMessageWire{"agent_message", sessionUpdateAgentMessageFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateAgentMessageFields]{"agent_message", sessionUpdateAgentMessageFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAgentMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateAgentMessageWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "agent_message" {
-		return fmt.Errorf("SessionUpdateAgentMessage: expected sessionUpdate \"agent_message\", got %q", w.Tag)
-	}
-	*v = SessionUpdateAgentMessage(w.sessionUpdateAgentMessageFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateAgentMessage", "agent_message", (*sessionUpdateAgentMessageFields)(v))
 }
 
 // SessionUpdateAgentThoughtChunk is the SessionUpdate variant with sessionUpdate "agent_thought_chunk".
@@ -3454,27 +3077,15 @@ func (SessionUpdateAgentThoughtChunk) sessionUpdateVariant() {}
 func (SessionUpdateAgentThoughtChunk) Tag() string { return "agent_thought_chunk" }
 
 type sessionUpdateAgentThoughtChunkFields SessionUpdateAgentThoughtChunk
-type sessionUpdateAgentThoughtChunkWire struct {
-	Tag                                  string `json:"sessionUpdate"`
-	sessionUpdateAgentThoughtChunkFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAgentThoughtChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateAgentThoughtChunkWire{"agent_thought_chunk", sessionUpdateAgentThoughtChunkFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateAgentThoughtChunkFields]{"agent_thought_chunk", sessionUpdateAgentThoughtChunkFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAgentThoughtChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateAgentThoughtChunkWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "agent_thought_chunk" {
-		return fmt.Errorf("SessionUpdateAgentThoughtChunk: expected sessionUpdate \"agent_thought_chunk\", got %q", w.Tag)
-	}
-	*v = SessionUpdateAgentThoughtChunk(w.sessionUpdateAgentThoughtChunkFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateAgentThoughtChunk", "agent_thought_chunk", (*sessionUpdateAgentThoughtChunkFields)(v))
 }
 
 // SessionUpdateAgentThought is an agent thought or reasoning message upsert.
@@ -3496,9 +3107,9 @@ type SessionUpdateAgentThought struct {
 	// A unique identifier for the thought message.
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this thought message.
-	Content []ContentBlock `json:"content,omitzero"`
+	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
 	// Omitted means no metadata update; `null` is an explicit clear signal.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateAgentThought) sessionUpdateVariant() {}
@@ -3507,27 +3118,15 @@ func (SessionUpdateAgentThought) sessionUpdateVariant() {}
 func (SessionUpdateAgentThought) Tag() string { return "agent_thought" }
 
 type sessionUpdateAgentThoughtFields SessionUpdateAgentThought
-type sessionUpdateAgentThoughtWire struct {
-	Tag                             string `json:"sessionUpdate"`
-	sessionUpdateAgentThoughtFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAgentThought) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateAgentThoughtWire{"agent_thought", sessionUpdateAgentThoughtFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateAgentThoughtFields]{"agent_thought", sessionUpdateAgentThoughtFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAgentThought) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateAgentThoughtWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "agent_thought" {
-		return fmt.Errorf("SessionUpdateAgentThought: expected sessionUpdate \"agent_thought\", got %q", w.Tag)
-	}
-	*v = SessionUpdateAgentThought(w.sessionUpdateAgentThoughtFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateAgentThought", "agent_thought", (*sessionUpdateAgentThoughtFields)(v))
 }
 
 // SessionUpdateStateUpdate is the SessionUpdate variant with sessionUpdate "state_update"; its payload is the StateUpdate union
@@ -3572,27 +3171,15 @@ func (SessionUpdateToolCallContentChunk) sessionUpdateVariant() {}
 func (SessionUpdateToolCallContentChunk) Tag() string { return "tool_call_content_chunk" }
 
 type sessionUpdateToolCallContentChunkFields SessionUpdateToolCallContentChunk
-type sessionUpdateToolCallContentChunkWire struct {
-	Tag                                     string `json:"sessionUpdate"`
-	sessionUpdateToolCallContentChunkFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateToolCallContentChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateToolCallContentChunkWire{"tool_call_content_chunk", sessionUpdateToolCallContentChunkFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateToolCallContentChunkFields]{"tool_call_content_chunk", sessionUpdateToolCallContentChunkFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateToolCallContentChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateToolCallContentChunkWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "tool_call_content_chunk" {
-		return fmt.Errorf("SessionUpdateToolCallContentChunk: expected sessionUpdate \"tool_call_content_chunk\", got %q", w.Tag)
-	}
-	*v = SessionUpdateToolCallContentChunk(w.sessionUpdateToolCallContentChunkFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateToolCallContentChunk", "tool_call_content_chunk", (*sessionUpdateToolCallContentChunkFields)(v))
 }
 
 // SessionUpdateToolCallUpdate is the SessionUpdate variant with sessionUpdate "tool_call_update".
@@ -3605,25 +3192,25 @@ type SessionUpdateToolCallUpdate struct {
 	// change, `null` clears the name, and a string replaces it. For a tool
 	// call ID the client has not seen before, omission or `null` means that no
 	// tool name is available.
-	Name *string `json:"name,omitzero"`
+	Name optional.Value[string] `json:"name,omitzero"`
 	// Human-readable title describing what the tool is doing.
-	Title *string `json:"title,omitzero"`
+	Title optional.Value[string] `json:"title,omitzero"`
 	// The category of tool being invoked.
 	// Helps clients choose appropriate icons and UI treatment.
-	Kind *ToolKind `json:"kind,omitzero"`
+	Kind optional.Value[ToolKind] `json:"kind,omitzero"`
 	// Current execution status of the tool call.
-	Status *ToolCallStatus `json:"status,omitzero"`
+	Status optional.Value[ToolCallStatus] `json:"status,omitzero"`
 	// Content produced by the tool call.
-	Content []ToolCallContent `json:"content,omitzero"`
+	Content optional.Value[[]ToolCallContent] `json:"content,omitzero"`
 	// File locations affected by this tool call.
 	// Enables "follow-along" features in clients.
-	Locations []ToolCallLocation `json:"locations,omitzero"`
+	Locations optional.Value[[]ToolCallLocation] `json:"locations,omitzero"`
 	// Raw input parameters sent to the tool.
 	RawInput jsontext.Value `json:"rawInput,omitzero"`
 	// Raw output returned by the tool.
 	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
 	// Omitted means no metadata update; `null` is an explicit clear signal.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateToolCallUpdate) sessionUpdateVariant() {}
@@ -3632,27 +3219,15 @@ func (SessionUpdateToolCallUpdate) sessionUpdateVariant() {}
 func (SessionUpdateToolCallUpdate) Tag() string { return "tool_call_update" }
 
 type sessionUpdateToolCallUpdateFields SessionUpdateToolCallUpdate
-type sessionUpdateToolCallUpdateWire struct {
-	Tag                               string `json:"sessionUpdate"`
-	sessionUpdateToolCallUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateToolCallUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateToolCallUpdateWire{"tool_call_update", sessionUpdateToolCallUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateToolCallUpdateFields]{"tool_call_update", sessionUpdateToolCallUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateToolCallUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateToolCallUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "tool_call_update" {
-		return fmt.Errorf("SessionUpdateToolCallUpdate: expected sessionUpdate \"tool_call_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdateToolCallUpdate(w.sessionUpdateToolCallUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateToolCallUpdate", "tool_call_update", (*sessionUpdateToolCallUpdateFields)(v))
 }
 
 // SessionUpdateTerminalUpdate is an upsert for the stored state of an agent-owned terminal.
@@ -3667,15 +3242,15 @@ type SessionUpdateTerminalUpdate struct {
 	// Unique identifier for this terminal within the session.
 	TerminalID TerminalID `json:"terminalId"`
 	// The command being run.
-	Command *string `json:"command,omitzero"`
+	Command optional.Value[string] `json:"command,omitzero"`
 	// The absolute working directory of the command.
-	Cwd *AbsolutePath `json:"cwd,omitzero"`
+	Cwd optional.Value[AbsolutePath] `json:"cwd,omitzero"`
 	// An authoritative replacement snapshot of terminal output bytes.
-	Output *TerminalOutput `json:"output,omitzero"`
+	Output optional.Value[TerminalOutput] `json:"output,omitzero"`
 	// Exit information. A concrete object marks the terminal as exited.
-	ExitStatus *TerminalExitStatus `json:"exitStatus,omitzero"`
+	ExitStatus optional.Value[TerminalExitStatus] `json:"exitStatus,omitzero"`
 	// Omitted means no metadata update; `null` is an explicit clear signal.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateTerminalUpdate) sessionUpdateVariant() {}
@@ -3684,27 +3259,15 @@ func (SessionUpdateTerminalUpdate) sessionUpdateVariant() {}
 func (SessionUpdateTerminalUpdate) Tag() string { return "terminal_update" }
 
 type sessionUpdateTerminalUpdateFields SessionUpdateTerminalUpdate
-type sessionUpdateTerminalUpdateWire struct {
-	Tag                               string `json:"sessionUpdate"`
-	sessionUpdateTerminalUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateTerminalUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateTerminalUpdateWire{"terminal_update", sessionUpdateTerminalUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateTerminalUpdateFields]{"terminal_update", sessionUpdateTerminalUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateTerminalUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateTerminalUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "terminal_update" {
-		return fmt.Errorf("SessionUpdateTerminalUpdate: expected sessionUpdate \"terminal_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdateTerminalUpdate(w.sessionUpdateTerminalUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateTerminalUpdate", "terminal_update", (*sessionUpdateTerminalUpdateFields)(v))
 }
 
 // SessionUpdateTerminalOutputChunk is a chunk of bytes appended to an agent-owned terminal's output.
@@ -3725,27 +3288,15 @@ func (SessionUpdateTerminalOutputChunk) sessionUpdateVariant() {}
 func (SessionUpdateTerminalOutputChunk) Tag() string { return "terminal_output_chunk" }
 
 type sessionUpdateTerminalOutputChunkFields SessionUpdateTerminalOutputChunk
-type sessionUpdateTerminalOutputChunkWire struct {
-	Tag                                    string `json:"sessionUpdate"`
-	sessionUpdateTerminalOutputChunkFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateTerminalOutputChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateTerminalOutputChunkWire{"terminal_output_chunk", sessionUpdateTerminalOutputChunkFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateTerminalOutputChunkFields]{"terminal_output_chunk", sessionUpdateTerminalOutputChunkFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateTerminalOutputChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateTerminalOutputChunkWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "terminal_output_chunk" {
-		return fmt.Errorf("SessionUpdateTerminalOutputChunk: expected sessionUpdate \"terminal_output_chunk\", got %q", w.Tag)
-	}
-	*v = SessionUpdateTerminalOutputChunk(w.sessionUpdateTerminalOutputChunkFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateTerminalOutputChunk", "terminal_output_chunk", (*sessionUpdateTerminalOutputChunkFields)(v))
 }
 
 // SessionUpdatePlanUpdate is a content update for a plan identified by ID.
@@ -3763,27 +3314,15 @@ func (SessionUpdatePlanUpdate) sessionUpdateVariant() {}
 func (SessionUpdatePlanUpdate) Tag() string { return "plan_update" }
 
 type sessionUpdatePlanUpdateFields SessionUpdatePlanUpdate
-type sessionUpdatePlanUpdateWire struct {
-	Tag                           string `json:"sessionUpdate"`
-	sessionUpdatePlanUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdatePlanUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdatePlanUpdateWire{"plan_update", sessionUpdatePlanUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdatePlanUpdateFields]{"plan_update", sessionUpdatePlanUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdatePlanUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdatePlanUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "plan_update" {
-		return fmt.Errorf("SessionUpdatePlanUpdate: expected sessionUpdate \"plan_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdatePlanUpdate(w.sessionUpdatePlanUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdatePlanUpdate", "plan_update", (*sessionUpdatePlanUpdateFields)(v))
 }
 
 // SessionUpdatePlanRemoved is the SessionUpdate variant with sessionUpdate "plan_removed".
@@ -3803,27 +3342,15 @@ func (SessionUpdatePlanRemoved) sessionUpdateVariant() {}
 func (SessionUpdatePlanRemoved) Tag() string { return "plan_removed" }
 
 type sessionUpdatePlanRemovedFields SessionUpdatePlanRemoved
-type sessionUpdatePlanRemovedWire struct {
-	Tag                            string `json:"sessionUpdate"`
-	sessionUpdatePlanRemovedFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdatePlanRemoved) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdatePlanRemovedWire{"plan_removed", sessionUpdatePlanRemovedFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdatePlanRemovedFields]{"plan_removed", sessionUpdatePlanRemovedFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdatePlanRemoved) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdatePlanRemovedWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "plan_removed" {
-		return fmt.Errorf("SessionUpdatePlanRemoved: expected sessionUpdate \"plan_removed\", got %q", w.Tag)
-	}
-	*v = SessionUpdatePlanRemoved(w.sessionUpdatePlanRemovedFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdatePlanRemoved", "plan_removed", (*sessionUpdatePlanRemovedFields)(v))
 }
 
 // SessionUpdateAvailableCommandsUpdate is the SessionUpdate variant with sessionUpdate "available_commands_update".
@@ -3841,27 +3368,15 @@ func (SessionUpdateAvailableCommandsUpdate) sessionUpdateVariant() {}
 func (SessionUpdateAvailableCommandsUpdate) Tag() string { return "available_commands_update" }
 
 type sessionUpdateAvailableCommandsUpdateFields SessionUpdateAvailableCommandsUpdate
-type sessionUpdateAvailableCommandsUpdateWire struct {
-	Tag                                        string `json:"sessionUpdate"`
-	sessionUpdateAvailableCommandsUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAvailableCommandsUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateAvailableCommandsUpdateWire{"available_commands_update", sessionUpdateAvailableCommandsUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateAvailableCommandsUpdateFields]{"available_commands_update", sessionUpdateAvailableCommandsUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAvailableCommandsUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateAvailableCommandsUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "available_commands_update" {
-		return fmt.Errorf("SessionUpdateAvailableCommandsUpdate: expected sessionUpdate \"available_commands_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdateAvailableCommandsUpdate(w.sessionUpdateAvailableCommandsUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateAvailableCommandsUpdate", "available_commands_update", (*sessionUpdateAvailableCommandsUpdateFields)(v))
 }
 
 // SessionUpdateConfigOptionUpdate is the SessionUpdate variant with sessionUpdate "config_option_update".
@@ -3879,27 +3394,15 @@ func (SessionUpdateConfigOptionUpdate) sessionUpdateVariant() {}
 func (SessionUpdateConfigOptionUpdate) Tag() string { return "config_option_update" }
 
 type sessionUpdateConfigOptionUpdateFields SessionUpdateConfigOptionUpdate
-type sessionUpdateConfigOptionUpdateWire struct {
-	Tag                                   string `json:"sessionUpdate"`
-	sessionUpdateConfigOptionUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateConfigOptionUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateConfigOptionUpdateWire{"config_option_update", sessionUpdateConfigOptionUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateConfigOptionUpdateFields]{"config_option_update", sessionUpdateConfigOptionUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateConfigOptionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateConfigOptionUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "config_option_update" {
-		return fmt.Errorf("SessionUpdateConfigOptionUpdate: expected sessionUpdate \"config_option_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdateConfigOptionUpdate(w.sessionUpdateConfigOptionUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateConfigOptionUpdate", "config_option_update", (*sessionUpdateConfigOptionUpdateFields)(v))
 }
 
 // SessionUpdateSessionInfoUpdate is the SessionUpdate variant with sessionUpdate "session_info_update".
@@ -3913,11 +3416,11 @@ func (v *SessionUpdateConfigOptionUpdate) UnmarshalJSONFrom(dec *jsontext.Decode
 // corresponding value.
 type SessionUpdateSessionInfoUpdate struct {
 	// Human-readable title for the session. Set to null to clear.
-	Title *string `json:"title,omitzero"`
+	Title optional.Value[string] `json:"title,omitzero"`
 	// RFC 3339 timestamp of last activity. Set to null to clear.
-	UpdatedAt *string `json:"updatedAt,omitzero"`
+	UpdatedAt optional.Value[string] `json:"updatedAt,omitzero"`
 	// Omitted means no metadata update; `null` is an explicit clear signal.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateSessionInfoUpdate) sessionUpdateVariant() {}
@@ -3926,27 +3429,15 @@ func (SessionUpdateSessionInfoUpdate) sessionUpdateVariant() {}
 func (SessionUpdateSessionInfoUpdate) Tag() string { return "session_info_update" }
 
 type sessionUpdateSessionInfoUpdateFields SessionUpdateSessionInfoUpdate
-type sessionUpdateSessionInfoUpdateWire struct {
-	Tag                                  string `json:"sessionUpdate"`
-	sessionUpdateSessionInfoUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateSessionInfoUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateSessionInfoUpdateWire{"session_info_update", sessionUpdateSessionInfoUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateSessionInfoUpdateFields]{"session_info_update", sessionUpdateSessionInfoUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateSessionInfoUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateSessionInfoUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "session_info_update" {
-		return fmt.Errorf("SessionUpdateSessionInfoUpdate: expected sessionUpdate \"session_info_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdateSessionInfoUpdate(w.sessionUpdateSessionInfoUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateSessionInfoUpdate", "session_info_update", (*sessionUpdateSessionInfoUpdateFields)(v))
 }
 
 // SessionUpdateUsageUpdate is the SessionUpdate variant with sessionUpdate "usage_update".
@@ -3968,27 +3459,15 @@ func (SessionUpdateUsageUpdate) sessionUpdateVariant() {}
 func (SessionUpdateUsageUpdate) Tag() string { return "usage_update" }
 
 type sessionUpdateUsageUpdateFields SessionUpdateUsageUpdate
-type sessionUpdateUsageUpdateWire struct {
-	Tag                            string `json:"sessionUpdate"`
-	sessionUpdateUsageUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateUsageUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateUsageUpdateWire{"usage_update", sessionUpdateUsageUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateUsageUpdateFields]{"usage_update", sessionUpdateUsageUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateUsageUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateUsageUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "usage_update" {
-		return fmt.Errorf("SessionUpdateUsageUpdate: expected sessionUpdate \"usage_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdateUsageUpdate(w.sessionUpdateUsageUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateUsageUpdate", "usage_update", (*sessionUpdateUsageUpdateFields)(v))
 }
 
 // SessionUpdateNotice is the SessionUpdate variant with sessionUpdate "notice".
@@ -4025,27 +3504,15 @@ func (SessionUpdateNotice) sessionUpdateVariant() {}
 func (SessionUpdateNotice) Tag() string { return "notice" }
 
 type sessionUpdateNoticeFields SessionUpdateNotice
-type sessionUpdateNoticeWire struct {
-	Tag                       string `json:"sessionUpdate"`
-	sessionUpdateNoticeFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateNotice) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateNoticeWire{"notice", sessionUpdateNoticeFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateNoticeFields]{"notice", sessionUpdateNoticeFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateNotice) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateNoticeWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "notice" {
-		return fmt.Errorf("SessionUpdateNotice: expected sessionUpdate \"notice\", got %q", w.Tag)
-	}
-	*v = SessionUpdateNotice(w.sessionUpdateNoticeFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateNotice", "notice", (*sessionUpdateNoticeFields)(v))
 }
 
 // SessionUpdateCompactionUpdate is a context compaction upsert. The first update fixes the compaction's
@@ -4065,11 +3532,11 @@ type SessionUpdateCompactionUpdate struct {
 	// Current lifecycle status.
 	Status CompactionStatus `json:"status"`
 	// Complete replacement user-displayable summary retained by the compaction.
-	Summary []ContentBlock `json:"summary,omitzero"`
+	Summary optional.Value[[]ContentBlock] `json:"summary,omitzero"`
 	// Human-readable description of why the compaction failed.
-	Error *string `json:"error,omitzero"`
+	Error optional.Value[string] `json:"error,omitzero"`
 	// Extensible metadata patch for this compaction.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateCompactionUpdate) sessionUpdateVariant() {}
@@ -4078,27 +3545,15 @@ func (SessionUpdateCompactionUpdate) sessionUpdateVariant() {}
 func (SessionUpdateCompactionUpdate) Tag() string { return "compaction_update" }
 
 type sessionUpdateCompactionUpdateFields SessionUpdateCompactionUpdate
-type sessionUpdateCompactionUpdateWire struct {
-	Tag                                 string `json:"sessionUpdate"`
-	sessionUpdateCompactionUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateCompactionUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateCompactionUpdateWire{"compaction_update", sessionUpdateCompactionUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateCompactionUpdateFields]{"compaction_update", sessionUpdateCompactionUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateCompactionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateCompactionUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "compaction_update" {
-		return fmt.Errorf("SessionUpdateCompactionUpdate: expected sessionUpdate \"compaction_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdateCompactionUpdate(w.sessionUpdateCompactionUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateCompactionUpdate", "compaction_update", (*sessionUpdateCompactionUpdateFields)(v))
 }
 
 // SessionUpdateCompactionSummaryChunk is a content block appended to the retained summary of an in-progress
@@ -4123,27 +3578,15 @@ func (SessionUpdateCompactionSummaryChunk) sessionUpdateVariant() {}
 func (SessionUpdateCompactionSummaryChunk) Tag() string { return "compaction_summary_chunk" }
 
 type sessionUpdateCompactionSummaryChunkFields SessionUpdateCompactionSummaryChunk
-type sessionUpdateCompactionSummaryChunkWire struct {
-	Tag                                       string `json:"sessionUpdate"`
-	sessionUpdateCompactionSummaryChunkFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateCompactionSummaryChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateCompactionSummaryChunkWire{"compaction_summary_chunk", sessionUpdateCompactionSummaryChunkFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateCompactionSummaryChunkFields]{"compaction_summary_chunk", sessionUpdateCompactionSummaryChunkFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateCompactionSummaryChunkWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "compaction_summary_chunk" {
-		return fmt.Errorf("SessionUpdateCompactionSummaryChunk: expected sessionUpdate \"compaction_summary_chunk\", got %q", w.Tag)
-	}
-	*v = SessionUpdateCompactionSummaryChunk(w.sessionUpdateCompactionSummaryChunkFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateCompactionSummaryChunk", "compaction_summary_chunk", (*sessionUpdateCompactionSummaryChunkFields)(v))
 }
 
 // SessionUpdateSubagentUpdate is a notification that the enclosing parent session created and owns a child session.
@@ -4186,25 +3629,25 @@ type SessionUpdateSubagentUpdate struct {
 	//
 	// Optional and nullable. Omitted means unchanged; `null` clears it. If no
 	// title is set, the Client chooses a fallback presentation.
-	Title *string `json:"title,omitzero"`
+	Title optional.Value[string] `json:"title,omitzero"`
 	// The parent's human-readable description of the child's role or purpose.
 	//
 	// Optional and nullable. Omitted means unchanged; `null` clears it. This is
 	// current display metadata, not the history of instructions sent to the child.
-	Description *string `json:"description,omitzero"`
+	Description optional.Value[string] `json:"description,omitzero"`
 	// Client-initiated session mutations permitted for this subagent session.
 	//
 	// Read-only operations retain their normal protocol semantics and
 	// capability requirements.
-	Capabilities *SubagentSessionCapabilities `json:"capabilities,omitzero"`
+	Capabilities optional.Value[SubagentSessionCapabilities] `json:"capabilities,omitzero"`
 	// The child's current foreground state, mirrored onto its parent association.
 	//
 	// Optional and nullable. Omitted means unchanged; `null` removes the
 	// current report and leaves activity unconfirmed (not idle or cancelled).
 	// A concrete [StateUpdate] replaces the entire previous snapshot.
-	State StateUpdate `json:"state,omitzero"`
+	State optional.Value[StateUpdate] `json:"state,omitzero"`
 	// Omitted means no metadata update; `null` is an explicit clear signal.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateSubagentUpdate) sessionUpdateVariant() {}
@@ -4213,27 +3656,15 @@ func (SessionUpdateSubagentUpdate) sessionUpdateVariant() {}
 func (SessionUpdateSubagentUpdate) Tag() string { return "subagent_update" }
 
 type sessionUpdateSubagentUpdateFields SessionUpdateSubagentUpdate
-type sessionUpdateSubagentUpdateWire struct {
-	Tag                               string `json:"sessionUpdate"`
-	sessionUpdateSubagentUpdateFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateSubagentUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateSubagentUpdateWire{"subagent_update", sessionUpdateSubagentUpdateFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateSubagentUpdateFields]{"subagent_update", sessionUpdateSubagentUpdateFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateSubagentUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateSubagentUpdateWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "subagent_update" {
-		return fmt.Errorf("SessionUpdateSubagentUpdate: expected sessionUpdate \"subagent_update\", got %q", w.Tag)
-	}
-	*v = SessionUpdateSubagentUpdate(w.sessionUpdateSubagentUpdateFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateSubagentUpdate", "subagent_update", (*sessionUpdateSubagentUpdateFields)(v))
 }
 
 // SessionUpdateSessionMessage is an upsert for an inter-session message.
@@ -4250,9 +3681,9 @@ type SessionUpdateSessionMessage struct {
 	RecipientSessionID *SessionID `json:"recipientSessionId,omitzero"`
 	// Omitted leaves content unchanged; `null` clears it; a concrete array
 	// replaces the whole content collection.
-	Content []ContentBlock `json:"content,omitzero"`
+	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
 	// Omitted leaves metadata unchanged; `null` clears it.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateSessionMessage) sessionUpdateVariant() {}
@@ -4261,27 +3692,15 @@ func (SessionUpdateSessionMessage) sessionUpdateVariant() {}
 func (SessionUpdateSessionMessage) Tag() string { return "session_message" }
 
 type sessionUpdateSessionMessageFields SessionUpdateSessionMessage
-type sessionUpdateSessionMessageWire struct {
-	Tag                               string `json:"sessionUpdate"`
-	sessionUpdateSessionMessageFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateSessionMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateSessionMessageWire{"session_message", sessionUpdateSessionMessageFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateSessionMessageFields]{"session_message", sessionUpdateSessionMessageFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateSessionMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateSessionMessageWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "session_message" {
-		return fmt.Errorf("SessionUpdateSessionMessage: expected sessionUpdate \"session_message\", got %q", w.Tag)
-	}
-	*v = SessionUpdateSessionMessage(w.sessionUpdateSessionMessageFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateSessionMessage", "session_message", (*sessionUpdateSessionMessageFields)(v))
 }
 
 // SessionUpdateSessionMessageChunk is a streamed content block of an inter-session message.
@@ -4308,27 +3727,15 @@ func (SessionUpdateSessionMessageChunk) sessionUpdateVariant() {}
 func (SessionUpdateSessionMessageChunk) Tag() string { return "session_message_chunk" }
 
 type sessionUpdateSessionMessageChunkFields SessionUpdateSessionMessageChunk
-type sessionUpdateSessionMessageChunkWire struct {
-	Tag                                    string `json:"sessionUpdate"`
-	sessionUpdateSessionMessageChunkFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateSessionMessageChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, sessionUpdateSessionMessageChunkWire{"session_message_chunk", sessionUpdateSessionMessageChunkFields(v)})
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateSessionMessageChunkFields]{"session_message_chunk", sessionUpdateSessionMessageChunkFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateSessionMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w sessionUpdateSessionMessageChunkWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "session_message_chunk" {
-		return fmt.Errorf("SessionUpdateSessionMessageChunk: expected sessionUpdate \"session_message_chunk\", got %q", w.Tag)
-	}
-	*v = SessionUpdateSessionMessageChunk(w.sessionUpdateSessionMessageChunkFields)
-	return nil
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateSessionMessageChunk", "session_message_chunk", (*sessionUpdateSessionMessageChunkFields)(v))
 }
 
 // SessionUpdateCustom holds SessionUpdate values with an unrecognized "sessionUpdate", keeping every member.
@@ -4422,9 +3829,12 @@ func unmarshalStateUpdateVariant(dec *jsontext.Decoder, out *StateUpdateVariant)
 	if raw.Kind() != '{' {
 		return fmt.Errorf("StateUpdate: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "state", dec.Options())
+	tag, present, err := union.ReadTag(raw, "state", dec.Options())
 	if err != nil {
 		return fmt.Errorf("StateUpdate: %w", err)
+	}
+	if !present {
+		return errors.New("StateUpdate: missing \"state\" member")
 	}
 	switch tag {
 	case "running":
@@ -4474,27 +3884,15 @@ func (StateUpdateRunning) stateUpdateVariant() {}
 func (StateUpdateRunning) Tag() string { return "running" }
 
 type stateUpdateRunningFields StateUpdateRunning
-type stateUpdateRunningWire struct {
-	Tag                      string `json:"state"`
-	stateUpdateRunningFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v StateUpdateRunning) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stateUpdateRunningWire{"running", stateUpdateRunningFields(v)})
+	return json.MarshalEncode(enc, stateTagged[stateUpdateRunningFields]{"running", stateUpdateRunningFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *StateUpdateRunning) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w stateUpdateRunningWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "running" {
-		return fmt.Errorf("StateUpdateRunning: expected state \"running\", got %q", w.Tag)
-	}
-	*v = StateUpdateRunning(w.stateUpdateRunningFields)
-	return nil
+	return unmarshalStateTagged(dec, "StateUpdateRunning", "running", (*stateUpdateRunningFields)(v))
 }
 
 // StateUpdateIdle is the StateUpdate variant with state "idle".
@@ -4522,27 +3920,15 @@ func (StateUpdateIdle) stateUpdateVariant() {}
 func (StateUpdateIdle) Tag() string { return "idle" }
 
 type stateUpdateIdleFields StateUpdateIdle
-type stateUpdateIdleWire struct {
-	Tag                   string `json:"state"`
-	stateUpdateIdleFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v StateUpdateIdle) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stateUpdateIdleWire{"idle", stateUpdateIdleFields(v)})
+	return json.MarshalEncode(enc, stateTagged[stateUpdateIdleFields]{"idle", stateUpdateIdleFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *StateUpdateIdle) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w stateUpdateIdleWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "idle" {
-		return fmt.Errorf("StateUpdateIdle: expected state \"idle\", got %q", w.Tag)
-	}
-	*v = StateUpdateIdle(w.stateUpdateIdleFields)
-	return nil
+	return unmarshalStateTagged(dec, "StateUpdateIdle", "idle", (*stateUpdateIdleFields)(v))
 }
 
 // StateUpdateRequiresAction is the StateUpdate variant with state "requires_action".
@@ -4558,27 +3944,15 @@ func (StateUpdateRequiresAction) stateUpdateVariant() {}
 func (StateUpdateRequiresAction) Tag() string { return "requires_action" }
 
 type stateUpdateRequiresActionFields StateUpdateRequiresAction
-type stateUpdateRequiresActionWire struct {
-	Tag                             string `json:"state"`
-	stateUpdateRequiresActionFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v StateUpdateRequiresAction) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stateUpdateRequiresActionWire{"requires_action", stateUpdateRequiresActionFields(v)})
+	return json.MarshalEncode(enc, stateTagged[stateUpdateRequiresActionFields]{"requires_action", stateUpdateRequiresActionFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w stateUpdateRequiresActionWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "requires_action" {
-		return fmt.Errorf("StateUpdateRequiresAction: expected state \"requires_action\", got %q", w.Tag)
-	}
-	*v = StateUpdateRequiresAction(w.stateUpdateRequiresActionFields)
-	return nil
+	return unmarshalStateTagged(dec, "StateUpdateRequiresAction", "requires_action", (*stateUpdateRequiresActionFields)(v))
 }
 
 // StateUpdateUnknown is the Agent cannot currently determine foreground activity.
@@ -4605,27 +3979,15 @@ func (StateUpdateUnknown) stateUpdateVariant() {}
 func (StateUpdateUnknown) Tag() string { return "unknown" }
 
 type stateUpdateUnknownFields StateUpdateUnknown
-type stateUpdateUnknownWire struct {
-	Tag                      string `json:"state"`
-	stateUpdateUnknownFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v StateUpdateUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stateUpdateUnknownWire{"unknown", stateUpdateUnknownFields(v)})
+	return json.MarshalEncode(enc, stateTagged[stateUpdateUnknownFields]{"unknown", stateUpdateUnknownFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *StateUpdateUnknown) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w stateUpdateUnknownWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "unknown" {
-		return fmt.Errorf("StateUpdateUnknown: expected state \"unknown\", got %q", w.Tag)
-	}
-	*v = StateUpdateUnknown(w.stateUpdateUnknownFields)
-	return nil
+	return unmarshalStateTagged(dec, "StateUpdateUnknown", "unknown", (*stateUpdateUnknownFields)(v))
 }
 
 // StateUpdateCustom holds StateUpdate values with an unrecognized "state", keeping every member.
@@ -4720,9 +4082,12 @@ func unmarshalPlanUpdateContentVariant(dec *jsontext.Decoder, out *PlanUpdateCon
 	if raw.Kind() != '{' {
 		return fmt.Errorf("PlanUpdateContent: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("PlanUpdateContent: %w", err)
+	}
+	if !present {
+		return errors.New("PlanUpdateContent: missing \"type\" member")
 	}
 	switch tag {
 	case "items":
@@ -4773,27 +4138,15 @@ func (PlanUpdateContentItems) planUpdateContentVariant() {}
 func (PlanUpdateContentItems) Tag() string { return "items" }
 
 type planUpdateContentItemsFields PlanUpdateContentItems
-type planUpdateContentItemsWire struct {
-	Tag                          string `json:"type"`
-	planUpdateContentItemsFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v PlanUpdateContentItems) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, planUpdateContentItemsWire{"items", planUpdateContentItemsFields(v)})
+	return json.MarshalEncode(enc, typeTagged[planUpdateContentItemsFields]{"items", planUpdateContentItemsFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *PlanUpdateContentItems) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w planUpdateContentItemsWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "items" {
-		return fmt.Errorf("PlanUpdateContentItems: expected type \"items\", got %q", w.Tag)
-	}
-	*v = PlanUpdateContentItems(w.planUpdateContentItemsFields)
-	return nil
+	return unmarshalTypeTagged(dec, "PlanUpdateContentItems", "items", (*planUpdateContentItemsFields)(v))
 }
 
 // PlanUpdateContentFile is a plan represented by a file URI.
@@ -4815,27 +4168,15 @@ func (PlanUpdateContentFile) planUpdateContentVariant() {}
 func (PlanUpdateContentFile) Tag() string { return "file" }
 
 type planUpdateContentFileFields PlanUpdateContentFile
-type planUpdateContentFileWire struct {
-	Tag                         string `json:"type"`
-	planUpdateContentFileFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v PlanUpdateContentFile) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, planUpdateContentFileWire{"file", planUpdateContentFileFields(v)})
+	return json.MarshalEncode(enc, typeTagged[planUpdateContentFileFields]{"file", planUpdateContentFileFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *PlanUpdateContentFile) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w planUpdateContentFileWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "file" {
-		return fmt.Errorf("PlanUpdateContentFile: expected type \"file\", got %q", w.Tag)
-	}
-	*v = PlanUpdateContentFile(w.planUpdateContentFileFields)
-	return nil
+	return unmarshalTypeTagged(dec, "PlanUpdateContentFile", "file", (*planUpdateContentFileFields)(v))
 }
 
 // PlanUpdateContentMarkdown is a plan represented as raw markdown content.
@@ -4857,27 +4198,15 @@ func (PlanUpdateContentMarkdown) planUpdateContentVariant() {}
 func (PlanUpdateContentMarkdown) Tag() string { return "markdown" }
 
 type planUpdateContentMarkdownFields PlanUpdateContentMarkdown
-type planUpdateContentMarkdownWire struct {
-	Tag                             string `json:"type"`
-	planUpdateContentMarkdownFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v PlanUpdateContentMarkdown) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, planUpdateContentMarkdownWire{"markdown", planUpdateContentMarkdownFields(v)})
+	return json.MarshalEncode(enc, typeTagged[planUpdateContentMarkdownFields]{"markdown", planUpdateContentMarkdownFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *PlanUpdateContentMarkdown) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w planUpdateContentMarkdownWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "markdown" {
-		return fmt.Errorf("PlanUpdateContentMarkdown: expected type \"markdown\", got %q", w.Tag)
-	}
-	*v = PlanUpdateContentMarkdown(w.planUpdateContentMarkdownFields)
-	return nil
+	return unmarshalTypeTagged(dec, "PlanUpdateContentMarkdown", "markdown", (*planUpdateContentMarkdownFields)(v))
 }
 
 // PlanUpdateContentCustom holds PlanUpdateContent values with an unrecognized "type", keeping every member.
@@ -4976,9 +4305,12 @@ func unmarshalMCPServerVariant(dec *jsontext.Decoder, out *MCPServerVariant) err
 	if raw.Kind() != '{' {
 		return fmt.Errorf("MCPServer: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("MCPServer: %w", err)
+	}
+	if !present {
+		return errors.New("MCPServer: missing \"type\" member")
 	}
 	switch tag {
 	case "http":
@@ -5028,27 +4360,15 @@ func (MCPServerHTTP) mcpServerVariant() {}
 func (MCPServerHTTP) Tag() string { return "http" }
 
 type mcpServerHTTPFields MCPServerHTTP
-type mcpServerHTTPWire struct {
-	Tag                 string `json:"type"`
-	mcpServerHTTPFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v MCPServerHTTP) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, mcpServerHTTPWire{"http", mcpServerHTTPFields(v)})
+	return json.MarshalEncode(enc, typeTagged[mcpServerHTTPFields]{"http", mcpServerHTTPFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *MCPServerHTTP) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w mcpServerHTTPWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "http" {
-		return fmt.Errorf("MCPServerHTTP: expected type \"http\", got %q", w.Tag)
-	}
-	*v = MCPServerHTTP(w.mcpServerHTTPFields)
-	return nil
+	return unmarshalTypeTagged(dec, "MCPServerHTTP", "http", (*mcpServerHTTPFields)(v))
 }
 
 // MCPServerACP is the MCPServer variant with type "acp".
@@ -5076,27 +4396,15 @@ func (MCPServerACP) mcpServerVariant() {}
 func (MCPServerACP) Tag() string { return "acp" }
 
 type mcpServerACPFields MCPServerACP
-type mcpServerACPWire struct {
-	Tag                string `json:"type"`
-	mcpServerACPFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v MCPServerACP) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, mcpServerACPWire{"acp", mcpServerACPFields(v)})
+	return json.MarshalEncode(enc, typeTagged[mcpServerACPFields]{"acp", mcpServerACPFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *MCPServerACP) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w mcpServerACPWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "acp" {
-		return fmt.Errorf("MCPServerACP: expected type \"acp\", got %q", w.Tag)
-	}
-	*v = MCPServerACP(w.mcpServerACPFields)
-	return nil
+	return unmarshalTypeTagged(dec, "MCPServerACP", "acp", (*mcpServerACPFields)(v))
 }
 
 // MCPServerStdio is the MCPServer variant with type "stdio".
@@ -5120,27 +4428,15 @@ func (MCPServerStdio) mcpServerVariant() {}
 func (MCPServerStdio) Tag() string { return "stdio" }
 
 type mcpServerStdioFields MCPServerStdio
-type mcpServerStdioWire struct {
-	Tag                  string `json:"type"`
-	mcpServerStdioFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v MCPServerStdio) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, mcpServerStdioWire{"stdio", mcpServerStdioFields(v)})
+	return json.MarshalEncode(enc, typeTagged[mcpServerStdioFields]{"stdio", mcpServerStdioFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *MCPServerStdio) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w mcpServerStdioWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "stdio" {
-		return fmt.Errorf("MCPServerStdio: expected type \"stdio\", got %q", w.Tag)
-	}
-	*v = MCPServerStdio(w.mcpServerStdioFields)
-	return nil
+	return unmarshalTypeTagged(dec, "MCPServerStdio", "stdio", (*mcpServerStdioFields)(v))
 }
 
 // MCPServerCustom holds MCPServer values with an unrecognized "type", keeping every member.
@@ -5230,9 +4526,12 @@ func unmarshalReplayFromVariant(dec *jsontext.Decoder, out *ReplayFromVariant) e
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ReplayFrom: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("ReplayFrom: %w", err)
+	}
+	if !present {
+		return errors.New("ReplayFrom: missing \"type\" member")
 	}
 	switch tag {
 	case "start":
@@ -5264,27 +4563,15 @@ func (ReplayFromStart) replayFromVariant() {}
 func (ReplayFromStart) Tag() string { return "start" }
 
 type replayFromStartFields ReplayFromStart
-type replayFromStartWire struct {
-	Tag                   string `json:"type"`
-	replayFromStartFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ReplayFromStart) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, replayFromStartWire{"start", replayFromStartFields(v)})
+	return json.MarshalEncode(enc, typeTagged[replayFromStartFields]{"start", replayFromStartFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ReplayFromStart) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w replayFromStartWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "start" {
-		return fmt.Errorf("ReplayFromStart: expected type \"start\", got %q", w.Tag)
-	}
-	*v = ReplayFromStart(w.replayFromStartFields)
-	return nil
+	return unmarshalTypeTagged(dec, "ReplayFromStart", "start", (*replayFromStartFields)(v))
 }
 
 // ReplayFromCustom holds ReplayFrom values with an unrecognized "type", keeping every member.
@@ -5381,9 +4668,12 @@ func unmarshalSetSessionConfigOptionRequestVariant(dec *jsontext.Decoder, out *S
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SetSessionConfigOptionRequest: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
 	if err != nil {
 		return fmt.Errorf("SetSessionConfigOptionRequest: %w", err)
+	}
+	if !present {
+		return errors.New("SetSessionConfigOptionRequest: missing \"type\" member")
 	}
 	switch tag {
 	case "id":
@@ -5425,27 +4715,15 @@ func (SetSessionConfigOptionRequestID) setSessionConfigOptionRequestVariant() {}
 func (SetSessionConfigOptionRequestID) Tag() string { return "id" }
 
 type setSessionConfigOptionRequestIDFields SetSessionConfigOptionRequestID
-type setSessionConfigOptionRequestIDWire struct {
-	Tag                                   string `json:"type"`
-	setSessionConfigOptionRequestIDFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SetSessionConfigOptionRequestID) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, setSessionConfigOptionRequestIDWire{"id", setSessionConfigOptionRequestIDFields(v)})
+	return json.MarshalEncode(enc, typeTagged[setSessionConfigOptionRequestIDFields]{"id", setSessionConfigOptionRequestIDFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SetSessionConfigOptionRequestID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w setSessionConfigOptionRequestIDWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "id" {
-		return fmt.Errorf("SetSessionConfigOptionRequestID: expected type \"id\", got %q", w.Tag)
-	}
-	*v = SetSessionConfigOptionRequestID(w.setSessionConfigOptionRequestIDFields)
-	return nil
+	return unmarshalTypeTagged(dec, "SetSessionConfigOptionRequestID", "id", (*setSessionConfigOptionRequestIDFields)(v))
 }
 
 // SetSessionConfigOptionRequestBoolean is the SetSessionConfigOptionRequest variant with type "boolean".
@@ -5465,27 +4743,15 @@ func (SetSessionConfigOptionRequestBoolean) setSessionConfigOptionRequestVariant
 func (SetSessionConfigOptionRequestBoolean) Tag() string { return "boolean" }
 
 type setSessionConfigOptionRequestBooleanFields SetSessionConfigOptionRequestBoolean
-type setSessionConfigOptionRequestBooleanWire struct {
-	Tag                                        string `json:"type"`
-	setSessionConfigOptionRequestBooleanFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SetSessionConfigOptionRequestBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, setSessionConfigOptionRequestBooleanWire{"boolean", setSessionConfigOptionRequestBooleanFields(v)})
+	return json.MarshalEncode(enc, typeTagged[setSessionConfigOptionRequestBooleanFields]{"boolean", setSessionConfigOptionRequestBooleanFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SetSessionConfigOptionRequestBoolean) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w setSessionConfigOptionRequestBooleanWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "boolean" {
-		return fmt.Errorf("SetSessionConfigOptionRequestBoolean: expected type \"boolean\", got %q", w.Tag)
-	}
-	*v = SetSessionConfigOptionRequestBoolean(w.setSessionConfigOptionRequestBooleanFields)
-	return nil
+	return unmarshalTypeTagged(dec, "SetSessionConfigOptionRequestBoolean", "boolean", (*setSessionConfigOptionRequestBooleanFields)(v))
 }
 
 // SetSessionConfigOptionRequestCustom holds SetSessionConfigOptionRequest values with an unrecognized "type", keeping every member.
@@ -5588,9 +4854,12 @@ func unmarshalRequestPermissionOutcomeVariant(dec *jsontext.Decoder, out *Reques
 	if raw.Kind() != '{' {
 		return fmt.Errorf("RequestPermissionOutcome: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "outcome", dec.Options())
+	tag, present, err := union.ReadTag(raw, "outcome", dec.Options())
 	if err != nil {
 		return fmt.Errorf("RequestPermissionOutcome: %w", err)
+	}
+	if !present {
+		return errors.New("RequestPermissionOutcome: missing \"outcome\" member")
 	}
 	switch tag {
 	case "cancelled":
@@ -5625,27 +4894,15 @@ func (RequestPermissionOutcomeCancelled) requestPermissionOutcomeVariant() {}
 func (RequestPermissionOutcomeCancelled) Tag() string { return "cancelled" }
 
 type requestPermissionOutcomeCancelledFields RequestPermissionOutcomeCancelled
-type requestPermissionOutcomeCancelledWire struct {
-	Tag                                     string `json:"outcome"`
-	requestPermissionOutcomeCancelledFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestPermissionOutcomeCancelled) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, requestPermissionOutcomeCancelledWire{"cancelled", requestPermissionOutcomeCancelledFields(v)})
+	return json.MarshalEncode(enc, outcomeTagged[requestPermissionOutcomeCancelledFields]{"cancelled", requestPermissionOutcomeCancelledFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestPermissionOutcomeCancelled) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w requestPermissionOutcomeCancelledWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "cancelled" {
-		return fmt.Errorf("RequestPermissionOutcomeCancelled: expected outcome \"cancelled\", got %q", w.Tag)
-	}
-	*v = RequestPermissionOutcomeCancelled(w.requestPermissionOutcomeCancelledFields)
-	return nil
+	return unmarshalOutcomeTagged(dec, "RequestPermissionOutcomeCancelled", "cancelled", (*requestPermissionOutcomeCancelledFields)(v))
 }
 
 // RequestPermissionOutcomeSelected is the user selected one of the provided options.
@@ -5663,27 +4920,15 @@ func (RequestPermissionOutcomeSelected) requestPermissionOutcomeVariant() {}
 func (RequestPermissionOutcomeSelected) Tag() string { return "selected" }
 
 type requestPermissionOutcomeSelectedFields RequestPermissionOutcomeSelected
-type requestPermissionOutcomeSelectedWire struct {
-	Tag                                    string `json:"outcome"`
-	requestPermissionOutcomeSelectedFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestPermissionOutcomeSelected) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, requestPermissionOutcomeSelectedWire{"selected", requestPermissionOutcomeSelectedFields(v)})
+	return json.MarshalEncode(enc, outcomeTagged[requestPermissionOutcomeSelectedFields]{"selected", requestPermissionOutcomeSelectedFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestPermissionOutcomeSelected) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w requestPermissionOutcomeSelectedWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "selected" {
-		return fmt.Errorf("RequestPermissionOutcomeSelected: expected outcome \"selected\", got %q", w.Tag)
-	}
-	*v = RequestPermissionOutcomeSelected(w.requestPermissionOutcomeSelectedFields)
-	return nil
+	return unmarshalOutcomeTagged(dec, "RequestPermissionOutcomeSelected", "selected", (*requestPermissionOutcomeSelectedFields)(v))
 }
 
 // RequestPermissionOutcomeCustom holds RequestPermissionOutcome values with an unrecognized "outcome", keeping every member.
@@ -5780,9 +5025,12 @@ func unmarshalCreateElicitationResponseVariant(dec *jsontext.Decoder, out *Creat
 	if raw.Kind() != '{' {
 		return fmt.Errorf("CreateElicitationResponse: expected object, got %s", raw.Kind())
 	}
-	tag, _, err := union.ReadTag(raw, "action", dec.Options())
+	tag, present, err := union.ReadTag(raw, "action", dec.Options())
 	if err != nil {
 		return fmt.Errorf("CreateElicitationResponse: %w", err)
+	}
+	if !present {
+		return errors.New("CreateElicitationResponse: missing \"action\" member")
 	}
 	switch tag {
 	case "accept":
@@ -5827,27 +5075,15 @@ func (CreateElicitationResponseAccept) createElicitationResponseVariant() {}
 func (CreateElicitationResponseAccept) Tag() string { return "accept" }
 
 type createElicitationResponseAcceptFields CreateElicitationResponseAccept
-type createElicitationResponseAcceptWire struct {
-	Tag                                   string `json:"action"`
-	createElicitationResponseAcceptFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationResponseAccept) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, createElicitationResponseAcceptWire{"accept", createElicitationResponseAcceptFields(v)})
+	return json.MarshalEncode(enc, actionTagged[createElicitationResponseAcceptFields]{"accept", createElicitationResponseAcceptFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *CreateElicitationResponseAccept) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w createElicitationResponseAcceptWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "accept" {
-		return fmt.Errorf("CreateElicitationResponseAccept: expected action \"accept\", got %q", w.Tag)
-	}
-	*v = CreateElicitationResponseAccept(w.createElicitationResponseAcceptFields)
-	return nil
+	return unmarshalActionTagged(dec, "CreateElicitationResponseAccept", "accept", (*createElicitationResponseAcceptFields)(v))
 }
 
 // CreateElicitationResponseDecline is the CreateElicitationResponse variant with action "decline".
@@ -5862,27 +5098,15 @@ func (CreateElicitationResponseDecline) createElicitationResponseVariant() {}
 func (CreateElicitationResponseDecline) Tag() string { return "decline" }
 
 type createElicitationResponseDeclineFields CreateElicitationResponseDecline
-type createElicitationResponseDeclineWire struct {
-	Tag                                    string `json:"action"`
-	createElicitationResponseDeclineFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationResponseDecline) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, createElicitationResponseDeclineWire{"decline", createElicitationResponseDeclineFields(v)})
+	return json.MarshalEncode(enc, actionTagged[createElicitationResponseDeclineFields]{"decline", createElicitationResponseDeclineFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *CreateElicitationResponseDecline) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w createElicitationResponseDeclineWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "decline" {
-		return fmt.Errorf("CreateElicitationResponseDecline: expected action \"decline\", got %q", w.Tag)
-	}
-	*v = CreateElicitationResponseDecline(w.createElicitationResponseDeclineFields)
-	return nil
+	return unmarshalActionTagged(dec, "CreateElicitationResponseDecline", "decline", (*createElicitationResponseDeclineFields)(v))
 }
 
 // CreateElicitationResponseCancel is the CreateElicitationResponse variant with action "cancel".
@@ -5897,27 +5121,15 @@ func (CreateElicitationResponseCancel) createElicitationResponseVariant() {}
 func (CreateElicitationResponseCancel) Tag() string { return "cancel" }
 
 type createElicitationResponseCancelFields CreateElicitationResponseCancel
-type createElicitationResponseCancelWire struct {
-	Tag                                   string `json:"action"`
-	createElicitationResponseCancelFields `json:",embed"`
-}
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationResponseCancel) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, createElicitationResponseCancelWire{"cancel", createElicitationResponseCancelFields(v)})
+	return json.MarshalEncode(enc, actionTagged[createElicitationResponseCancelFields]{"cancel", createElicitationResponseCancelFields(v)})
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *CreateElicitationResponseCancel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w createElicitationResponseCancelWire
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != "cancel" {
-		return fmt.Errorf("CreateElicitationResponseCancel: expected action \"cancel\", got %q", w.Tag)
-	}
-	*v = CreateElicitationResponseCancel(w.createElicitationResponseCancelFields)
-	return nil
+	return unmarshalActionTagged(dec, "CreateElicitationResponseCancel", "cancel", (*createElicitationResponseCancelFields)(v))
 }
 
 // CreateElicitationResponseCustom holds CreateElicitationResponse values with an unrecognized "action", keeping every member.
@@ -6084,3 +5296,143 @@ var unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalRequestPermissionOutcomeVariant),
 	json.UnmarshalFromFunc(unmarshalCreateElicitationResponseVariant),
 )
+
+// actionTagged is the wire form of a variant tagged by its "action" member.
+type actionTagged[F any] struct {
+	Tag    string `json:"action"`
+	Fields F      `json:",embed"`
+}
+
+// unmarshalActionTagged decodes a variant tagged by its "action" member into out, failing
+// unless the tag is want; name is the variant's Go type, for the error.
+func unmarshalActionTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
+	var w actionTagged[F]
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != want {
+		return fmt.Errorf("%s: expected action %q, got %q", name, want, w.Tag)
+	}
+	*out = w.Fields
+	return nil
+}
+
+// kindTagged is the wire form of a variant tagged by its "kind" member.
+type kindTagged[F any] struct {
+	Tag    string `json:"kind"`
+	Fields F      `json:",embed"`
+}
+
+// unmarshalKindTagged decodes a variant tagged by its "kind" member into out, failing
+// unless the tag is want; name is the variant's Go type, for the error.
+func unmarshalKindTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
+	var w kindTagged[F]
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != want {
+		return fmt.Errorf("%s: expected kind %q, got %q", name, want, w.Tag)
+	}
+	*out = w.Fields
+	return nil
+}
+
+// operationTagged is the wire form of a variant tagged by its "operation" member.
+type operationTagged[F any] struct {
+	Tag    string `json:"operation"`
+	Fields F      `json:",embed"`
+}
+
+// unmarshalOperationTagged decodes a variant tagged by its "operation" member into out, failing
+// unless the tag is want; name is the variant's Go type, for the error.
+func unmarshalOperationTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
+	var w operationTagged[F]
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != want {
+		return fmt.Errorf("%s: expected operation %q, got %q", name, want, w.Tag)
+	}
+	*out = w.Fields
+	return nil
+}
+
+// outcomeTagged is the wire form of a variant tagged by its "outcome" member.
+type outcomeTagged[F any] struct {
+	Tag    string `json:"outcome"`
+	Fields F      `json:",embed"`
+}
+
+// unmarshalOutcomeTagged decodes a variant tagged by its "outcome" member into out, failing
+// unless the tag is want; name is the variant's Go type, for the error.
+func unmarshalOutcomeTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
+	var w outcomeTagged[F]
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != want {
+		return fmt.Errorf("%s: expected outcome %q, got %q", name, want, w.Tag)
+	}
+	*out = w.Fields
+	return nil
+}
+
+// sessionUpdateTagged is the wire form of a variant tagged by its "sessionUpdate" member.
+type sessionUpdateTagged[F any] struct {
+	Tag    string `json:"sessionUpdate"`
+	Fields F      `json:",embed"`
+}
+
+// unmarshalSessionUpdateTagged decodes a variant tagged by its "sessionUpdate" member into out, failing
+// unless the tag is want; name is the variant's Go type, for the error.
+func unmarshalSessionUpdateTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
+	var w sessionUpdateTagged[F]
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != want {
+		return fmt.Errorf("%s: expected sessionUpdate %q, got %q", name, want, w.Tag)
+	}
+	*out = w.Fields
+	return nil
+}
+
+// stateTagged is the wire form of a variant tagged by its "state" member.
+type stateTagged[F any] struct {
+	Tag    string `json:"state"`
+	Fields F      `json:",embed"`
+}
+
+// unmarshalStateTagged decodes a variant tagged by its "state" member into out, failing
+// unless the tag is want; name is the variant's Go type, for the error.
+func unmarshalStateTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
+	var w stateTagged[F]
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != want {
+		return fmt.Errorf("%s: expected state %q, got %q", name, want, w.Tag)
+	}
+	*out = w.Fields
+	return nil
+}
+
+// typeTagged is the wire form of a variant tagged by its "type" member.
+type typeTagged[F any] struct {
+	Tag    string `json:"type"`
+	Fields F      `json:",embed"`
+}
+
+// unmarshalTypeTagged decodes a variant tagged by its "type" member into out, failing
+// unless the tag is want; name is the variant's Go type, for the error.
+func unmarshalTypeTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
+	var w typeTagged[F]
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != want {
+		return fmt.Errorf("%s: expected type %q, got %q", name, want, w.Tag)
+	}
+	*out = w.Fields
+	return nil
+}

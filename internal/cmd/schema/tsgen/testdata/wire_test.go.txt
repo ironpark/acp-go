@@ -56,8 +56,12 @@ func TestTaggedUnionRoundTrip(t *testing.T) {
 			t.Fatalf("accepted %s", bad)
 		}
 	}
-	if err := json.Unmarshal([]byte(`{"kind":"text","kind":"detail","text":"x"}`), &back, jsontext.AllowDuplicateNames(true)); err != nil {
+	if err := json.Unmarshal([]byte(`{"kind":"text","kind":"detail","level":"info","text":"x"}`), &back, jsontext.AllowDuplicateNames(true)); err != nil {
 		t.Fatalf("decoder options did not reach the variant: %v", err)
+	}
+	// Detail has no default variant, so its catch-all still needs a level.
+	if err := json.Unmarshal([]byte(`{"kind":"detail"}`), &back); err == nil {
+		t.Fatalf("accepted a detail without its level as %T", back.Variant())
 	}
 }
 

@@ -220,9 +220,13 @@ stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents
 stream.ProposeToolCall(ctx, runID, "테스트 실행", acp1.ToolKindExecute) // pending: 권한 대기 중
 stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &oldText, newText)))
 stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // conn.NewTerminal로 만든 터미널
-stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("리팩터링")}) // 헬퍼가 없는 variant용
-stream.WithMeta(meta).SendText(ctx, "…")                                    // 모든 알림에 _meta 첨부
+stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: optional.Of("리팩터링")}) // 헬퍼가 없는 variant용
+stream.WithMeta(meta).SendText(ctx, "…")                                           // 모든 알림에 _meta 첨부
 ```
+
+`SessionInfoUpdate`의 필드처럼 null과 생략의 의미가 다른 멤버(생략하면 저장된 값 유지, null이면 지움)는
+`schema/optional`의 `optional.Value`입니다. `optional.Of(v)`는 값을 설정하고, `optional.Null[T]()`는 값을
+지우며, 제로 값은 멤버를 생략합니다.
 
 흔한 텍스트 콘텐츠는 `acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts`(프롬프트의 텍스트 블록 iterator),
 `acp1.JoinTexts`(그 텍스트를 이어 붙인 문자열),

@@ -3,6 +3,7 @@ package acp2
 import (
 	"context"
 
+	"github.com/ironpark/acp-go/schema/optional"
 	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
@@ -12,14 +13,14 @@ type SubagentOption func(*SessionUpdateSubagentUpdate)
 
 // WithSubagentDescription describes the subagent's assignment.
 func WithSubagentDescription(description string) SubagentOption {
-	return func(u *SessionUpdateSubagentUpdate) { u.Description = &description }
+	return func(u *SessionUpdateSubagentUpdate) { u.Description = optional.Of(description) }
 }
 
 // WithSubagentCancel lets the client cancel the subagent's work with
 // session/cancel on its session, which the agent must then honor.
 func WithSubagentCancel() SubagentOption {
 	return func(u *SessionUpdateSubagentUpdate) {
-		u.Capabilities = &SubagentSessionCapabilities{Cancel: &SessionCancelCapabilities{}}
+		u.Capabilities = optional.Of(SubagentSessionCapabilities{Cancel: &SessionCancelCapabilities{}})
 	}
 }
 
@@ -50,7 +51,7 @@ func (s *SessionStream) StartSubagent(ctx context.Context, child SessionID, titl
 		SessionStream: &SessionStream{client: s.client, sessionID: child, meta: s.meta},
 		parent:        s,
 	}
-	if err := sub.Update(ctx, append([]SubagentOption{func(u *SessionUpdateSubagentUpdate) { u.Title = &title }}, opts...)...); err != nil {
+	if err := sub.Update(ctx, append([]SubagentOption{func(u *SessionUpdateSubagentUpdate) { u.Title = optional.Of(title) }}, opts...)...); err != nil {
 		return nil, err
 	}
 	return sub, nil
@@ -94,5 +95,5 @@ func (s *SubagentStream) mirror(ctx context.Context, state StateUpdate) error {
 	if err := s.Send(ctx, schema.SessionUpdateStateUpdate{Value: state}); err != nil {
 		return err
 	}
-	return s.parent.Send(ctx, SessionUpdateSubagentUpdate{SessionID: s.sessionID, State: state})
+	return s.parent.Send(ctx, SessionUpdateSubagentUpdate{SessionID: s.sessionID, State: optional.Of(state)})
 }

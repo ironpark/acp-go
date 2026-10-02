@@ -58,28 +58,32 @@ type Authenticator interface {
 	Authenticate(ctx context.Context, params *AuthenticateRequest) (*AuthenticateResponse, error)
 }
 
-// SessionLoader handles session/load. Advertise it with the `loadSession`
-// agent capability. Loading replays the conversation, which only the agent
-// knows, so [SessionManager] leaves it to the agent; [SessionManager.Lookup]
-// finds the session to replay.
+// SessionLoader handles session/load. Loading replays the conversation,
+// which only the agent knows, so [SessionManager] leaves it to the agent;
+// [SessionManager.Lookup] finds the session to replay.
+//
+// [CapabilitiesOf] advertises it with the `loadSession` agent capability.
 type SessionLoader interface {
 	LoadSession(ctx context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error)
 }
 
-// SessionLister handles session/list. Advertise it with the
-// `sessionCapabilities.list` agent capability.
+// SessionLister handles session/list.
+//
+// [CapabilitiesOf] advertises it with the `sessionCapabilities.list` agent capability.
 type SessionLister interface {
 	ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error)
 }
 
-// SessionDeleter handles session/delete. Advertise it with the
-// `sessionCapabilities.delete` agent capability.
+// SessionDeleter handles session/delete.
+//
+// [CapabilitiesOf] advertises it with the `sessionCapabilities.delete` agent capability.
 type SessionDeleter interface {
 	DeleteSession(ctx context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error)
 }
 
-// SessionForker handles session/fork. Advertise it with the
-// `sessionCapabilities.fork` agent capability.
+// SessionForker handles session/fork.
+//
+// [CapabilitiesOf] advertises it with the `sessionCapabilities.fork` agent capability.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionForker interface {
@@ -87,14 +91,16 @@ type SessionForker interface {
 }
 
 // SessionResumer handles session/resume, continuing a session without
-// replaying its history. Advertise it with the `sessionCapabilities.resume`
-// agent capability.
+// replaying its history.
+//
+// [CapabilitiesOf] advertises it with the `sessionCapabilities.resume` agent capability.
 type SessionResumer interface {
 	ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error)
 }
 
-// SessionCloser handles session/close. Advertise it with the
-// `sessionCapabilities.close` agent capability.
+// SessionCloser handles session/close.
+//
+// [CapabilitiesOf] advertises it with the `sessionCapabilities.close` agent capability.
 type SessionCloser interface {
 	CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error)
 }
@@ -113,8 +119,9 @@ type SessionConfigOptionSetter interface {
 	SetSessionConfigOption(ctx context.Context, params *SetSessionConfigOptionRequest) (*SetSessionConfigOptionResponse, error)
 }
 
-// ProviderManager handles the providers/* methods. Advertise them with the
-// `providers` agent capability.
+// ProviderManager handles the providers/* methods.
+//
+// [CapabilitiesOf] advertises it with the `providers` agent capability.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type ProviderManager interface {
@@ -126,13 +133,16 @@ type ProviderManager interface {
 }
 
 // LogoutHandler handles the logout method, clearing stored credentials.
+//
+// [CapabilitiesOf] advertises it with the `auth.logout` agent capability.
 type LogoutHandler interface {
 	Logout(ctx context.Context, params *LogoutRequest) (*LogoutResponse, error)
 }
 
-// NesHandler handles the nes/* methods for Next Edit Suggestions. Advertise
-// them with the `nes` agent capability. AcceptNes and RejectNes are
-// notifications.
+// NesHandler handles the nes/* methods for Next Edit Suggestions. AcceptNes
+// and RejectNes are notifications.
+//
+// [CapabilitiesOf] advertises it with the `nes` agent capability.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type NesHandler interface {
@@ -165,10 +175,11 @@ type DocumentHandler interface {
 
 // MCPMessageHandler receives the request-scoped MCP notifications, such as
 // progress, that an MCP server the client provides sends over mcp/message
-// while it works on a request the agent made. Implementing it advertises the
-// `mcpCapabilities.acp` agent capability through [CapabilitiesOf].
+// while it works on a request the agent made.
 //
 // MCP-over-ACP is an RFD-stage draft; the wire format may still change.
+//
+// [CapabilitiesOf] advertises it with the `mcpCapabilities.acp` agent capability.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MCPMessageHandler interface {
@@ -205,20 +216,24 @@ type Client interface {
 	RequestPermission(ctx context.Context, params *RequestPermissionRequest) (*RequestPermissionResponse, error)
 }
 
-// FileReader handles fs/read_text_file. Advertise it with the
-// `fs.readTextFile` client capability.
+// FileReader handles fs/read_text_file.
+//
+// [ClientCapabilitiesOf] advertises it with the `fs.readTextFile` client capability.
 type FileReader interface {
 	ReadTextFile(ctx context.Context, params *ReadTextFileRequest) (*ReadTextFileResponse, error)
 }
 
-// FileWriter handles fs/write_text_file. Advertise it with the
-// `fs.writeTextFile` client capability.
+// FileWriter handles fs/write_text_file.
+//
+// [ClientCapabilitiesOf] advertises it with the `fs.writeTextFile` client capability.
 type FileWriter interface {
 	WriteTextFile(ctx context.Context, params *WriteTextFileRequest) (*WriteTextFileResponse, error)
 }
 
-// TerminalHandler handles every terminal/* method. Advertise it with the
-// `terminal` client capability, which covers all five methods at once.
+// TerminalHandler handles every terminal/* method; one capability covers all
+// five.
+//
+// [ClientCapabilitiesOf] advertises it with the `terminal` client capability.
 //
 // See protocol docs: [Terminals](https://agentclientprotocol.com/protocol/terminals)
 type TerminalHandler interface {
@@ -246,7 +261,9 @@ type MCPProvider interface {
 }
 
 // ElicitationHandler handles elicitation/create and the elicitation/complete
-// notification. Advertise it with the `elicitation` client capability.
+// notification.
+//
+// [ClientCapabilitiesOf] advertises it with the `elicitation` client capability.
 type ElicitationHandler interface {
 	CreateElicitation(ctx context.Context, params *CreateElicitationRequest) (*CreateElicitationResponse, error)
 
@@ -736,4 +753,83 @@ func (c *ClientSideConnection) handleNotification(ctx context.Context, method st
 		}
 	}
 	return jsonrpc.MethodNotFound(method)
+}
+
+// capabilitiesOf sets in caps the capability of the Agent interface and of each
+// optional interface agent implements.
+func capabilitiesOf(agent Agent, caps *schema.AgentCapabilities) {
+	if _, ok := agent.(SessionLoader); ok {
+		caps.LoadSession = new(true)
+	}
+	if _, ok := agent.(SessionLister); ok {
+		if caps.SessionCapabilities == nil {
+			caps.SessionCapabilities = &schema.SessionCapabilities{}
+		}
+		caps.SessionCapabilities.List = &schema.SessionListCapabilities{}
+	}
+	if _, ok := agent.(SessionDeleter); ok {
+		if caps.SessionCapabilities == nil {
+			caps.SessionCapabilities = &schema.SessionCapabilities{}
+		}
+		caps.SessionCapabilities.Delete = &schema.SessionDeleteCapabilities{}
+	}
+	if _, ok := agent.(SessionForker); ok {
+		if caps.SessionCapabilities == nil {
+			caps.SessionCapabilities = &schema.SessionCapabilities{}
+		}
+		caps.SessionCapabilities.Fork = &schema.SessionForkCapabilities{}
+	}
+	if _, ok := agent.(SessionResumer); ok {
+		if caps.SessionCapabilities == nil {
+			caps.SessionCapabilities = &schema.SessionCapabilities{}
+		}
+		caps.SessionCapabilities.Resume = &schema.SessionResumeCapabilities{}
+	}
+	if _, ok := agent.(SessionCloser); ok {
+		if caps.SessionCapabilities == nil {
+			caps.SessionCapabilities = &schema.SessionCapabilities{}
+		}
+		caps.SessionCapabilities.Close = &schema.SessionCloseCapabilities{}
+	}
+	if _, ok := agent.(ProviderManager); ok {
+		caps.Providers = &schema.ProvidersCapabilities{}
+	}
+	if _, ok := agent.(LogoutHandler); ok {
+		if caps.Auth == nil {
+			caps.Auth = &schema.AgentAuthCapabilities{}
+		}
+		caps.Auth.Logout = &schema.LogoutCapabilities{}
+	}
+	if _, ok := agent.(NesHandler); ok {
+		caps.Nes = &schema.NesCapabilities{}
+	}
+	if _, ok := agent.(MCPMessageHandler); ok {
+		if caps.MCPCapabilities == nil {
+			caps.MCPCapabilities = &schema.MCPCapabilities{}
+		}
+		caps.MCPCapabilities.ACP = new(true)
+	}
+}
+
+// clientCapabilitiesOf sets in caps the capability of the Client interface and of each
+// optional interface client implements.
+func clientCapabilitiesOf(client Client, caps *schema.ClientCapabilities) {
+	if _, ok := client.(FileReader); ok {
+		if caps.FS == nil {
+			caps.FS = &schema.FileSystemCapabilities{}
+		}
+		caps.FS.ReadTextFile = new(true)
+	}
+	if _, ok := client.(FileWriter); ok {
+		if caps.FS == nil {
+			caps.FS = &schema.FileSystemCapabilities{}
+		}
+		caps.FS.WriteTextFile = new(true)
+	}
+	if _, ok := client.(TerminalHandler); ok {
+		caps.Terminal = new(true)
+	}
+	if _, ok := client.(ElicitationHandler); ok {
+		caps.Elicitation = &schema.ElicitationCapabilities{}
+	}
 }

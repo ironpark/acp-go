@@ -37,11 +37,34 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 			return fmt.Errorf("field collision %s", field)
 		}
 		names[field] = true
-		expr, err := g.expr(f.Type, name+field)
+		typ := f.Type
+		if f.Tristate {
+			typ, _ = typ.NonNull()
+		}
+		expr, err := g.expr(typ, name+field)
 		if err != nil {
 			return err
 		}
 		tag := f.Name
+		text := fieldDoc(f.Comment)
+		// The extensibility spec reserves _meta on every message; one shared
+		// type gives it Set/Get helpers in every version.
+		meta := func() {
+			if f.Name == "_meta" && expr == "map[string]jsontext.Value" {
+				expr, g.usesMeta = "Meta", true
+				text = metaDoc(f.Comment)
+			}
+		}
+		if f.Tristate {
+			meta()
+			// Absent and null mean different things here, which no Go
+			// zero value can carry for both.
+			g.write("%s%s optional.Value[%s] `json:%q`\n", comment(text), field, expr, tag+",omitzero")
+			if payload {
+				pointers = append(pointers, getter{typ: name, field: field, elem: expr, object: g.isStruct(typ), tristate: true})
+			}
+			continue
+		}
 		if f.Optional {
 			// omitzero already distinguishes nil collections from empty ones, so
 			// optional slices and maps do not need a pointer. Optional null and
@@ -53,16 +76,10 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 			}
 			tag += ",omitzero"
 		}
-		text := fieldDoc(f.Comment)
 		if !f.Optional && f.Type.Kind == tsdef.KindLiteral {
 			text = strings.TrimSpace(text + "\n\nAlways " + f.Type.Literal + ": MarshalJSONTo writes it whatever the field holds.")
 		}
-		if f.Name == "_meta" && expr == "map[string]jsontext.Value" {
-			// The extensibility spec reserves _meta on every message; one
-			// shared type gives it Set/Get helpers in every version.
-			expr, g.usesMeta = "Meta", true
-			text = metaDoc(f.Comment)
-		}
+		meta()
 		g.write("%s%s %s `json:%q`\n", comment(text), field, expr, tag)
 		if payload && strings.HasPrefix(expr, "*") {
 			pointers = append(pointers, getter{typ: name, field: field, elem: strings.TrimPrefix(expr, "*"), object: g.isStruct(f.Type)})
@@ -98,10 +115,11 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 	return nil
 }
 
-// getter is a pointer field that gets a nil-safe accessor.
+// getter is a pointer or tristate field that gets a nil-safe accessor.
 type getter struct {
-	typ, field, elem string // struct, field and pointed-to type
-	object           bool   // elem is a struct
+	typ, field, elem string // struct, field and pointed-to (or held) type
+	object           bool   // elem is a struct, returned as a pointer
+	tristate         bool   // the field is an optional.Value of elem
 }
 
 // emitGetters writes a GetX method for every pointer field of a payload
@@ -116,6 +134,16 @@ func (g *generator) emitGetters() {
 	// Group by type; within a type, fields keep their declaration order.
 	slices.SortStableFunc(g.getters, func(a, b getter) int { return strings.Compare(a.typ, b.typ) })
 	for _, p := range g.getters {
+		if p.tristate && p.object {
+			g.write("// Get%[2]s returns a copy of %[2]s, or nil if x is nil or %[2]s is absent or null.\n", p.typ, p.field)
+			g.write("func (x *%s) Get%s() *%s {\nif x != nil {\nif v, ok := x.%s.Get(); ok {\nreturn &v\n}\n}\nreturn nil\n}\n\n", p.typ, p.field, p.elem, p.field)
+			continue
+		}
+		if p.tristate {
+			g.write("// Get%[2]s returns the value of %[2]s, or the zero value if x is nil or %[2]s is absent or null.\n", p.typ, p.field)
+			g.write("func (x *%s) Get%s() %s {\nif x == nil {\nvar zero %s\nreturn zero\n}\nv, _ := x.%s.Get()\nreturn v\n}\n\n", p.typ, p.field, p.elem, p.elem, p.field)
+			continue
+		}
 		if p.object {
 			g.write("// Get%[2]s returns %[2]s, or nil if x is nil.\n", p.typ, p.field)
 			g.write("func (x *%s) Get%s() *%s {\nif x == nil {\nreturn nil\n}\nreturn x.%s\n}\n\n", p.typ, p.field, p.elem, p.field)

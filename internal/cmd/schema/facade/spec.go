@@ -32,6 +32,9 @@ type Spec struct {
 	Client []Group
 	// Unhandled are wire methods deliberately left to the extension handlers.
 	Unhandled []string
+	// CapabilityDoc is the prefix to [Group.Capability] that names the
+	// capabilities object in initialize, for the generated docs.
+	CapabilityDoc string
 }
 
 // Group is one Go interface. The group whose Required flag is set becomes the
@@ -45,6 +48,14 @@ type Group struct {
 	// Experimental closes the interface's comment and each outgoing call's
 	// with [tsgen.ExperimentalNote].
 	Experimental bool
+	// Capability is the member of the side's capabilities object that
+	// advertises the group, as a dotted path in TypeScript names such as
+	// "sessionCapabilities.list". The generated capabilitiesOf sets it for a
+	// peer implementing the interface, always for the required group, and the
+	// interface's doc says so. NoCapability marks an optional group that no
+	// capability advertises; every optional group sets exactly one of the two.
+	Capability   string
+	NoCapability bool
 }
 
 // stability appends the experimental note to s when the group is experimental.
@@ -100,14 +111,18 @@ type side struct {
 	server    string // connection type serving these methods
 	serverVar string // its handler field
 	caller    string // connection type calling these methods on the peer
+	caps      string // the capabilities type the server advertises
+	capsFunc  string // the generated function deriving it
+	capsOf    string // the hand-written exported function calling capsFunc
 }
 
 // Generate validates spec against schema and returns the façade files.
 // schemaFiles and decls are what [tsgen.Generate] produced for the same schema.
 func Generate(spec *Spec, schema *tsdef.Schema, schemaFiles tsgen.Files, decls tsgen.Decls) (map[string][]byte, error) {
-	g := &emitter{spec: spec, types: map[string]bool{}, constants: map[string]string{}}
+	g := &emitter{spec: spec, types: map[string]bool{}, constants: map[string]string{}, defs: map[string]*tsdef.Type{}, capSteps: map[string][]capabilityStep{}}
 	for _, d := range schema.Types {
 		g.types[tsgen.Name(d.Name)] = true
+		g.defs[d.Name] = d.Type
 	}
 	for _, c := range schema.Constants {
 		if c.Name != "AGENT_METHODS" && c.Name != "CLIENT_METHODS" && c.Name != "PROTOCOL_METHODS" {
@@ -124,8 +139,8 @@ func Generate(spec *Spec, schema *tsdef.Schema, schemaFiles tsgen.Files, decls t
 		}
 	}
 	sides := []side{
-		{"AGENT_METHODS", spec.Agent, "AgentSideConnection", "agent", "ClientSideConnection"},
-		{"CLIENT_METHODS", spec.Client, "ClientSideConnection", "client", "AgentSideConnection"},
+		{"AGENT_METHODS", spec.Agent, "AgentSideConnection", "agent", "ClientSideConnection", "AgentCapabilities", "capabilitiesOf", "CapabilitiesOf"},
+		{"CLIENT_METHODS", spec.Client, "ClientSideConnection", "client", "AgentSideConnection", "ClientCapabilities", "clientCapabilitiesOf", "ClientCapabilitiesOf"},
 	}
 	for _, s := range sides {
 		if err := g.validate(s); err != nil {
@@ -150,7 +165,9 @@ func Generate(spec *Spec, schema *tsdef.Schema, schemaFiles tsgen.Files, decls t
 type emitter struct {
 	spec      *Spec
 	types     map[string]bool
-	constants map[string]string // "AGENT_METHODS session/load" -> Go constant, for every method table
+	constants map[string]string           // "AGENT_METHODS session/load" -> Go constant, for every method table
+	defs      map[string]*tsdef.Type      // schema definitions by TypeScript name
+	capSteps  map[string][]capabilityStep // Go interface -> its resolved Capability
 	out       strings.Builder
 }
 
@@ -175,6 +192,16 @@ func (g *emitter) validate(s side) error {
 	for _, group := range s.groups {
 		if group.Required {
 			required++
+		}
+		if group.Required && group.NoCapability || !group.Required && (group.Capability != "") == group.NoCapability {
+			return fmt.Errorf("%s: %s must set exactly one of Capability and NoCapability, or for the required group at most Capability", s.constants, group.Interface)
+		}
+		if group.Capability != "" {
+			steps, err := g.capabilityPath(s.caps, group.Capability)
+			if err != nil {
+				return fmt.Errorf("%s: %w", group.Interface, err)
+			}
+			g.capSteps[group.Interface] = steps
 		}
 		for _, m := range group.Methods {
 			kind := "request"
@@ -405,6 +432,118 @@ func (g *emitter) methodsFile(sides []side) {
 	for _, s := range sides {
 		g.dispatch(s)
 	}
+	for _, s := range sides {
+		g.capabilities(s)
+	}
+}
+
+// groupDoc is the group's doc with a sentence naming its capability, placed
+// before the protocol docs link when there is one.
+func (g *emitter) groupDoc(s side, group Group) string {
+	if group.Capability == "" {
+		return group.Doc
+	}
+	party := strings.ToLower(strings.TrimSuffix(s.caps, "Capabilities"))
+	sentence := fmt.Sprintf("[%s] advertises it with the `%s%s` %s capability.", s.capsOf, g.spec.CapabilityDoc, group.Capability, party)
+	text, link, linked := strings.Cut(group.Doc, "\n\nSee protocol docs")
+	if linked {
+		link = "\n\nSee protocol docs" + link
+	}
+	return text + "\n\n" + sentence + link
+}
+
+// capabilityStep is one member on a capability path: its Go field, and the
+// Go type of the object it holds, or "" for a boolean.
+type capabilityStep struct{ field, object string }
+
+// capabilityPath resolves a dotted TypeScript member path from the root
+// capabilities type. Every member is optional; all but the last hold an
+// object, and the last an object or a boolean.
+func (g *emitter) capabilityPath(root, path string) ([]capabilityStep, error) {
+	t := g.defs[root]
+	var steps []capabilityStep
+	members := strings.Split(path, ".")
+	for i, member := range members {
+		if t == nil || t.Kind != tsdef.KindObject {
+			return nil, fmt.Errorf("capability %s: %s is not an object", path, strings.Join(members[:i], "."))
+		}
+		var field *tsdef.Field
+		for j := range t.Fields {
+			if t.Fields[j].Name == member {
+				field = &t.Fields[j]
+			}
+		}
+		if field == nil || !field.Optional {
+			return nil, fmt.Errorf("capability %s: no optional member %s", path, member)
+		}
+		value, _ := field.Type.NonNull()
+		step := capabilityStep{field: tsgen.Name(member)}
+		switch {
+		case value.Kind == tsdef.KindBoolean && i == len(members)-1:
+		case value.Kind == tsdef.KindRef && g.defs[value.Name] != nil && g.defs[value.Name].Kind == tsdef.KindObject:
+			step.object = tsgen.Name(value.Name)
+			t = g.defs[value.Name]
+		default:
+			return nil, fmt.Errorf("capability %s: %s is neither an object nor a final boolean", path, member)
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
+}
+
+// capabilities emits the function that sets, for each optional interface the
+// peer implements, the capability advertising it, creating the objects on
+// its path as needed.
+func (g *emitter) capabilities(s side) {
+	required := ""
+	for _, group := range s.groups {
+		if group.Required {
+			required = group.Interface
+		}
+	}
+	g.write("// %s sets in caps the capability of the %s interface and of each\n// optional interface %s implements.\n", s.capsFunc, required, s.serverVar)
+	g.write("func %s(%s %s, caps *schema.%s) {\n", s.capsFunc, s.serverVar, required, s.caps)
+	// The required group goes first: the objects it always sets need no nil
+	// check after it.
+	groups := slices.Clone(s.groups)
+	slices.SortStableFunc(groups, func(a, b Group) int {
+		if a.Required == b.Required {
+			return 0
+		}
+		if a.Required {
+			return -1
+		}
+		return 1
+	})
+	set := map[string]bool{}
+	for _, group := range groups {
+		steps := g.capSteps[group.Interface]
+		if steps == nil {
+			continue
+		}
+		if !group.Required {
+			g.write("\tif _, ok := %s.(%s); ok {\n", s.serverVar, group.Interface)
+		}
+		at := "caps"
+		for i, step := range steps {
+			at += "." + step.field
+			switch {
+			case step.object == "":
+				g.write("\t\t%s = new(true)\n", at)
+			case i == len(steps)-1:
+				g.write("\t\t%s = &schema.%s{}\n", at, step.object)
+			case !set[at]:
+				g.write("\t\tif %s == nil {\n\t\t\t%s = &schema.%s{}\n\t\t}\n", at, at, step.object)
+			}
+			if group.Required {
+				set[at] = true
+			}
+		}
+		if !group.Required {
+			g.write("\t}\n")
+		}
+	}
+	g.write("}\n\n")
 }
 
 // connection emits the [acp.Conn] methods, which every connection type
@@ -420,7 +559,7 @@ func (g *emitter) connection(typ string) {
 
 func (g *emitter) interfaces(s side) {
 	for _, group := range s.groups {
-		g.write("%stype %s interface {\n", doc(group.stability(group.Doc)), group.Interface)
+		g.write("%stype %s interface {\n", doc(group.stability(g.groupDoc(s, group))), group.Interface)
 		for i, m := range group.Methods {
 			if i > 0 {
 				g.write("\n")

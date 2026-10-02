@@ -22,6 +22,9 @@ const UnionRuntime = "github.com/ironpark/acp-go/schema/internal/union"
 // MetaRuntime is the import path of the shared _meta map type.
 const MetaRuntime = "github.com/ironpark/acp-go/schema/meta"
 
+// OptionalRuntime is the import path of the absent/null/value field type.
+const OptionalRuntime = "github.com/ironpark/acp-go/schema/optional"
+
 // zodKinds maps parsed builder names to zod.Kind constant names. Unknown
 // builders fail generation instead of producing an unsupported rule.
 var zodKinds = map[string]string{

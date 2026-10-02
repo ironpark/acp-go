@@ -73,7 +73,12 @@ lifecycle methods and the extension hooks.
 
 Optional scalar fields use pointers with `omitzero`, retaining explicit false, zero and empty strings.
 Optional slices and maps are plain values: nil is omitted and an empty non-nil value encodes as `[]` or `{}`.
-Nullable fields use pointers; optional null and absence share the nil representation.
+Nullable fields use pointers; optional null and absence share the nil representation, except
+the members `overrides.yaml` lists as tristate (the protocol's Rust schema declares them
+`MaybeUndefined`), where null clears a value an absent member keeps: those are
+`optional.Value[T]` from `schema/optional`, which tells absent, null and a value apart.
+A tagged union without a default variant rejects an object that lacks its discriminator, with
+or without validation; an unknown discriminator still decodes as the Unknown or catch-all variant.
 Literal unions that also admit the underlying primitive, such as `"a" | "b" | string`, produce a
 named scalar type with constants and a `Known` method.
 A number whose Zod rule is an integer gets the narrowest of `uint16`, `uint32`, `uint64`, `int32` and

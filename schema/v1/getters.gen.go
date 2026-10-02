@@ -1221,13 +1221,34 @@ func (x *SessionUpdateAgentThoughtChunk) GetMessageID() MessageID {
 	return zero
 }
 
-// GetError returns the value of Error, or the zero value if x or Error is nil.
-func (x *SessionUpdateCompactionUpdate) GetError() string {
-	if x != nil && x.Error != nil {
-		return *x.Error
+// GetSummary returns the value of Summary, or the zero value if x is nil or Summary is absent or null.
+func (x *SessionUpdateCompactionUpdate) GetSummary() []ContentBlock {
+	if x == nil {
+		var zero []ContentBlock
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Summary.Get()
+	return v
+}
+
+// GetError returns the value of Error, or the zero value if x is nil or Error is absent or null.
+func (x *SessionUpdateCompactionUpdate) GetError() string {
+	if x == nil {
+		var zero string
+		return zero
+	}
+	v, _ := x.Error.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateCompactionUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
@@ -1239,22 +1260,24 @@ func (x *SessionUpdateNotice) GetDescription() string {
 	return zero
 }
 
-// GetTitle returns the value of Title, or the zero value if x or Title is nil.
+// GetTitle returns the value of Title, or the zero value if x is nil or Title is absent or null.
 func (x *SessionUpdateSessionInfoUpdate) GetTitle() string {
-	if x != nil && x.Title != nil {
-		return *x.Title
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Title.Get()
+	return v
 }
 
-// GetUpdatedAt returns the value of UpdatedAt, or the zero value if x or UpdatedAt is nil.
+// GetUpdatedAt returns the value of UpdatedAt, or the zero value if x is nil or UpdatedAt is absent or null.
 func (x *SessionUpdateSessionInfoUpdate) GetUpdatedAt() string {
-	if x != nil && x.UpdatedAt != nil {
-		return *x.UpdatedAt
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.UpdatedAt.Get()
+	return v
 }
 
 // GetSenderSessionID returns the value of SenderSessionID, or the zero value if x or SenderSessionID is nil.
@@ -1275,6 +1298,26 @@ func (x *SessionUpdateSessionMessage) GetRecipientSessionID() SessionID {
 	return zero
 }
 
+// GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
+func (x *SessionUpdateSessionMessage) GetContent() []ContentBlock {
+	if x == nil {
+		var zero []ContentBlock
+		return zero
+	}
+	v, _ := x.Content.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateSessionMessage) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
+}
+
 // GetSenderSessionID returns the value of SenderSessionID, or the zero value if x or SenderSessionID is nil.
 func (x *SessionUpdateSessionMessageChunk) GetSenderSessionID() SessionID {
 	if x != nil && x.SenderSessionID != nil {
@@ -1293,30 +1336,54 @@ func (x *SessionUpdateSessionMessageChunk) GetRecipientSessionID() SessionID {
 	return zero
 }
 
-// GetTitle returns the value of Title, or the zero value if x or Title is nil.
+// GetTitle returns the value of Title, or the zero value if x is nil or Title is absent or null.
 func (x *SessionUpdateSubagentUpdate) GetTitle() string {
-	if x != nil && x.Title != nil {
-		return *x.Title
-	}
-	var zero string
-	return zero
-}
-
-// GetDescription returns the value of Description, or the zero value if x or Description is nil.
-func (x *SessionUpdateSubagentUpdate) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
-	}
-	var zero string
-	return zero
-}
-
-// GetCapabilities returns Capabilities, or nil if x is nil.
-func (x *SessionUpdateSubagentUpdate) GetCapabilities() *SubagentSessionCapabilities {
 	if x == nil {
-		return nil
+		var zero string
+		return zero
 	}
-	return x.Capabilities
+	v, _ := x.Title.Get()
+	return v
+}
+
+// GetDescription returns the value of Description, or the zero value if x is nil or Description is absent or null.
+func (x *SessionUpdateSubagentUpdate) GetDescription() string {
+	if x == nil {
+		var zero string
+		return zero
+	}
+	v, _ := x.Description.Get()
+	return v
+}
+
+// GetCapabilities returns a copy of Capabilities, or nil if x is nil or Capabilities is absent or null.
+func (x *SessionUpdateSubagentUpdate) GetCapabilities() *SubagentSessionCapabilities {
+	if x != nil {
+		if v, ok := x.Capabilities.Get(); ok {
+			return &v
+		}
+	}
+	return nil
+}
+
+// GetState returns the value of State, or the zero value if x is nil or State is absent or null.
+func (x *SessionUpdateSubagentUpdate) GetState() StateUpdate {
+	if x == nil {
+		var zero StateUpdate
+		return zero
+	}
+	v, _ := x.State.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateSubagentUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
 }
 
 // GetName returns the value of Name, or the zero value if x or Name is nil.

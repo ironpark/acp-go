@@ -20,6 +20,10 @@ export type PingResponse = { ok: boolean; };
 export type ByeNotification = { reason?: string; };
 export type Marker = string;
 export type Unused = { note: string; };
+export type AgentCapabilities = { session?: SessionCapabilities | null; flag?: boolean; name: string; };
+export type SessionCapabilities = { bye?: ByeCapabilities | null; };
+export type ByeCapabilities = { _meta?: { [key: string]: unknown } | null; };
+export type ClientCapabilities = { flag?: boolean; };
 export const AGENT_METHODS = { ping: "ping", session_bye: "session/bye", extra: "extra/one" } as const;
 export const CLIENT_METHODS = { notice: "notice" } as const;
 export const PROTOCOL_METHODS = { cancel_request: "$/cancel_request" } as const;
@@ -52,7 +56,7 @@ func spec() *Spec {
 			{Interface: "Agent", Required: true, Doc: "Agent doc.", Methods: []Method{
 				{Wire: "ping", Name: "Ping", Params: "PingRequest", Response: "PingResponse", Doc: "Ping doc."},
 			}},
-			{Interface: "Byer", Methods: []Method{
+			{Interface: "Byer", Capability: "session.bye", Doc: "Byer doc.\n\nSee protocol docs: [Bye](https://example.com)", Methods: []Method{
 				{Wire: "session/bye", Name: "Bye", Params: "ByeNotification", CallDoc: "Bye call."},
 			}},
 		},
@@ -136,8 +140,14 @@ func TestValidationRejectsDrift(t *testing.T) {
 		"duplicate Go name": func(s *Spec) {
 			s.Agent[1].Methods = append(s.Agent[1].Methods, Method{Wire: "ping", Name: "Ping", Params: "ByeNotification"})
 		},
-		"no required group":    func(s *Spec) { s.Agent[0].Required = false },
-		"untimed notification": func(s *Spec) { s.Agent[1].Methods[0].Untimed = true },
+		"no required group":                 func(s *Spec) { s.Agent[0].Required = false },
+		"capability on the required group":  func(s *Spec) { s.Agent[0].NoCapability = true },
+		"optional group without capability": func(s *Spec) { s.Agent[1].Capability = "" },
+		"capability and NoCapability":       func(s *Spec) { s.Agent[1].NoCapability = true },
+		"unknown capability member":         func(s *Spec) { s.Agent[1].Capability = "session.gone" },
+		"capability through a boolean":      func(s *Spec) { s.Agent[1].Capability = "flag.bye" },
+		"required capability member":        func(s *Spec) { s.Agent[1].Capability = "name" },
+		"untimed notification":              func(s *Spec) { s.Agent[1].Methods[0].Untimed = true },
 		"untimed CallVia": func(s *Spec) {
 			s.Agent[0].Methods[0].Untimed, s.Agent[0].Methods[0].CallVia = true, "ping"
 		},
@@ -280,4 +290,43 @@ func topLevelNames(t *testing.T, paths ...string) map[string]bool {
 		}
 	}
 	return names
+}
+
+func TestCapabilitiesOfSetsEachPath(t *testing.T) {
+	files, err := generate(t, spec(), parse(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	methods := string(files["methods.gen.go"])
+	want := `func capabilitiesOf(agent Agent, caps *schema.AgentCapabilities) {
+	if _, ok := agent.(Byer); ok {
+		if caps.Session == nil {
+			caps.Session = &schema.SessionCapabilities{}
+		}
+		caps.Session.Bye = &schema.ByeCapabilities{}
+	}
+}`
+	if !strings.Contains(methods, want) {
+		t.Errorf("methods.gen.go lacks %q\n%s", want, methods)
+	}
+	if want := "// Byer doc.\n//\n// [CapabilitiesOf] advertises it with the `session.bye` agent capability.\n//\n// See protocol docs:"; !strings.Contains(methods, want) {
+		t.Errorf("methods.gen.go lacks %q\n%s", want, methods)
+	}
+	if !strings.Contains(methods, "func clientCapabilitiesOf(client Client, caps *schema.ClientCapabilities) {\n}") {
+		t.Errorf("methods.gen.go lacks an empty clientCapabilitiesOf\n%s", methods)
+	}
+}
+
+func TestRequiredCapabilityIsAlwaysSet(t *testing.T) {
+	s := spec()
+	s.Agent[0].Capability = "session"
+	files, err := generate(t, s, parse(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Set unconditionally and first, so the optional group needs no nil check.
+	want := "caps.Session = &schema.SessionCapabilities{}\n\tif _, ok := agent.(Byer); ok {\n\t\tcaps.Session.Bye = &schema.ByeCapabilities{}\n\t}"
+	if methods := string(files["methods.gen.go"]); !strings.Contains(methods, want) {
+		t.Errorf("methods.gen.go lacks %q\n%s", want, methods)
+	}
 }

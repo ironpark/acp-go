@@ -235,9 +235,14 @@ stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &o
 stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // terminal from conn.NewTerminal
 
 stream.SendPlan(ctx, entries)
-stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("Refactor")}) // variants without a helper
-stream.WithMeta(meta).SendText(ctx, "…")                                       // _meta on each notification
+stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: optional.Of("Refactor")}) // variants without a helper
+stream.WithMeta(meta).SendText(ctx, "…")                                              // _meta on each notification
 ```
+
+Members where null and absence mean different things, such as the fields of
+`SessionInfoUpdate` (left out keeps the stored value, null clears it), are
+`optional.Value` from `schema/optional`: `optional.Of(v)` sets a value,
+`optional.Null[T]()` clears and the zero value leaves the member out.
 
 `acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts` (an iterator over a prompt's text blocks),
 `acp1.JoinTexts` (their concatenation) and

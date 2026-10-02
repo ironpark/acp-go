@@ -30,3 +30,56 @@ numbers:
   MultiSelectPropertySchema.minItems: uint64
   MultiSelectPropertySchema.maxItems: uint64
   RequestId: int64
+
+# tristate lists, per protocol version, the optional nullable members where
+# absent and null mean different things, typically an update that keeps the
+# stored value when a member is left out and clears it on null. They become
+# optional.Value fields. Each is MaybeUndefined in the protocol's Rust schema;
+# members of raw JSON (unknown) already keep null and are left out. An entry
+# its version lacks fails generation.
+tristate:
+  v1:
+    - SessionMessage.content
+    - SessionMessage._meta
+    - CompactionUpdate.summary
+    - CompactionUpdate.error
+    - CompactionUpdate._meta
+    - SubagentUpdate.title
+    - SubagentUpdate.description
+    - SubagentUpdate.capabilities
+    - SubagentUpdate.state
+    - SubagentUpdate._meta
+    - SessionInfoUpdate.title
+    - SessionInfoUpdate.updatedAt
+  v2:
+    - SessionMessage.content
+    - SessionMessage._meta
+    - CompactionUpdate.summary
+    - CompactionUpdate.error
+    - CompactionUpdate._meta
+    - SubagentUpdate.title
+    - SubagentUpdate.description
+    - SubagentUpdate.capabilities
+    - SubagentUpdate.state
+    - SubagentUpdate._meta
+    - SessionInfoUpdate.title
+    - SessionInfoUpdate.updatedAt
+    - SessionInfoUpdate._meta
+    - UserMessage.content
+    - UserMessage._meta
+    - AgentMessage.content
+    - AgentMessage._meta
+    - AgentThought.content
+    - AgentThought._meta
+    - TerminalUpdate.command
+    - TerminalUpdate.cwd
+    - TerminalUpdate.output
+    - TerminalUpdate.exitStatus
+    - TerminalUpdate._meta
+    - ToolCallUpdate.name
+    - ToolCallUpdate.title
+    - ToolCallUpdate.kind
+    - ToolCallUpdate.status
+    - ToolCallUpdate.content
+    - ToolCallUpdate.locations
+    - ToolCallUpdate._meta

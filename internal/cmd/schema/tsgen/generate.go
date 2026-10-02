@@ -24,11 +24,13 @@ type generator struct {
 	decls        Decls                  // Go name -> what else an enum or tagged union declares
 	pending      []tsdef.Definition
 	names        map[string]bool
-	aliases      map[string]bool     // Go names declared with "type X = ..."
-	unmarshalers []string            // json.UnmarshalFromFunc entries for variant interfaces
-	openTags     map[string]openTags // Go union name -> tags known to its Unknown variant
-	usesMeta     bool                // some struct has a _meta field typed as Meta
-	getters      []getter            // pointer fields of payload structs, emitted last
+	aliases      map[string]bool        // Go names declared with "type X = ..."
+	unmarshalers []string               // json.UnmarshalFromFunc entries for variant interfaces
+	openTags     map[string]openTags    // Go union name -> tags known to its Unknown variant
+	usesMeta     bool                   // some struct has a _meta field typed as Meta
+	getters      []getter               // pointer fields of payload structs, emitted last
+	wires        map[string]bool        // tag names whose generic variant wire is declared, emitted last
+	forms        map[*tsdef.Type]formed // memoized form results
 	pkg          string
 	buffers      map[string]*bytes.Buffer // output file name -> source being built
 	order        []string                 // buffer creation order, for deterministic output
@@ -104,6 +106,7 @@ func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
 	g := &generator{
 		defs: map[string]*tsdef.Type{}, docs: map[string]string{}, refs: map[string]int{},
 		absorbed: map[string]*absorption{}, decls: Decls{},
+		forms: map[*tsdef.Type]formed{}, wires: map[string]bool{},
 		names: map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{},
 		pkg: pkg, buffers: map[string]*bytes.Buffer{},
 	}
@@ -192,6 +195,7 @@ func generate(schema *tsdef.Schema, pkg string) (*generator, error) {
 		g.use(fileUnions)
 		g.write("\n// Unmarshalers returns the unmarshalers that decode the tagged-union variant\n// interfaces directly, for callers that declare fields of those interface\n// types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers()))\nfunc Unmarshalers() *json.Unmarshalers { return unmarshalers }\n\nvar unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(g.unmarshalers, ",\n"))
 	}
+	g.emitTaggedWires()
 	g.emitGetters()
 	g.use(fileZod)
 	if err := g.zod(schema); err != nil {
@@ -280,7 +284,7 @@ func (g *generator) write(f string, a ...any) { fmt.Fprintf(g.out, f, a...) }
 var importPaths = map[string]string{
 	"json": "encoding/json/v2", "jsontext": "encoding/json/jsontext", "errors": "errors", "fmt": "fmt",
 	"reflect": "reflect", "regexp": "regexp",
-	"union": UnionRuntime, "zod": ZodRuntime, "meta": MetaRuntime,
+	"union": UnionRuntime, "zod": ZodRuntime, "meta": MetaRuntime, "optional": OptionalRuntime,
 }
 
 // usedImports parses a body of declarations and returns the sorted import

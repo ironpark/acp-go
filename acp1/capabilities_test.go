@@ -80,8 +80,9 @@ func TestClientCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
 	if !caps.GetFS().GetReadTextFile() {
 		t.Errorf("fs.readTextFile = %+v, want true", caps.FS)
 	}
-	if caps.FS.WriteTextFile == nil || *caps.FS.WriteTextFile {
-		t.Errorf("fs.writeTextFile = %+v, want explicit false", caps.FS)
+	// Absent defaults to false, so the writer flag is left out.
+	if caps.FS.WriteTextFile != nil {
+		t.Errorf("fs.writeTextFile = %+v, want unset", caps.FS)
 	}
 	if caps.Terminal != nil || caps.Elicitation != nil {
 		t.Errorf("advertised unimplemented capabilities: %+v", caps)

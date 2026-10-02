@@ -52,7 +52,7 @@ func run(args []string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", version, err)
 		}
-		used, err := overrides.Apply(schema)
+		used, err := overrides.Apply(schema, version)
 		if err != nil {
 			return fmt.Errorf("%s: %w", version, err)
 		}

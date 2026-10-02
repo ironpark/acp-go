@@ -7,6 +7,7 @@ import (
 	"encoding/json/v2"
 
 	"github.com/ironpark/acp-go/schema/meta"
+	"github.com/ironpark/acp-go/schema/optional"
 )
 
 // RequestPermissionRequest is a request for user permission to proceed with an operation.
@@ -64,25 +65,25 @@ type ToolCallUpdate struct {
 	// change, `null` clears the name, and a string replaces it. For a tool
 	// call ID the client has not seen before, omission or `null` means that no
 	// tool name is available.
-	Name *string `json:"name,omitzero"`
+	Name optional.Value[string] `json:"name,omitzero"`
 	// Human-readable title describing what the tool is doing.
-	Title *string `json:"title,omitzero"`
+	Title optional.Value[string] `json:"title,omitzero"`
 	// The category of tool being invoked.
 	// Helps clients choose appropriate icons and UI treatment.
-	Kind *ToolKind `json:"kind,omitzero"`
+	Kind optional.Value[ToolKind] `json:"kind,omitzero"`
 	// Current execution status of the tool call.
-	Status *ToolCallStatus `json:"status,omitzero"`
+	Status optional.Value[ToolCallStatus] `json:"status,omitzero"`
 	// Content produced by the tool call.
-	Content []ToolCallContent `json:"content,omitzero"`
+	Content optional.Value[[]ToolCallContent] `json:"content,omitzero"`
 	// File locations affected by this tool call.
 	// Enables "follow-along" features in clients.
-	Locations []ToolCallLocation `json:"locations,omitzero"`
+	Locations optional.Value[[]ToolCallLocation] `json:"locations,omitzero"`
 	// Raw input parameters sent to the tool.
 	RawInput jsontext.Value `json:"rawInput,omitzero"`
 	// Raw output returned by the tool.
 	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
 	// Omitted means no metadata update; `null` is an explicit clear signal.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
 // Optional annotations for the client. The client can use annotations to inform how objects are used or displayed

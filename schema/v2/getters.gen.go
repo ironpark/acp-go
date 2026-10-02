@@ -1124,13 +1124,74 @@ func (x *SessionInfo) GetUpdatedAt() string {
 	return zero
 }
 
-// GetError returns the value of Error, or the zero value if x or Error is nil.
-func (x *SessionUpdateCompactionUpdate) GetError() string {
-	if x != nil && x.Error != nil {
-		return *x.Error
+// GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
+func (x *SessionUpdateAgentMessage) GetContent() []ContentBlock {
+	if x == nil {
+		var zero []ContentBlock
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Content.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateAgentMessage) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
+}
+
+// GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
+func (x *SessionUpdateAgentThought) GetContent() []ContentBlock {
+	if x == nil {
+		var zero []ContentBlock
+		return zero
+	}
+	v, _ := x.Content.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateAgentThought) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
+}
+
+// GetSummary returns the value of Summary, or the zero value if x is nil or Summary is absent or null.
+func (x *SessionUpdateCompactionUpdate) GetSummary() []ContentBlock {
+	if x == nil {
+		var zero []ContentBlock
+		return zero
+	}
+	v, _ := x.Summary.Get()
+	return v
+}
+
+// GetError returns the value of Error, or the zero value if x is nil or Error is absent or null.
+func (x *SessionUpdateCompactionUpdate) GetError() string {
+	if x == nil {
+		var zero string
+		return zero
+	}
+	v, _ := x.Error.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateCompactionUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
@@ -1142,22 +1203,34 @@ func (x *SessionUpdateNotice) GetDescription() string {
 	return zero
 }
 
-// GetTitle returns the value of Title, or the zero value if x or Title is nil.
+// GetTitle returns the value of Title, or the zero value if x is nil or Title is absent or null.
 func (x *SessionUpdateSessionInfoUpdate) GetTitle() string {
-	if x != nil && x.Title != nil {
-		return *x.Title
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Title.Get()
+	return v
 }
 
-// GetUpdatedAt returns the value of UpdatedAt, or the zero value if x or UpdatedAt is nil.
+// GetUpdatedAt returns the value of UpdatedAt, or the zero value if x is nil or UpdatedAt is absent or null.
 func (x *SessionUpdateSessionInfoUpdate) GetUpdatedAt() string {
-	if x != nil && x.UpdatedAt != nil {
-		return *x.UpdatedAt
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.UpdatedAt.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateSessionInfoUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
 }
 
 // GetSenderSessionID returns the value of SenderSessionID, or the zero value if x or SenderSessionID is nil.
@@ -1178,6 +1251,26 @@ func (x *SessionUpdateSessionMessage) GetRecipientSessionID() SessionID {
 	return zero
 }
 
+// GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
+func (x *SessionUpdateSessionMessage) GetContent() []ContentBlock {
+	if x == nil {
+		var zero []ContentBlock
+		return zero
+	}
+	v, _ := x.Content.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateSessionMessage) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
+}
+
 // GetSenderSessionID returns the value of SenderSessionID, or the zero value if x or SenderSessionID is nil.
 func (x *SessionUpdateSessionMessageChunk) GetSenderSessionID() SessionID {
 	if x != nil && x.SenderSessionID != nil {
@@ -1196,100 +1289,174 @@ func (x *SessionUpdateSessionMessageChunk) GetRecipientSessionID() SessionID {
 	return zero
 }
 
-// GetTitle returns the value of Title, or the zero value if x or Title is nil.
+// GetTitle returns the value of Title, or the zero value if x is nil or Title is absent or null.
 func (x *SessionUpdateSubagentUpdate) GetTitle() string {
-	if x != nil && x.Title != nil {
-		return *x.Title
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Title.Get()
+	return v
 }
 
-// GetDescription returns the value of Description, or the zero value if x or Description is nil.
+// GetDescription returns the value of Description, or the zero value if x is nil or Description is absent or null.
 func (x *SessionUpdateSubagentUpdate) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Description.Get()
+	return v
 }
 
-// GetCapabilities returns Capabilities, or nil if x is nil.
+// GetCapabilities returns a copy of Capabilities, or nil if x is nil or Capabilities is absent or null.
 func (x *SessionUpdateSubagentUpdate) GetCapabilities() *SubagentSessionCapabilities {
-	if x == nil {
-		return nil
+	if x != nil {
+		if v, ok := x.Capabilities.Get(); ok {
+			return &v
+		}
 	}
-	return x.Capabilities
+	return nil
 }
 
-// GetCommand returns the value of Command, or the zero value if x or Command is nil.
+// GetState returns the value of State, or the zero value if x is nil or State is absent or null.
+func (x *SessionUpdateSubagentUpdate) GetState() StateUpdate {
+	if x == nil {
+		var zero StateUpdate
+		return zero
+	}
+	v, _ := x.State.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateSubagentUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
+}
+
+// GetCommand returns the value of Command, or the zero value if x is nil or Command is absent or null.
 func (x *SessionUpdateTerminalUpdate) GetCommand() string {
-	if x != nil && x.Command != nil {
-		return *x.Command
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Command.Get()
+	return v
 }
 
-// GetCwd returns the value of Cwd, or the zero value if x or Cwd is nil.
+// GetCwd returns the value of Cwd, or the zero value if x is nil or Cwd is absent or null.
 func (x *SessionUpdateTerminalUpdate) GetCwd() AbsolutePath {
-	if x != nil && x.Cwd != nil {
-		return *x.Cwd
+	if x == nil {
+		var zero AbsolutePath
+		return zero
 	}
-	var zero AbsolutePath
-	return zero
+	v, _ := x.Cwd.Get()
+	return v
 }
 
-// GetOutput returns Output, or nil if x is nil.
+// GetOutput returns a copy of Output, or nil if x is nil or Output is absent or null.
 func (x *SessionUpdateTerminalUpdate) GetOutput() *TerminalOutput {
-	if x == nil {
-		return nil
+	if x != nil {
+		if v, ok := x.Output.Get(); ok {
+			return &v
+		}
 	}
-	return x.Output
+	return nil
 }
 
-// GetExitStatus returns ExitStatus, or nil if x is nil.
+// GetExitStatus returns a copy of ExitStatus, or nil if x is nil or ExitStatus is absent or null.
 func (x *SessionUpdateTerminalUpdate) GetExitStatus() *TerminalExitStatus {
+	if x != nil {
+		if v, ok := x.ExitStatus.Get(); ok {
+			return &v
+		}
+	}
+	return nil
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateTerminalUpdate) GetMeta() Meta {
 	if x == nil {
-		return nil
+		var zero Meta
+		return zero
 	}
-	return x.ExitStatus
+	v, _ := x.Meta.Get()
+	return v
 }
 
-// GetName returns the value of Name, or the zero value if x or Name is nil.
+// GetName returns the value of Name, or the zero value if x is nil or Name is absent or null.
 func (x *SessionUpdateToolCallUpdate) GetName() string {
-	if x != nil && x.Name != nil {
-		return *x.Name
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Name.Get()
+	return v
 }
 
-// GetTitle returns the value of Title, or the zero value if x or Title is nil.
+// GetTitle returns the value of Title, or the zero value if x is nil or Title is absent or null.
 func (x *SessionUpdateToolCallUpdate) GetTitle() string {
-	if x != nil && x.Title != nil {
-		return *x.Title
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Title.Get()
+	return v
 }
 
-// GetKind returns the value of Kind, or the zero value if x or Kind is nil.
+// GetKind returns the value of Kind, or the zero value if x is nil or Kind is absent or null.
 func (x *SessionUpdateToolCallUpdate) GetKind() ToolKind {
-	if x != nil && x.Kind != nil {
-		return *x.Kind
+	if x == nil {
+		var zero ToolKind
+		return zero
 	}
-	var zero ToolKind
-	return zero
+	v, _ := x.Kind.Get()
+	return v
 }
 
-// GetStatus returns the value of Status, or the zero value if x or Status is nil.
+// GetStatus returns the value of Status, or the zero value if x is nil or Status is absent or null.
 func (x *SessionUpdateToolCallUpdate) GetStatus() ToolCallStatus {
-	if x != nil && x.Status != nil {
-		return *x.Status
+	if x == nil {
+		var zero ToolCallStatus
+		return zero
 	}
-	var zero ToolCallStatus
-	return zero
+	v, _ := x.Status.Get()
+	return v
+}
+
+// GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
+func (x *SessionUpdateToolCallUpdate) GetContent() []ToolCallContent {
+	if x == nil {
+		var zero []ToolCallContent
+		return zero
+	}
+	v, _ := x.Content.Get()
+	return v
+}
+
+// GetLocations returns the value of Locations, or the zero value if x is nil or Locations is absent or null.
+func (x *SessionUpdateToolCallUpdate) GetLocations() []ToolCallLocation {
+	if x == nil {
+		var zero []ToolCallLocation
+		return zero
+	}
+	v, _ := x.Locations.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateToolCallUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
 }
 
 // GetCost returns Cost, or nil if x is nil.
@@ -1298,6 +1465,26 @@ func (x *SessionUpdateUsageUpdate) GetCost() *Cost {
 		return nil
 	}
 	return x.Cost
+}
+
+// GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
+func (x *SessionUpdateUserMessage) GetContent() []ContentBlock {
+	if x == nil {
+		var zero []ContentBlock
+		return zero
+	}
+	v, _ := x.Content.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateUserMessage) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
 }
 
 // GetWorkspaceURI returns the value of WorkspaceURI, or the zero value if x or WorkspaceURI is nil.
@@ -1410,40 +1597,74 @@ func (x *ToolCallLocation) GetLine() uint32 {
 	return zero
 }
 
-// GetName returns the value of Name, or the zero value if x or Name is nil.
+// GetName returns the value of Name, or the zero value if x is nil or Name is absent or null.
 func (x *ToolCallUpdate) GetName() string {
-	if x != nil && x.Name != nil {
-		return *x.Name
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Name.Get()
+	return v
 }
 
-// GetTitle returns the value of Title, or the zero value if x or Title is nil.
+// GetTitle returns the value of Title, or the zero value if x is nil or Title is absent or null.
 func (x *ToolCallUpdate) GetTitle() string {
-	if x != nil && x.Title != nil {
-		return *x.Title
+	if x == nil {
+		var zero string
+		return zero
 	}
-	var zero string
-	return zero
+	v, _ := x.Title.Get()
+	return v
 }
 
-// GetKind returns the value of Kind, or the zero value if x or Kind is nil.
+// GetKind returns the value of Kind, or the zero value if x is nil or Kind is absent or null.
 func (x *ToolCallUpdate) GetKind() ToolKind {
-	if x != nil && x.Kind != nil {
-		return *x.Kind
+	if x == nil {
+		var zero ToolKind
+		return zero
 	}
-	var zero ToolKind
-	return zero
+	v, _ := x.Kind.Get()
+	return v
 }
 
-// GetStatus returns the value of Status, or the zero value if x or Status is nil.
+// GetStatus returns the value of Status, or the zero value if x is nil or Status is absent or null.
 func (x *ToolCallUpdate) GetStatus() ToolCallStatus {
-	if x != nil && x.Status != nil {
-		return *x.Status
+	if x == nil {
+		var zero ToolCallStatus
+		return zero
 	}
-	var zero ToolCallStatus
-	return zero
+	v, _ := x.Status.Get()
+	return v
+}
+
+// GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
+func (x *ToolCallUpdate) GetContent() []ToolCallContent {
+	if x == nil {
+		var zero []ToolCallContent
+		return zero
+	}
+	v, _ := x.Content.Get()
+	return v
+}
+
+// GetLocations returns the value of Locations, or the zero value if x is nil or Locations is absent or null.
+func (x *ToolCallUpdate) GetLocations() []ToolCallLocation {
+	if x == nil {
+		var zero []ToolCallLocation
+		return zero
+	}
+	v, _ := x.Locations.Get()
+	return v
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *ToolCallUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
 }
 
 // GetThoughtTokens returns the value of ThoughtTokens, or the zero value if x or ThoughtTokens is nil.

@@ -38,7 +38,7 @@ func TestSubagentStream(t *testing.T) {
 	}
 	got := <-client.updates
 	update, _ = got.Update.As[acp1.SessionUpdateSubagentUpdate]()
-	idle, ok := update.State.As[acp1.StateUpdateIdle]()
+	idle, ok := update.GetState().As[acp1.StateUpdateIdle]()
 	if got.SessionID != "parent" || update.SessionID != "child" || !ok || idle.GetStopReason() != acp1.StopReasonCancelled {
 		t.Fatalf("state update = %+v", got)
 	}

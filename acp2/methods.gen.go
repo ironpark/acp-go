@@ -23,6 +23,8 @@ import (
 // together. Embedding a [SessionManager] provides the session lifecycle ones.
 // Implement the optional interfaces for the rest; unimplemented methods are
 // answered with "method not found".
+//
+// [CapabilitiesOf] advertises it with the `capabilities.session` agent capability.
 type Agent interface {
 	// Initialize negotiates the protocol version and exchanges capabilities.
 	Initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error)
@@ -52,22 +54,25 @@ type Agent interface {
 	CancelSession(ctx context.Context, params *CancelSessionNotification) error
 }
 
-// AuthHandler handles auth/login and auth/logout. Advertise it with the
-// `capabilities.auth` agent capability.
+// AuthHandler handles auth/login and auth/logout.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.auth` agent capability.
 type AuthHandler interface {
 	Login(ctx context.Context, params *LoginAuthRequest) (*LoginAuthResponse, error)
 
 	Logout(ctx context.Context, params *LogoutAuthRequest) (*LogoutAuthResponse, error)
 }
 
-// SessionDeleter handles session/delete. Advertise it with the
-// `capabilities.session.delete` agent capability.
+// SessionDeleter handles session/delete.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.session.delete` agent capability.
 type SessionDeleter interface {
 	DeleteSession(ctx context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error)
 }
 
-// SessionForker handles session/fork. Advertise it with the
-// `capabilities.session.fork` agent capability.
+// SessionForker handles session/fork.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.session.fork` agent capability.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionForker interface {
@@ -81,8 +86,9 @@ type SessionConfigOptionSetter interface {
 	SetSessionConfigOption(ctx context.Context, params *SetSessionConfigOptionRequest) (*SetSessionConfigOptionResponse, error)
 }
 
-// ProviderManager handles the providers/* methods. Advertise them with the
-// `capabilities.providers` agent capability.
+// ProviderManager handles the providers/* methods.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.providers` agent capability.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type ProviderManager interface {
@@ -93,9 +99,10 @@ type ProviderManager interface {
 	DisableProvider(ctx context.Context, params *DisableProviderRequest) (*DisableProviderResponse, error)
 }
 
-// NesHandler handles the nes/* methods for Next Edit Suggestions. Advertise
-// them with the `capabilities.nes` agent capability. AcceptNes and RejectNes
-// are notifications.
+// NesHandler handles the nes/* methods for Next Edit Suggestions. AcceptNes
+// and RejectNes are notifications.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.nes` agent capability.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type NesHandler interface {
@@ -129,6 +136,8 @@ type DocumentHandler interface {
 // MCPMessageHandler receives the request-scoped MCP notifications, such as
 // progress, that an MCP server the client provides sends over mcp/message
 // while it works on a request the agent made.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.session.mcp.acp` agent capability.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MCPMessageHandler interface {
@@ -168,8 +177,9 @@ type MCPProvider interface {
 }
 
 // ElicitationHandler handles elicitation/create and the elicitation/complete
-// notification. Advertise it with the `capabilities.elicitation` client
-// capability.
+// notification.
+//
+// [ClientCapabilitiesOf] advertises it with the `capabilities.elicitation` client capability.
 type ElicitationHandler interface {
 	CreateElicitation(ctx context.Context, params *CreateElicitationRequest) (*CreateElicitationResponse, error)
 
@@ -564,4 +574,39 @@ func (c *ClientSideConnection) handleNotification(ctx context.Context, method st
 		}
 	}
 	return jsonrpc.MethodNotFound(method)
+}
+
+// capabilitiesOf sets in caps the capability of the Agent interface and of each
+// optional interface agent implements.
+func capabilitiesOf(agent Agent, caps *schema.AgentCapabilities) {
+	caps.Session = &schema.SessionCapabilities{}
+	if _, ok := agent.(AuthHandler); ok {
+		caps.Auth = &schema.AgentAuthCapabilities{}
+	}
+	if _, ok := agent.(SessionDeleter); ok {
+		caps.Session.Delete = &schema.SessionDeleteCapabilities{}
+	}
+	if _, ok := agent.(SessionForker); ok {
+		caps.Session.Fork = &schema.SessionForkCapabilities{}
+	}
+	if _, ok := agent.(ProviderManager); ok {
+		caps.Providers = &schema.ProvidersCapabilities{}
+	}
+	if _, ok := agent.(NesHandler); ok {
+		caps.Nes = &schema.NesCapabilities{}
+	}
+	if _, ok := agent.(MCPMessageHandler); ok {
+		if caps.Session.MCP == nil {
+			caps.Session.MCP = &schema.MCPCapabilities{}
+		}
+		caps.Session.MCP.ACP = &schema.MCPACPCapabilities{}
+	}
+}
+
+// clientCapabilitiesOf sets in caps the capability of the Client interface and of each
+// optional interface client implements.
+func clientCapabilitiesOf(client Client, caps *schema.ClientCapabilities) {
+	if _, ok := client.(ElicitationHandler); ok {
+		caps.Elicitation = &schema.ElicitationCapabilities{}
+	}
 }

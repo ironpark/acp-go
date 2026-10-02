@@ -31,7 +31,7 @@ func TestSubagentStreamMirrorsState(t *testing.T) {
 	}
 	mirrored := <-client.updates
 	update, _ = mirrored.Update.As[acp2.SessionUpdateSubagentUpdate]()
-	if mirrored.SessionID != "parent" || update.SessionID != "child" || update.State.Tag() != "running" {
+	if mirrored.SessionID != "parent" || update.SessionID != "child" || update.GetState().Tag() != "running" {
 		t.Fatalf("mirrored state = %+v", mirrored)
 	}
 

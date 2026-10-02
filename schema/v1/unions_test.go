@@ -35,3 +35,28 @@ func TestUnknownVariantsRoundTrip(t *testing.T) {
 		t.Fatalf("got %T with tag %q", c.Variant(), c.Tag())
 	}
 }
+
+// An object without its discriminator is malformed, not a newer variant: plain
+// decoding rejects it as validation does, and null-clearing members survive.
+func TestStrictDecodingWithoutValidation(t *testing.T) {
+	var c ContentBlock
+	if err := json.Unmarshal([]byte(`{"text":"no tag"}`), &c); err == nil {
+		t.Fatalf("decoded a tagless object as %T", c.Variant())
+	}
+	if err := json.Unmarshal([]byte(`{"text":"no tag"}`), &c, Validated()); err == nil {
+		t.Fatal("validation accepted a tagless object")
+	}
+
+	const raw = `{"sessionId":"s","update":{"sessionUpdate":"session_info_update","title":null}}`
+	var n SessionNotification
+	if err := json.Unmarshal([]byte(raw), &n, Validated()); err != nil {
+		t.Fatal(err)
+	}
+	info, ok := n.Update.As[SessionUpdateSessionInfoUpdate]()
+	if !ok || !info.Title.IsNull() || !info.UpdatedAt.IsZero() {
+		t.Fatalf("title should be null and updatedAt absent: %+v", info)
+	}
+	if out, err := json.Marshal(n); err != nil || string(out) != raw {
+		t.Fatalf("round trip changed the message: %s %v", out, err)
+	}
+}

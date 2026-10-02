@@ -127,10 +127,10 @@ func (t *Turn) Text() (string, StopReason, error) {
 				message(u.MessageID).WriteString(text)
 			}
 		case schema.SessionUpdateAgentMessage:
-			if u.Content != nil {
+			if content, ok := u.Content.Get(); ok {
 				b := message(u.MessageID)
 				b.Reset()
-				for text := range Texts(u.Content) {
+				for text := range Texts(content) {
 					b.WriteString(text)
 				}
 			}

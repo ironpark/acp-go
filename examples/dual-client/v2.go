@@ -21,7 +21,7 @@ func (c *v2Client) SessionUpdate(_ context.Context, params *acp2.UpdateSessionNo
 	}
 	switch update := params.Update.Variant().(type) {
 	case acp2.SessionUpdateUserMessage:
-		fmt.Printf("   history >> %s\n", acp2.JoinTexts(update.Content))
+		fmt.Printf("   history >> %s\n", acp2.JoinTexts(update.GetContent()))
 	case acp2.SessionUpdateAgentMessageChunk:
 		if text, ok := acp2.TextOf(update.Content); ok {
 			fmt.Printf("   history << %s\n", text)

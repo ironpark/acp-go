@@ -10,6 +10,7 @@ import (
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp2"
 	"github.com/ironpark/acp-go/acp2/acp2test"
+	"github.com/ironpark/acp-go/schema/optional"
 	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
@@ -27,7 +28,7 @@ func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2
 		ctx := context.Background()
 		_ = stream.Running(ctx)
 		_ = stream.SendText(ctx, "m1", "draft")
-		_ = stream.Send(ctx, schema.SessionUpdateAgentMessage{MessageID: "m1", Content: []acp2.ContentBlock{acp2.TextBlock("Hello")}})
+		_ = stream.Send(ctx, schema.SessionUpdateAgentMessage{MessageID: "m1", Content: optional.Of([]acp2.ContentBlock{acp2.TextBlock("Hello")})})
 		_ = stream.SendText(ctx, "m1", ", world")
 		_ = stream.Idle(ctx, schema.StopReasonEndTurn)
 	}

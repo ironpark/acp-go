@@ -60,7 +60,8 @@ See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/promp
 			},
 		},
 		{
-			Interface: "Authenticator",
+			Interface:    "Authenticator",
+			NoCapability: true,
 			Doc: `Authenticator handles authenticate. Implement it when the agent lists
 ` + "`authMethods`" + ` in its Initialize response; an agent that needs no
 credentials leaves it out and the method answers "method not found".
@@ -72,11 +73,11 @@ See protocol docs: [Authentication](https://agentclientprotocol.com/protocol/aut
 			}},
 		},
 		{
-			Interface: "SessionLoader",
-			Doc: `SessionLoader handles session/load. Advertise it with the ` + "`loadSession`" + `
-agent capability. Loading replays the conversation, which only the agent
-knows, so [SessionManager] leaves it to the agent; [SessionManager.Lookup]
-finds the session to replay.`,
+			Interface:  "SessionLoader",
+			Capability: "loadSession",
+			Doc: `SessionLoader handles session/load. Loading replays the conversation,
+which only the agent knows, so [SessionManager] leaves it to the agent;
+[SessionManager.Lookup] finds the session to replay.`,
 			Methods: []Method{{
 				Wire: "session/load", Name: "LoadSession", Params: "LoadSessionRequest", Response: "LoadSessionResponse",
 				CallDoc: `LoadSession resumes a session and replays its history as notifications.
@@ -84,18 +85,18 @@ Requires the agent's ` + "`loadSession`" + ` capability.`,
 			}},
 		},
 		{
-			Interface: "SessionLister",
-			Doc: `SessionLister handles session/list. Advertise it with the
-` + "`sessionCapabilities.list`" + ` agent capability.`,
+			Interface:  "SessionLister",
+			Capability: "sessionCapabilities.list",
+			Doc:        `SessionLister handles session/list.`,
 			Methods: []Method{{
 				Wire: "session/list", Name: "ListSessions", Params: "ListSessionsRequest", Response: "ListSessionsResponse",
 				CallDoc: `ListSessions lists sessions, optionally filtered and paginated.`,
 			}},
 		},
 		{
-			Interface: "SessionDeleter",
-			Doc: `SessionDeleter handles session/delete. Advertise it with the
-` + "`sessionCapabilities.delete`" + ` agent capability.`,
+			Interface:  "SessionDeleter",
+			Capability: "sessionCapabilities.delete",
+			Doc:        `SessionDeleter handles session/delete.`,
 			Methods: []Method{{
 				Wire: "session/delete", Name: "DeleteSession", Params: "DeleteSessionRequest", Response: "DeleteSessionResponse",
 				CallDoc: `DeleteSession deletes a session and its stored history.`,
@@ -103,9 +104,9 @@ Requires the agent's ` + "`loadSession`" + ` capability.`,
 		},
 		{
 			Interface:    "SessionForker",
+			Capability:   "sessionCapabilities.fork",
 			Experimental: true,
-			Doc: `SessionForker handles session/fork. Advertise it with the
-` + "`sessionCapabilities.fork`" + ` agent capability.`,
+			Doc:          `SessionForker handles session/fork.`,
 			Methods: []Method{{
 				Wire: "session/fork", Name: "ForkSession", Params: "ForkSessionRequest", Response: "ForkSessionResponse",
 				CallDoc: `ForkSession branches a session so work continues without touching the
@@ -113,26 +114,27 @@ original history.`,
 			}},
 		},
 		{
-			Interface: "SessionResumer",
+			Interface:  "SessionResumer",
+			Capability: "sessionCapabilities.resume",
 			Doc: `SessionResumer handles session/resume, continuing a session without
-replaying its history. Advertise it with the ` + "`sessionCapabilities.resume`" + `
-agent capability.`,
+replaying its history.`,
 			Methods: []Method{{
 				Wire: "session/resume", Name: "ResumeSession", Params: "ResumeSessionRequest", Response: "ResumeSessionResponse",
 				CallDoc: `ResumeSession continues a session without replaying its history.`,
 			}},
 		},
 		{
-			Interface: "SessionCloser",
-			Doc: `SessionCloser handles session/close. Advertise it with the
-` + "`sessionCapabilities.close`" + ` agent capability.`,
+			Interface:  "SessionCloser",
+			Capability: "sessionCapabilities.close",
+			Doc:        `SessionCloser handles session/close.`,
 			Methods: []Method{{
 				Wire: "session/close", Name: "CloseSession", Params: "CloseSessionRequest", Response: "CloseSessionResponse",
 				CallDoc: `CloseSession cancels any ongoing work and frees the session's resources.`,
 			}},
 		},
 		{
-			Interface: "SessionModeSetter",
+			Interface:    "SessionModeSetter",
+			NoCapability: true,
 			Doc: `SessionModeSetter handles session/set_mode.
 
 See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)`,
@@ -142,7 +144,8 @@ See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/sess
 			}},
 		},
 		{
-			Interface: "SessionConfigOptionSetter",
+			Interface:    "SessionConfigOptionSetter",
+			NoCapability: true,
 			Doc: `SessionConfigOptionSetter handles session/set_config_option. The response
 carries every option and its current value, since changing one option may
 change the others.`,
@@ -154,9 +157,9 @@ every option, since one change may affect the others.`,
 		},
 		{
 			Interface:    "ProviderManager",
+			Capability:   "providers",
 			Experimental: true,
-			Doc: `ProviderManager handles the providers/* methods. Advertise them with the
-` + "`providers`" + ` agent capability.`,
+			Doc:          `ProviderManager handles the providers/* methods.`,
 			Methods: []Method{
 				{Wire: "providers/list", Name: "ListProviders", Params: "ListProvidersRequest", Response: "ListProvidersResponse",
 					CallDoc: "ListProviders lists the model providers the agent can use."},
@@ -167,8 +170,9 @@ every option, since one change may affect the others.`,
 			},
 		},
 		{
-			Interface: "LogoutHandler",
-			Doc:       `LogoutHandler handles the logout method, clearing stored credentials.`,
+			Interface:  "LogoutHandler",
+			Capability: "auth.logout",
+			Doc:        `LogoutHandler handles the logout method, clearing stored credentials.`,
 			Methods: []Method{{
 				Wire: "logout", Name: "Logout", Params: "LogoutRequest", Response: "LogoutResponse",
 				CallDoc: `Logout clears the credentials the agent holds.`,
@@ -176,14 +180,15 @@ every option, since one change may affect the others.`,
 		},
 		{
 			Interface:    "NesHandler",
+			Capability:   "nes",
 			Experimental: true,
-			Doc: `NesHandler handles the nes/* methods for Next Edit Suggestions. Advertise
-them with the ` + "`nes`" + ` agent capability. AcceptNes and RejectNes are
-notifications.`,
+			Doc: `NesHandler handles the nes/* methods for Next Edit Suggestions. AcceptNes
+and RejectNes are notifications.`,
 			Methods: nesMethods,
 		},
 		{
 			Interface:    "DocumentHandler",
+			NoCapability: true,
 			Experimental: true,
 			Doc: `DocumentHandler receives the document/did* notifications that mirror the
 client's open editors.`,
@@ -191,11 +196,11 @@ client's open editors.`,
 		},
 		{
 			Interface:    "MCPMessageHandler",
+			Capability:   "mcpCapabilities.acp",
 			Experimental: true,
 			Doc: `MCPMessageHandler receives the request-scoped MCP notifications, such as
 progress, that an MCP server the client provides sends over mcp/message
-while it works on a request the agent made. Implementing it advertises the
-` + "`mcpCapabilities.acp`" + ` agent capability through [CapabilitiesOf].
+while it works on a request the agent made.
 
 MCP-over-ACP is an RFD-stage draft; the wire format may still change.`,
 			Methods: []Method{
@@ -244,9 +249,9 @@ See protocol docs: [Requesting Permission](https://agentclientprotocol.com/proto
 			},
 		},
 		{
-			Interface: "FileReader",
-			Doc: `FileReader handles fs/read_text_file. Advertise it with the
-` + "`fs.readTextFile`" + ` client capability.`,
+			Interface:  "FileReader",
+			Capability: "fs.readTextFile",
+			Doc:        `FileReader handles fs/read_text_file.`,
 			Methods: []Method{{
 				Wire: "fs/read_text_file", Name: "ReadTextFile", Params: "ReadTextFileRequest", Response: "ReadTextFileResponse",
 				CallDoc: `ReadTextFile reads a text file through the client. Requires the client's
@@ -254,9 +259,9 @@ See protocol docs: [Requesting Permission](https://agentclientprotocol.com/proto
 			}},
 		},
 		{
-			Interface: "FileWriter",
-			Doc: `FileWriter handles fs/write_text_file. Advertise it with the
-` + "`fs.writeTextFile`" + ` client capability.`,
+			Interface:  "FileWriter",
+			Capability: "fs.writeTextFile",
+			Doc:        `FileWriter handles fs/write_text_file.`,
 			Methods: []Method{{
 				Wire: "fs/write_text_file", Name: "WriteTextFile", Params: "WriteTextFileRequest", Response: "WriteTextFileResponse",
 				CallDoc: `WriteTextFile writes a text file through the client. Requires the client's
@@ -264,9 +269,10 @@ See protocol docs: [Requesting Permission](https://agentclientprotocol.com/proto
 			}},
 		},
 		{
-			Interface: "TerminalHandler",
-			Doc: `TerminalHandler handles every terminal/* method. Advertise it with the
-` + "`terminal`" + ` client capability, which covers all five methods at once.
+			Interface:  "TerminalHandler",
+			Capability: "terminal",
+			Doc: `TerminalHandler handles every terminal/* method; one capability covers all
+five.
 
 See protocol docs: [Terminals](https://agentclientprotocol.com/protocol/terminals)`,
 			Methods: []Method{
@@ -286,6 +292,7 @@ a handle bound to the new terminal.`},
 		},
 		{
 			Interface:    "MCPProvider",
+			NoCapability: true,
 			Experimental: true,
 			Doc: `MCPProvider serves the MCP servers the client lists with the "acp"
 transport in session/new. Each mcp/message request is one MCP operation for
@@ -300,9 +307,10 @@ its outcome: the MCP result, or the MCP error, which is not an ACP error.`},
 			},
 		},
 		{
-			Interface: "ElicitationHandler",
+			Interface:  "ElicitationHandler",
+			Capability: "elicitation",
 			Doc: `ElicitationHandler handles elicitation/create and the elicitation/complete
-notification. Advertise it with the ` + "`elicitation`" + ` client capability.`,
+notification.`,
 			Methods: elicitationMethods("elicitation"),
 		},
 	},

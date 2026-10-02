@@ -71,12 +71,25 @@ type Field struct {
 	Comment  string
 	Optional bool
 	Type     *Type
+	// Tristate marks an optional, nullable member whose absence and null
+	// mean different things; see [Overrides.Tristate].
+	Tristate bool
 }
 
 type Constant struct {
 	Name    string
 	Value   string
 	Members []Constant
+}
+
+// Field returns the member of object t with the given JSON name, or nil.
+func (t *Type) Field(name string) *Field {
+	for i := range t.Fields {
+		if t.Fields[i].Name == name {
+			return &t.Fields[i]
+		}
+	}
+	return nil
 }
 
 // NonNull returns t without its null member, and whether it had one; a lone

@@ -3,6 +3,9 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,4 +112,66 @@ func TestNoPartialOutputOnParseFailure(t *testing.T) {
 	if len(entries) != 0 {
 		t.Fatal("wrote partial output")
 	}
+}
+
+// TestTristateMatchesRustSchema checks overrides.yaml's tristate lists against
+// the members the protocol's Rust schema declares MaybeUndefined, when the
+// reference checkout is present. Raw JSON members (Value) keep null on their
+// own and are not listed.
+func TestTristateMatchesRustSchema(t *testing.T) {
+	src := "../../../reference/agent-client-protocol/agent-client-protocol-schema/src"
+	if _, err := os.Stat(src); err != nil {
+		t.Skip("no reference checkout")
+	}
+	overrides, err := tsdef.ParseOverrides(overridesYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	structRE := regexp.MustCompile(`^\s*pub (?:struct|enum) (\w+)`)
+	fieldRE := regexp.MustCompile(`^\s*pub (\w+): MaybeUndefined<(.+)>,`)
+	for _, version := range []string{"v1", "v2"} {
+		files, err := filepath.Glob(filepath.Join(src, version, "*.rs"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var want []string
+		for _, file := range files {
+			data, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			owner := ""
+			for line := range strings.Lines(string(data)) {
+				if m := structRE.FindStringSubmatch(line); m != nil {
+					owner = m[1]
+				}
+				m := fieldRE.FindStringSubmatch(line)
+				if m == nil || owner == "" || strings.HasSuffix(m[2], "Value") {
+					continue
+				}
+				member := camel(m[1])
+				if member == "meta" {
+					member = "_meta"
+				}
+				want = append(want, owner+"."+member)
+			}
+		}
+		got := slices.Clone(overrides.Tristate[version])
+		slices.Sort(got)
+		slices.Sort(want)
+		if !slices.Equal(got, want) {
+			t.Errorf("tristate.%s:\n got %v\nwant %v", version, got, want)
+		}
+	}
+}
+
+// camel turns a Rust snake_case member into its serde camelCase name.
+func camel(s string) string {
+	parts := strings.Split(s, "_")
+	for i := 1; i < len(parts); i++ {
+		if parts[i] != "" {
+			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+		}
+	}
+	return strings.Join(parts, "")
 }

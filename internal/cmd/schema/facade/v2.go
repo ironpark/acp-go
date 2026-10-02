@@ -7,13 +7,15 @@ package facade
 // same shape as v1 — the methods every agent or client needs to hold a
 // conversation are required, everything gated by a capability is optional.
 var V2 = &Spec{
-	Package:    "acp2",
-	Dir:        "acp2",
-	SchemaPath: "github.com/ironpark/acp-go/schema/v2",
+	Package:       "acp2",
+	CapabilityDoc: "capabilities.",
+	Dir:           "acp2",
+	SchemaPath:    "github.com/ironpark/acp-go/schema/v2",
 	Agent: []Group{
 		{
-			Interface: "Agent",
-			Required:  true,
+			Interface:  "Agent",
+			Capability: "session",
+			Required:   true,
 			Doc: `Agent is the set of methods every ACP v2 agent must handle: the baseline
 session methods the session capability advertises, which v2 requires
 together. Embedding a [SessionManager] provides the session lifecycle ones.
@@ -71,9 +73,9 @@ foreground work, which then reports idle with the cancelled stop reason.`,
 			},
 		},
 		{
-			Interface: "AuthHandler",
-			Doc: `AuthHandler handles auth/login and auth/logout. Advertise it with the
-` + "`capabilities.auth`" + ` agent capability.`,
+			Interface:  "AuthHandler",
+			Capability: "auth",
+			Doc:        `AuthHandler handles auth/login and auth/logout.`,
 			Methods: []Method{
 				{Wire: "auth/login", Name: "Login", Params: "LoginAuthRequest", Response: "LoginAuthResponse",
 					CallDoc: `Login authenticates with one of the methods the agent advertised.`},
@@ -82,9 +84,9 @@ foreground work, which then reports idle with the cancelled stop reason.`,
 			},
 		},
 		{
-			Interface: "SessionDeleter",
-			Doc: `SessionDeleter handles session/delete. Advertise it with the
-` + "`capabilities.session.delete`" + ` agent capability.`,
+			Interface:  "SessionDeleter",
+			Capability: "session.delete",
+			Doc:        `SessionDeleter handles session/delete.`,
 			Methods: []Method{{
 				Wire: "session/delete", Name: "DeleteSession", Params: "DeleteSessionRequest", Response: "DeleteSessionResponse",
 				CallDoc: `DeleteSession deletes a session and its stored history.`,
@@ -92,9 +94,9 @@ foreground work, which then reports idle with the cancelled stop reason.`,
 		},
 		{
 			Interface:    "SessionForker",
+			Capability:   "session.fork",
 			Experimental: true,
-			Doc: `SessionForker handles session/fork. Advertise it with the
-` + "`capabilities.session.fork`" + ` agent capability.`,
+			Doc:          `SessionForker handles session/fork.`,
 			Methods: []Method{{
 				Wire: "session/fork", Name: "ForkSession", Params: "ForkSessionRequest", Response: "ForkSessionResponse",
 				CallDoc: `ForkSession branches a session so work continues without touching the
@@ -102,7 +104,8 @@ original history.`,
 			}},
 		},
 		{
-			Interface: "SessionConfigOptionSetter",
+			Interface:    "SessionConfigOptionSetter",
+			NoCapability: true,
 			Doc: `SessionConfigOptionSetter handles session/set_config_option. The response
 carries every option and its current value, since changing one option may
 change the others.`,
@@ -114,9 +117,9 @@ every option, since one change may affect the others.`,
 		},
 		{
 			Interface:    "ProviderManager",
+			Capability:   "providers",
 			Experimental: true,
-			Doc: `ProviderManager handles the providers/* methods. Advertise them with the
-` + "`capabilities.providers`" + ` agent capability.`,
+			Doc:          `ProviderManager handles the providers/* methods.`,
 			Methods: []Method{
 				{Wire: "providers/list", Name: "ListProviders", Params: "ListProvidersRequest", Response: "ListProvidersResponse",
 					CallDoc: "ListProviders lists the model providers the agent can use."},
@@ -128,14 +131,15 @@ every option, since one change may affect the others.`,
 		},
 		{
 			Interface:    "NesHandler",
+			Capability:   "nes",
 			Experimental: true,
-			Doc: `NesHandler handles the nes/* methods for Next Edit Suggestions. Advertise
-them with the ` + "`capabilities.nes`" + ` agent capability. AcceptNes and RejectNes
-are notifications.`,
+			Doc: `NesHandler handles the nes/* methods for Next Edit Suggestions. AcceptNes
+and RejectNes are notifications.`,
 			Methods: nesMethods,
 		},
 		{
 			Interface:    "DocumentHandler",
+			NoCapability: true,
 			Experimental: true,
 			Doc: `DocumentHandler receives the document/did* notifications that mirror the
 client's open editors.`,
@@ -143,6 +147,7 @@ client's open editors.`,
 		},
 		{
 			Interface:    "MCPMessageHandler",
+			Capability:   "session.mcp.acp",
 			Experimental: true,
 			Doc: `MCPMessageHandler receives the request-scoped MCP notifications, such as
 progress, that an MCP server the client provides sends over mcp/message
@@ -185,6 +190,7 @@ than leaving the request pending.`,
 		},
 		{
 			Interface:    "MCPProvider",
+			NoCapability: true,
 			Experimental: true,
 			Doc: `MCPProvider serves the MCP servers the client lists with the "acp"
 transport in session setup. Each mcp/message request is one MCP operation for
@@ -198,10 +204,10 @@ its outcome: the MCP result, or the MCP error, which is not an ACP error.`},
 			},
 		},
 		{
-			Interface: "ElicitationHandler",
+			Interface:  "ElicitationHandler",
+			Capability: "elicitation",
 			Doc: `ElicitationHandler handles elicitation/create and the elicitation/complete
-notification. Advertise it with the ` + "`capabilities.elicitation`" + ` client
-capability.`,
+notification.`,
 			Methods: elicitationMethods("capabilities.elicitation"),
 		},
 	},

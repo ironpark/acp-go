@@ -33,9 +33,26 @@ const (
 	formAlias                // type X = expr
 )
 
+// formed is a memoized result of [generator.form].
+type formed struct {
+	form form
+	t    *tsdef.Type
+	err  error
+}
+
 // form classifies t, expanding intersections first. It is the single source
-// for both emission and canonical's alias following.
+// for both emission and canonical's alias following, and it is asked about
+// the same types repeatedly, so results are kept per type.
 func (g *generator) form(t *tsdef.Type) (form, *tsdef.Type, error) {
+	if r, ok := g.forms[t]; ok {
+		return r.form, r.t, r.err
+	}
+	f, expanded, err := g.classifyForm(t)
+	g.forms[t] = formed{f, expanded, err}
+	return f, expanded, err
+}
+
+func (g *generator) classifyForm(t *tsdef.Type) (form, *tsdef.Type, error) {
 	if _, ok := literals(t); ok {
 		return formEnum, t, nil
 	}

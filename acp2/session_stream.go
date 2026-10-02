@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 
+	"github.com/ironpark/acp-go/schema/optional"
 	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
@@ -47,14 +48,19 @@ func toolCallUpdate(id ToolCallID, status ToolCallStatus, opts []ToolCallOption)
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return schema.SessionUpdateToolCallUpdate{
+	update := schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
-		Status:     &status,
-		Content:    o.content,
-		Locations:  o.locations,
+		Status:     optional.Of(status),
 		RawInput:   o.rawInput,
 		RawOutput:  o.rawOutput,
 	}
+	if o.content != nil {
+		update.Content = optional.Of(o.content)
+	}
+	if o.locations != nil {
+		update.Locations = optional.Of(o.locations)
+	}
+	return update
 }
 
 // SessionStream sends session/update notifications for one session.
@@ -116,7 +122,7 @@ func (s *SessionStream) SendThought(ctx context.Context, id MessageID, text stri
 // SendUserMessage reports a user message in full: the message a prompt
 // inserted, which v2 agents must echo, or history replayed on resume.
 func (s *SessionStream) SendUserMessage(ctx context.Context, id MessageID, content ...ContentBlock) error {
-	return s.Send(ctx, schema.SessionUpdateUserMessage{MessageID: id, Content: content})
+	return s.Send(ctx, schema.SessionUpdateUserMessage{MessageID: id, Content: optional.Of(content)})
 }
 
 // StartToolCall reports a tool call that is now running.
@@ -134,7 +140,7 @@ func (s *SessionStream) ProposeToolCall(ctx context.Context, id ToolCallID, titl
 
 func (s *SessionStream) toolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, status ToolCallStatus, opts []ToolCallOption) error {
 	update := toolCallUpdate(id, status, opts)
-	update.Title, update.Kind = &title, &kind
+	update.Title, update.Kind = optional.Of(title), optional.Of(kind)
 	return s.Send(ctx, update)
 }
 
