@@ -2,6 +2,7 @@ package acp2_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -277,5 +278,64 @@ func TestCancelBeforeJoinTurnCancelsTheTurn(t *testing.T) {
 	}
 	if reason, err := turn.Wait(); err != nil || reason != schema.StopReasonCancelled {
 		t.Fatalf("got %v %v, want cancelled", reason, err)
+	}
+}
+
+// panickingAgent's turn work panics.
+type panickingAgent struct {
+	*acp2.SessionManager[bareSession]
+	client acp2.Client
+}
+
+func (panickingAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
+	return &acp2.InitializeResponse{ProtocolVersion: acp2.ProtocolVersion}, nil
+}
+
+func (a *panickingAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
+	stream := acp2.NewSessionStream(a.client, params.SessionID)
+	if _, err := a.StartTurn(ctx, params.SessionID, stream, func(context.Context, bareSession) acp2.StopReason {
+		panic("boom")
+	}); err != nil {
+		return nil, err
+	}
+	return &acp2.PromptResponse{MessageID: "user_1"}, nil
+}
+
+func TestPanickingTurnWorkEndsTheTurn(t *testing.T) {
+	agent := &panickingAgent{SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[bareSession](),
+		func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, bareSession, error) {
+			return acp2.GenerateSessionID(), bareSession{}, nil
+		})}
+	client := newTestClient()
+	_, conn := acp2.Pipe(t.Context(), func(c *acp2.AgentSideConnection) acp2.Agent {
+		agent.client = c
+		return agent
+	}, func(*acp2.ClientSideConnection) acp2.Client { return client })
+
+	session, err := conn.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	turn, _, err := session.Prompt(t.Context(), acp2.TextBlock("work"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reason, err := turn.Wait()
+	if err != nil || reason != acp2.StopReasonInternalError {
+		t.Fatalf("turn ended with %v %v, want %s", reason, err, acp2.StopReasonInternalError)
+	}
+	for {
+		select {
+		case update := <-client.updates:
+			if _, ok := update.Update.As[acp2.SessionUpdateStateUpdate](); !ok || update.Meta == nil {
+				continue
+			}
+			if message, _, _ := update.Meta.Get[string]("error"); !strings.Contains(message, "boom") {
+				t.Errorf("idle _meta error = %q", message)
+			}
+			return
+		case <-time.After(2 * time.Second):
+			t.Fatal("no idle update carried the panic")
+		}
 	}
 }
