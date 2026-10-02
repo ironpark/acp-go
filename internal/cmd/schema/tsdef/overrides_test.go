@@ -3,11 +3,11 @@ package tsdef
 import "testing"
 
 func TestOverrides(t *testing.T) {
-	schema, err := Parse("fixture.ts", []byte(`export type Usage = { total: number; cached?: number | null; label: string; };`))
+	schema, err := Parse("fixture.ts", []byte(`export type Usage = { total: number; cached?: number | null; label: string; }; export type Id = null | number | string;`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	o, err := ParseOverrides([]byte("numbers:\n  Usage.total: uint64\n  Usage.cached: int64\n  Missing.field: uint64\n"))
+	o, err := ParseOverrides([]byte("numbers:\n  Usage.total: uint64\n  Usage.cached: int64\n  Id: int64\n  Missing.field: uint64\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -15,7 +15,7 @@ func TestOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !applied["Usage.total"] || !applied["Usage.cached"] || applied["Missing.field"] {
+	if !applied["Usage.total"] || !applied["Usage.cached"] || !applied["Id"] || applied["Missing.field"] {
 		t.Fatalf("applied %v", applied)
 	}
 	fields := schema.Types[0].Type.Fields
@@ -23,10 +23,15 @@ func TestOverrides(t *testing.T) {
 		t.Fatalf("numbers not set: %+v %+v", fields[0].Type, fields[1].Type)
 	}
 
-	if _, err := (&Overrides{Numbers: map[string]string{"Usage.label": "uint64"}}).Apply(schema); err == nil {
-		t.Fatal("overrode a string member")
+	if numberMember(schema.Types[1].Type).Number != "int64" {
+		t.Fatal("definition alternative not set")
 	}
-	for _, bad := range []string{"numbers:\n  Usage.total: float32\n", "numbers:\n  Usage: uint64\n", "strings: {}\n"} {
+	for _, key := range []string{"Usage.label", "Usage", "Usage.total"} {
+		if _, err := (&Overrides{Numbers: map[string]string{key: "uint64"}}).Apply(schema); err == nil {
+			t.Errorf("%s: applied to a string, an object or an integer already typed", key)
+		}
+	}
+	for _, bad := range []string{"numbers:\n  Usage.total: float32\n", "numbers:\n  .total: uint64\n", "numbers:\n  Usage.: uint64\n", "strings: {}\n"} {
 		if _, err := ParseOverrides([]byte(bad)); err == nil {
 			t.Errorf("accepted %q", bad)
 		}

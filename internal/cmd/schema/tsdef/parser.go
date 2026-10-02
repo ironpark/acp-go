@@ -38,7 +38,7 @@ func ParseDir(dir string) (*Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := ApplyNumericHints(result, path, source); err != nil {
+	if err := ApplyNumericHints(result); err != nil {
 		return nil, err
 	}
 	return result, nil

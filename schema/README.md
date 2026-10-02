@@ -76,7 +76,9 @@ Optional slices and maps are plain values: nil is omitted and an empty non-nil v
 Nullable fields use pointers; optional null and absence share the nil representation.
 Literal unions that also admit the underlying primitive, such as `"a" | "b" | string`, produce a
 named scalar type with constants and a `Known` method.
-Unconstrained TypeScript numbers use `float64`, except the members `internal/cmd/schema/overrides.yaml`
+A number whose Zod rule is an integer gets the narrowest of `uint16`, `uint32`, `uint64`, `int32` and
+`int64` its bounds allow; an integer rule the generator cannot pair with a number fails generation.
+Other TypeScript numbers use `float64`, except those `internal/cmd/schema/overrides.yaml`
 gives an integer type because the protocol's Rust schema declares them integers; unknown payloads use `jsontext.Value` to preserve
 large numbers and extension data. Object index signatures use JSON v2's `embed` fallback:
 additional properties retain their declared value type, and duplicate keys that collide with

@@ -553,7 +553,7 @@ func (c *AgentSideConnection) CompleteElicitation(ctx context.Context, params *C
 func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, params jsontext.Value) (any, error) {
 	switch method {
 	case schema.AgentMethodsInitialize:
-		return acpconn.Request(ctx, schema.Validated(), params, c.agent.Initialize)
+		return acpconn.Request(ctx, schema.Validated(), params, c.initialize)
 	case schema.AgentMethodsSessionNew:
 		return acpconn.Request(ctx, schema.Validated(), params, c.agent.NewSession)
 	case schema.AgentMethodsSessionPrompt:

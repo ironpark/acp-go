@@ -78,7 +78,7 @@ func run(args []string) error {
 	}
 	for _, key := range slices.Sorted(maps.Keys(overrides.Numbers)) {
 		if !applied[key] {
-			return fmt.Errorf("overrides: numbers.%s names no member of any schema version", key)
+			return fmt.Errorf("overrides: numbers.%s names nothing in any schema version", key)
 		}
 	}
 	// A result is stale when its file differs. Every *.gen.go in an output

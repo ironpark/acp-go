@@ -136,7 +136,13 @@ func TestValidationRejectsDrift(t *testing.T) {
 		"duplicate Go name": func(s *Spec) {
 			s.Agent[1].Methods = append(s.Agent[1].Methods, Method{Wire: "ping", Name: "Ping", Params: "ByeNotification"})
 		},
-		"no required group": func(s *Spec) { s.Agent[0].Required = false },
+		"no required group":    func(s *Spec) { s.Agent[0].Required = false },
+		"untimed notification": func(s *Spec) { s.Agent[1].Methods[0].Untimed = true },
+		"untimed CallVia": func(s *Spec) {
+			s.Agent[0].Methods[0].Untimed, s.Agent[0].Methods[0].CallVia = true, "ping"
+		},
+		"Via outside the required group":     func(s *Spec) { s.Agent[1].Methods[0].Via = "bye" },
+		"CallVia outside the required group": func(s *Spec) { s.Agent[1].Methods[0].CallVia = "bye" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {

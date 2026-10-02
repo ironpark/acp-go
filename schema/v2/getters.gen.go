@@ -417,20 +417,20 @@ func (x *ElicitationPropertySchemaArray) GetDescription() string {
 }
 
 // GetMinItems returns the value of MinItems, or the zero value if x or MinItems is nil.
-func (x *ElicitationPropertySchemaArray) GetMinItems() float64 {
+func (x *ElicitationPropertySchemaArray) GetMinItems() uint64 {
 	if x != nil && x.MinItems != nil {
 		return *x.MinItems
 	}
-	var zero float64
+	var zero uint64
 	return zero
 }
 
 // GetMaxItems returns the value of MaxItems, or the zero value if x or MaxItems is nil.
-func (x *ElicitationPropertySchemaArray) GetMaxItems() float64 {
+func (x *ElicitationPropertySchemaArray) GetMaxItems() uint64 {
 	if x != nil && x.MaxItems != nil {
 		return *x.MaxItems
 	}
-	var zero float64
+	var zero uint64
 	return zero
 }
 
@@ -480,29 +480,29 @@ func (x *ElicitationPropertySchemaInteger) GetDescription() string {
 }
 
 // GetMinimum returns the value of Minimum, or the zero value if x or Minimum is nil.
-func (x *ElicitationPropertySchemaInteger) GetMinimum() float64 {
+func (x *ElicitationPropertySchemaInteger) GetMinimum() int64 {
 	if x != nil && x.Minimum != nil {
 		return *x.Minimum
 	}
-	var zero float64
+	var zero int64
 	return zero
 }
 
 // GetMaximum returns the value of Maximum, or the zero value if x or Maximum is nil.
-func (x *ElicitationPropertySchemaInteger) GetMaximum() float64 {
+func (x *ElicitationPropertySchemaInteger) GetMaximum() int64 {
 	if x != nil && x.Maximum != nil {
 		return *x.Maximum
 	}
-	var zero float64
+	var zero int64
 	return zero
 }
 
 // GetDefault returns the value of Default, or the zero value if x or Default is nil.
-func (x *ElicitationPropertySchemaInteger) GetDefault() float64 {
+func (x *ElicitationPropertySchemaInteger) GetDefault() int64 {
 	if x != nil && x.Default != nil {
 		return *x.Default
 	}
-	var zero float64
+	var zero int64
 	return zero
 }
 

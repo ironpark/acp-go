@@ -3,14 +3,11 @@ package acp2
 import (
 	"cmp"
 	"context"
-	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"sync/atomic"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
 	"github.com/ironpark/acp-go/internal/jsonrpc"
-	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
 // AgentSideConnection is the agent's view of an ACP v2 connection. It serves
@@ -32,21 +29,18 @@ var _ Client = (*AgentSideConnection)(nil)
 func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, transport acp.Transport, opts ...acp.Option) *AgentSideConnection {
 	c := &AgentSideConnection{}
 	c.agent = newAgent(c)
-	c.conn = acpconn.NewAgentConnection(c.serveRequest, c.handleNotification, transport, opts)
+	c.conn = acpconn.NewAgentConnection(c.handleRequest, c.handleNotification, transport, opts)
 	return c
 }
 
-// serveRequest dispatches a request, and records the client's capabilities
-// once an initialize request succeeds.
-func (c *AgentSideConnection) serveRequest(ctx context.Context, method string, params jsontext.Value) (any, error) {
-	result, err := c.handleRequest(ctx, method, params)
-	if err == nil && method == schema.AgentMethodsInitialize {
-		var request InitializeRequest
-		if json.Unmarshal(params, &request) == nil {
-			c.clientCaps.Store(cmp.Or(request.Capabilities, &ClientCapabilities{}))
-		}
+// initialize serves the client's initialize request, and records the
+// capabilities it advertised once the agent has answered.
+func (c *AgentSideConnection) initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error) {
+	response, err := c.agent.Initialize(ctx, params)
+	if err == nil {
+		c.clientCaps.Store(cmp.Or(params.Capabilities, &ClientCapabilities{}))
 	}
-	return result, err
+	return response, err
 }
 
 // ClientCapabilities returns the capabilities the client advertised in its

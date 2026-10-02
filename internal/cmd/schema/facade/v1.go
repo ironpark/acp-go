@@ -19,7 +19,7 @@ implemented the peer receives "method not found".
 See protocol docs: [Agent](https://agentclientprotocol.com/protocol/overview#agent)`,
 			Methods: []Method{
 				{
-					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse", CallVia: "initialize",
+					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse", Via: "initialize", CallVia: "initialize",
 					Doc: `Initialize negotiates the protocol version and exchanges capabilities.
 
 See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)`,

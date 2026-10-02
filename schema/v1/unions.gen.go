@@ -154,7 +154,7 @@ func (ToolCallContentContent) Tag() string { return "content" }
 type toolCallContentContentFields ToolCallContentContent
 type toolCallContentContentWire struct {
 	Tag                          string `json:"type"`
-	toolCallContentContentFields `json:",inline"`
+	toolCallContentContentFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -202,7 +202,7 @@ func (ToolCallContentDiff) Tag() string { return "diff" }
 type toolCallContentDiffFields ToolCallContentDiff
 type toolCallContentDiffWire struct {
 	Tag                       string `json:"type"`
-	toolCallContentDiffFields `json:",inline"`
+	toolCallContentDiffFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -246,7 +246,7 @@ func (ToolCallContentTerminal) Tag() string { return "terminal" }
 type toolCallContentTerminalFields ToolCallContentTerminal
 type toolCallContentTerminalWire struct {
 	Tag                           string `json:"type"`
-	toolCallContentTerminalFields `json:",inline"`
+	toolCallContentTerminalFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -427,7 +427,7 @@ func (ContentBlockText) Tag() string { return "text" }
 type contentBlockTextFields ContentBlockText
 type contentBlockTextWire struct {
 	Tag                    string `json:"type"`
-	contentBlockTextFields `json:",inline"`
+	contentBlockTextFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -471,7 +471,7 @@ func (ContentBlockImage) Tag() string { return "image" }
 type contentBlockImageFields ContentBlockImage
 type contentBlockImageWire struct {
 	Tag                     string `json:"type"`
-	contentBlockImageFields `json:",inline"`
+	contentBlockImageFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -513,7 +513,7 @@ func (ContentBlockAudio) Tag() string { return "audio" }
 type contentBlockAudioFields ContentBlockAudio
 type contentBlockAudioWire struct {
 	Tag                     string `json:"type"`
-	contentBlockAudioFields `json:",inline"`
+	contentBlockAudioFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -563,7 +563,7 @@ func (ContentBlockResourceLink) Tag() string { return "resource_link" }
 type contentBlockResourceLinkFields ContentBlockResourceLink
 type contentBlockResourceLinkWire struct {
 	Tag                            string `json:"type"`
-	contentBlockResourceLinkFields `json:",inline"`
+	contentBlockResourceLinkFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -603,7 +603,7 @@ func (ContentBlockResource) Tag() string { return "resource" }
 type contentBlockResourceFields ContentBlockResource
 type contentBlockResourceWire struct {
 	Tag                        string `json:"type"`
-	contentBlockResourceFields `json:",inline"`
+	contentBlockResourceFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -924,7 +924,7 @@ func (ElicitationPropertySchemaString) Tag() string { return "string" }
 type elicitationPropertySchemaStringFields ElicitationPropertySchemaString
 type elicitationPropertySchemaStringWire struct {
 	Tag                                   string `json:"type"`
-	elicitationPropertySchemaStringFields `json:",inline"`
+	elicitationPropertySchemaStringFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -981,7 +981,7 @@ func (ElicitationPropertySchemaNumber) Tag() string { return "number" }
 type elicitationPropertySchemaNumberFields ElicitationPropertySchemaNumber
 type elicitationPropertySchemaNumberWire struct {
 	Tag                                   string `json:"type"`
-	elicitationPropertySchemaNumberFields `json:",inline"`
+	elicitationPropertySchemaNumberFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -1017,15 +1017,15 @@ type ElicitationPropertySchemaInteger struct {
 	// Minimum value (inclusive).
 	//
 	// Optional. Omitted and `null` are equivalent and mean there is no inclusive lower bound.
-	Minimum *float64 `json:"minimum,omitzero"`
+	Minimum *int64 `json:"minimum,omitzero"`
 	// Maximum value (inclusive).
 	//
 	// Optional. Omitted and `null` are equivalent and mean there is no inclusive upper bound.
-	Maximum *float64 `json:"maximum,omitzero"`
+	Maximum *int64 `json:"maximum,omitzero"`
 	// Default value.
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
-	Default *float64 `json:"default,omitzero"`
+	Default *int64 `json:"default,omitzero"`
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	Meta Meta `json:"_meta,omitzero"`
 }
@@ -1038,7 +1038,7 @@ func (ElicitationPropertySchemaInteger) Tag() string { return "integer" }
 type elicitationPropertySchemaIntegerFields ElicitationPropertySchemaInteger
 type elicitationPropertySchemaIntegerWire struct {
 	Tag                                    string `json:"type"`
-	elicitationPropertySchemaIntegerFields `json:",inline"`
+	elicitationPropertySchemaIntegerFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -1087,7 +1087,7 @@ func (ElicitationPropertySchemaBoolean) Tag() string { return "boolean" }
 type elicitationPropertySchemaBooleanFields ElicitationPropertySchemaBoolean
 type elicitationPropertySchemaBooleanWire struct {
 	Tag                                    string `json:"type"`
-	elicitationPropertySchemaBooleanFields `json:",inline"`
+	elicitationPropertySchemaBooleanFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -1123,11 +1123,11 @@ type ElicitationPropertySchemaArray struct {
 	// Minimum number of items to select.
 	//
 	// Optional. Omitted and `null` are equivalent and mean there is no minimum selection count.
-	MinItems *float64 `json:"minItems,omitzero"`
+	MinItems *uint64 `json:"minItems,omitzero"`
 	// Maximum number of items to select.
 	//
 	// Optional. Omitted and `null` are equivalent and mean there is no maximum selection count.
-	MaxItems *float64 `json:"maxItems,omitzero"`
+	MaxItems *uint64 `json:"maxItems,omitzero"`
 	// The items definition describing allowed values.
 	Items MultiSelectItems `json:"items"`
 	// Default selected values.
@@ -1146,7 +1146,7 @@ func (ElicitationPropertySchemaArray) Tag() string { return "array" }
 type elicitationPropertySchemaArrayFields ElicitationPropertySchemaArray
 type elicitationPropertySchemaArrayWire struct {
 	Tag                                  string `json:"type"`
-	elicitationPropertySchemaArrayFields `json:",inline"`
+	elicitationPropertySchemaArrayFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -1305,7 +1305,7 @@ func (MultiSelectItemsString) Tag() string { return "string" }
 type multiSelectItemsStringFields MultiSelectItemsString
 type multiSelectItemsStringWire struct {
 	Tag                          string `json:"type"`
-	multiSelectItemsStringFields `json:",inline"`
+	multiSelectItemsStringFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -1588,7 +1588,7 @@ func (AuthMethodTerminal) Tag() string { return "terminal" }
 type authMethodTerminalFields AuthMethodTerminal
 type authMethodTerminalWire struct {
 	Tag                      string `json:"type"`
-	authMethodTerminalFields `json:",inline"`
+	authMethodTerminalFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -1754,7 +1754,7 @@ func (SessionConfigOptionSelect) Tag() string { return "select" }
 type sessionConfigOptionSelectFields SessionConfigOptionSelect
 type sessionConfigOptionSelectWire struct {
 	Tag                             string `json:"type"`
-	sessionConfigOptionSelectFields `json:",inline"`
+	sessionConfigOptionSelectFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -1798,7 +1798,7 @@ func (SessionConfigOptionBoolean) Tag() string { return "boolean" }
 type sessionConfigOptionBooleanFields SessionConfigOptionBoolean
 type sessionConfigOptionBooleanWire struct {
 	Tag                              string `json:"type"`
-	sessionConfigOptionBooleanFields `json:",inline"`
+	sessionConfigOptionBooleanFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2017,7 +2017,7 @@ func (NesSuggestionEdit) Tag() string { return "edit" }
 type nesSuggestionEditFields NesSuggestionEdit
 type nesSuggestionEditWire struct {
 	Tag                     string `json:"kind"`
-	nesSuggestionEditFields `json:",inline"`
+	nesSuggestionEditFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2059,7 +2059,7 @@ func (NesSuggestionJump) Tag() string { return "jump" }
 type nesSuggestionJumpFields NesSuggestionJump
 type nesSuggestionJumpWire struct {
 	Tag                     string `json:"kind"`
-	nesSuggestionJumpFields `json:",inline"`
+	nesSuggestionJumpFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2103,7 +2103,7 @@ func (NesSuggestionRename) Tag() string { return "rename" }
 type nesSuggestionRenameFields NesSuggestionRename
 type nesSuggestionRenameWire struct {
 	Tag                       string `json:"kind"`
-	nesSuggestionRenameFields `json:",inline"`
+	nesSuggestionRenameFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2149,7 +2149,7 @@ func (NesSuggestionSearchAndReplace) Tag() string { return "searchAndReplace" }
 type nesSuggestionSearchAndReplaceFields NesSuggestionSearchAndReplace
 type nesSuggestionSearchAndReplaceWire struct {
 	Tag                                 string `json:"kind"`
-	nesSuggestionSearchAndReplaceFields `json:",inline"`
+	nesSuggestionSearchAndReplaceFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2425,7 +2425,7 @@ func (SessionUpdateUserMessageChunk) Tag() string { return "user_message_chunk" 
 type sessionUpdateUserMessageChunkFields SessionUpdateUserMessageChunk
 type sessionUpdateUserMessageChunkWire struct {
 	Tag                                 string `json:"sessionUpdate"`
-	sessionUpdateUserMessageChunkFields `json:",inline"`
+	sessionUpdateUserMessageChunkFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2466,7 +2466,7 @@ func (SessionUpdateAgentMessageChunk) Tag() string { return "agent_message_chunk
 type sessionUpdateAgentMessageChunkFields SessionUpdateAgentMessageChunk
 type sessionUpdateAgentMessageChunkWire struct {
 	Tag                                  string `json:"sessionUpdate"`
-	sessionUpdateAgentMessageChunkFields `json:",inline"`
+	sessionUpdateAgentMessageChunkFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2507,7 +2507,7 @@ func (SessionUpdateAgentThoughtChunk) Tag() string { return "agent_thought_chunk
 type sessionUpdateAgentThoughtChunkFields SessionUpdateAgentThoughtChunk
 type sessionUpdateAgentThoughtChunkWire struct {
 	Tag                                  string `json:"sessionUpdate"`
-	sessionUpdateAgentThoughtChunkFields `json:",inline"`
+	sessionUpdateAgentThoughtChunkFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2573,7 +2573,7 @@ func (SessionUpdateToolCall) Tag() string { return "tool_call" }
 type sessionUpdateToolCallFields SessionUpdateToolCall
 type sessionUpdateToolCallWire struct {
 	Tag                         string `json:"sessionUpdate"`
-	sessionUpdateToolCallFields `json:",inline"`
+	sessionUpdateToolCallFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2628,7 +2628,7 @@ func (SessionUpdateToolCallUpdate) Tag() string { return "tool_call_update" }
 type sessionUpdateToolCallUpdateFields SessionUpdateToolCallUpdate
 type sessionUpdateToolCallUpdateWire struct {
 	Tag                               string `json:"sessionUpdate"`
-	sessionUpdateToolCallUpdateFields `json:",inline"`
+	sessionUpdateToolCallUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2677,7 +2677,7 @@ func (SessionUpdatePlan) Tag() string { return "plan" }
 type sessionUpdatePlanFields SessionUpdatePlan
 type sessionUpdatePlanWire struct {
 	Tag                     string `json:"sessionUpdate"`
-	sessionUpdatePlanFields `json:",inline"`
+	sessionUpdatePlanFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2717,7 +2717,7 @@ func (SessionUpdatePlanUpdate) Tag() string { return "plan_update" }
 type sessionUpdatePlanUpdateFields SessionUpdatePlanUpdate
 type sessionUpdatePlanUpdateWire struct {
 	Tag                           string `json:"sessionUpdate"`
-	sessionUpdatePlanUpdateFields `json:",inline"`
+	sessionUpdatePlanUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2757,7 +2757,7 @@ func (SessionUpdatePlanRemoved) Tag() string { return "plan_removed" }
 type sessionUpdatePlanRemovedFields SessionUpdatePlanRemoved
 type sessionUpdatePlanRemovedWire struct {
 	Tag                            string `json:"sessionUpdate"`
-	sessionUpdatePlanRemovedFields `json:",inline"`
+	sessionUpdatePlanRemovedFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2795,7 +2795,7 @@ func (SessionUpdateAvailableCommandsUpdate) Tag() string { return "available_com
 type sessionUpdateAvailableCommandsUpdateFields SessionUpdateAvailableCommandsUpdate
 type sessionUpdateAvailableCommandsUpdateWire struct {
 	Tag                                        string `json:"sessionUpdate"`
-	sessionUpdateAvailableCommandsUpdateFields `json:",inline"`
+	sessionUpdateAvailableCommandsUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2837,7 +2837,7 @@ func (SessionUpdateCurrentModeUpdate) Tag() string { return "current_mode_update
 type sessionUpdateCurrentModeUpdateFields SessionUpdateCurrentModeUpdate
 type sessionUpdateCurrentModeUpdateWire struct {
 	Tag                                  string `json:"sessionUpdate"`
-	sessionUpdateCurrentModeUpdateFields `json:",inline"`
+	sessionUpdateCurrentModeUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2875,7 +2875,7 @@ func (SessionUpdateConfigOptionUpdate) Tag() string { return "config_option_upda
 type sessionUpdateConfigOptionUpdateFields SessionUpdateConfigOptionUpdate
 type sessionUpdateConfigOptionUpdateWire struct {
 	Tag                                   string `json:"sessionUpdate"`
-	sessionUpdateConfigOptionUpdateFields `json:",inline"`
+	sessionUpdateConfigOptionUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2918,7 +2918,7 @@ func (SessionUpdateSessionInfoUpdate) Tag() string { return "session_info_update
 type sessionUpdateSessionInfoUpdateFields SessionUpdateSessionInfoUpdate
 type sessionUpdateSessionInfoUpdateWire struct {
 	Tag                                  string `json:"sessionUpdate"`
-	sessionUpdateSessionInfoUpdateFields `json:",inline"`
+	sessionUpdateSessionInfoUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -2960,7 +2960,7 @@ func (SessionUpdateUsageUpdate) Tag() string { return "usage_update" }
 type sessionUpdateUsageUpdateFields SessionUpdateUsageUpdate
 type sessionUpdateUsageUpdateWire struct {
 	Tag                            string `json:"sessionUpdate"`
-	sessionUpdateUsageUpdateFields `json:",inline"`
+	sessionUpdateUsageUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3019,7 +3019,7 @@ func (SessionUpdateNotice) Tag() string { return "notice" }
 type sessionUpdateNoticeFields SessionUpdateNotice
 type sessionUpdateNoticeWire struct {
 	Tag                       string `json:"sessionUpdate"`
-	sessionUpdateNoticeFields `json:",inline"`
+	sessionUpdateNoticeFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3074,7 +3074,7 @@ func (SessionUpdateCompactionUpdate) Tag() string { return "compaction_update" }
 type sessionUpdateCompactionUpdateFields SessionUpdateCompactionUpdate
 type sessionUpdateCompactionUpdateWire struct {
 	Tag                                 string `json:"sessionUpdate"`
-	sessionUpdateCompactionUpdateFields `json:",inline"`
+	sessionUpdateCompactionUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3120,7 +3120,7 @@ func (SessionUpdateCompactionSummaryChunk) Tag() string { return "compaction_sum
 type sessionUpdateCompactionSummaryChunkFields SessionUpdateCompactionSummaryChunk
 type sessionUpdateCompactionSummaryChunkWire struct {
 	Tag                                       string `json:"sessionUpdate"`
-	sessionUpdateCompactionSummaryChunkFields `json:",inline"`
+	sessionUpdateCompactionSummaryChunkFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3203,7 +3203,7 @@ func (SessionUpdateSubagentUpdate) Tag() string { return "subagent_update" }
 type sessionUpdateSubagentUpdateFields SessionUpdateSubagentUpdate
 type sessionUpdateSubagentUpdateWire struct {
 	Tag                               string `json:"sessionUpdate"`
-	sessionUpdateSubagentUpdateFields `json:",inline"`
+	sessionUpdateSubagentUpdateFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3251,7 +3251,7 @@ func (SessionUpdateSessionMessage) Tag() string { return "session_message" }
 type sessionUpdateSessionMessageFields SessionUpdateSessionMessage
 type sessionUpdateSessionMessageWire struct {
 	Tag                               string `json:"sessionUpdate"`
-	sessionUpdateSessionMessageFields `json:",inline"`
+	sessionUpdateSessionMessageFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3298,7 +3298,7 @@ func (SessionUpdateSessionMessageChunk) Tag() string { return "session_message_c
 type sessionUpdateSessionMessageChunkFields SessionUpdateSessionMessageChunk
 type sessionUpdateSessionMessageChunkWire struct {
 	Tag                                    string `json:"sessionUpdate"`
-	sessionUpdateSessionMessageChunkFields `json:",inline"`
+	sessionUpdateSessionMessageChunkFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3464,7 +3464,7 @@ func (PlanUpdateContentItems) Tag() string { return "items" }
 type planUpdateContentItemsFields PlanUpdateContentItems
 type planUpdateContentItemsWire struct {
 	Tag                          string `json:"type"`
-	planUpdateContentItemsFields `json:",inline"`
+	planUpdateContentItemsFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3506,7 +3506,7 @@ func (PlanUpdateContentFile) Tag() string { return "file" }
 type planUpdateContentFileFields PlanUpdateContentFile
 type planUpdateContentFileWire struct {
 	Tag                         string `json:"type"`
-	planUpdateContentFileFields `json:",inline"`
+	planUpdateContentFileFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3548,7 +3548,7 @@ func (PlanUpdateContentMarkdown) Tag() string { return "markdown" }
 type planUpdateContentMarkdownFields PlanUpdateContentMarkdown
 type planUpdateContentMarkdownWire struct {
 	Tag                             string `json:"type"`
-	planUpdateContentMarkdownFields `json:",inline"`
+	planUpdateContentMarkdownFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3702,7 +3702,7 @@ func (StateUpdateRunning) Tag() string { return "running" }
 type stateUpdateRunningFields StateUpdateRunning
 type stateUpdateRunningWire struct {
 	Tag                      string `json:"state"`
-	stateUpdateRunningFields `json:",inline"`
+	stateUpdateRunningFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3747,7 +3747,7 @@ func (StateUpdateIdle) Tag() string { return "idle" }
 type stateUpdateIdleFields StateUpdateIdle
 type stateUpdateIdleWire struct {
 	Tag                   string `json:"state"`
-	stateUpdateIdleFields `json:",inline"`
+	stateUpdateIdleFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3784,7 +3784,7 @@ func (StateUpdateRequiresAction) Tag() string { return "requires_action" }
 type stateUpdateRequiresActionFields StateUpdateRequiresAction
 type stateUpdateRequiresActionWire struct {
 	Tag                             string `json:"state"`
-	stateUpdateRequiresActionFields `json:",inline"`
+	stateUpdateRequiresActionFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3831,7 +3831,7 @@ func (StateUpdateUnknown) Tag() string { return "unknown" }
 type stateUpdateUnknownFields StateUpdateUnknown
 type stateUpdateUnknownWire struct {
 	Tag                      string `json:"state"`
-	stateUpdateUnknownFields `json:",inline"`
+	stateUpdateUnknownFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4004,7 +4004,7 @@ func (MCPServerHTTP) Tag() string { return "http" }
 type mcpServerHTTPFields MCPServerHTTP
 type mcpServerHTTPWire struct {
 	Tag                 string `json:"type"`
-	mcpServerHTTPFields `json:",inline"`
+	mcpServerHTTPFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4046,7 +4046,7 @@ func (MCPServerSSE) Tag() string { return "sse" }
 type mcpServerSSEFields MCPServerSSE
 type mcpServerSSEWire struct {
 	Tag                string `json:"type"`
-	mcpServerSSEFields `json:",inline"`
+	mcpServerSSEFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4094,7 +4094,7 @@ func (MCPServerACP) Tag() string { return "acp" }
 type mcpServerACPFields MCPServerACP
 type mcpServerACPWire struct {
 	Tag                string `json:"type"`
-	mcpServerACPFields `json:",inline"`
+	mcpServerACPFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4244,7 +4244,7 @@ func (SetSessionConfigOptionRequestBoolean) Tag() string { return "boolean" }
 type setSessionConfigOptionRequestBooleanFields SetSessionConfigOptionRequestBoolean
 type setSessionConfigOptionRequestBooleanWire struct {
 	Tag                                        string `json:"type"`
-	setSessionConfigOptionRequestBooleanFields `json:",inline"`
+	setSessionConfigOptionRequestBooleanFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4410,7 +4410,7 @@ func (RequestPermissionOutcomeCancelled) Tag() string { return "cancelled" }
 type requestPermissionOutcomeCancelledFields RequestPermissionOutcomeCancelled
 type requestPermissionOutcomeCancelledWire struct {
 	Tag                                     string `json:"outcome"`
-	requestPermissionOutcomeCancelledFields `json:",inline"`
+	requestPermissionOutcomeCancelledFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4448,7 +4448,7 @@ func (RequestPermissionOutcomeSelected) Tag() string { return "selected" }
 type requestPermissionOutcomeSelectedFields RequestPermissionOutcomeSelected
 type requestPermissionOutcomeSelectedWire struct {
 	Tag                                    string `json:"outcome"`
-	requestPermissionOutcomeSelectedFields `json:",inline"`
+	requestPermissionOutcomeSelectedFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4596,7 +4596,7 @@ func (CreateElicitationResponseAccept) Tag() string { return "accept" }
 type createElicitationResponseAcceptFields CreateElicitationResponseAccept
 type createElicitationResponseAcceptWire struct {
 	Tag                                   string `json:"action"`
-	createElicitationResponseAcceptFields `json:",inline"`
+	createElicitationResponseAcceptFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4631,7 +4631,7 @@ func (CreateElicitationResponseDecline) Tag() string { return "decline" }
 type createElicitationResponseDeclineFields CreateElicitationResponseDecline
 type createElicitationResponseDeclineWire struct {
 	Tag                                    string `json:"action"`
-	createElicitationResponseDeclineFields `json:",inline"`
+	createElicitationResponseDeclineFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -4666,7 +4666,7 @@ func (CreateElicitationResponseCancel) Tag() string { return "cancel" }
 type createElicitationResponseCancelFields CreateElicitationResponseCancel
 type createElicitationResponseCancelWire struct {
 	Tag                                   string `json:"action"`
-	createElicitationResponseCancelFields `json:",inline"`
+	createElicitationResponseCancelFields `json:",embed"`
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].

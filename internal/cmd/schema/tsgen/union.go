@@ -456,13 +456,14 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 			g.write("// Tag returns %s.\n", m.value)
 			g.write("func (%s) Tag() string { return %s }\n", vname, m.value)
 			g.write("type %s %s\n", fields, vname)
-			g.write("type %s struct { Tag string `json:%q`; %s `json:\",inline\"` }\n", wire, tag, fields)
+			g.write("type %s struct { Tag string `json:%q`; %s `json:\",embed\"` }\n", wire, tag, fields)
 			g.write("%s", marshalDoc)
 			g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { return json.MarshalEncode(enc, %s{%s, %s(v)}) }\n", vname, wire, m.value, fields)
 			g.write("%s", unmarshalDoc)
 			g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {\n", vname)
 			g.write("var w %s; if err := json.UnmarshalDecode(dec, &w); err != nil { return err }\n", wire)
-			g.write("if w.Tag != %s { return fmt.Errorf(\"%s: expected %s %s, got %%q\", w.Tag) }\n", m.value, vname, tag, strings.ReplaceAll(m.value, `"`, `\"`))
+			mismatch := strconv.Quote(fmt.Sprintf("%s: expected %s %s, got %%q", vname, tag, m.value))
+			g.write("if w.Tag != %s { return fmt.Errorf(%s, w.Tag) }\n", m.value, mismatch)
 			g.write("*v = %s(w.%s); return nil\n}\n", vname, fields)
 		}
 	}

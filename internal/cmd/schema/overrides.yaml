@@ -1,10 +1,12 @@
 # Corrections the generator applies to the TypeScript schema snapshots in
 # schema/typescript, for both protocol versions. Keys use TypeScript names.
 
-# numbers gives the Go type of members the TypeScript schema types as a bare
-# `number`, which would otherwise become float64. Each is an integer in the
-# protocol's Rust schema (reference/agent-client-protocol/schema) with that
-# format. An entry no version has fails generation.
+# numbers gives the Go type of numbers the TypeScript schema types as a bare
+# `number`, which would otherwise become float64: a member as Type.member, or
+# a definition (or its one number alternative) as Type. Each is an integer in
+# the protocol's Rust schema (reference/agent-client-protocol) with that
+# format. Integers the Zod schema already bounds need no entry. An entry no
+# version has fails generation.
 numbers:
   Usage.totalTokens: uint64
   Usage.inputTokens: uint64
@@ -22,4 +24,9 @@ numbers:
   DidFocusDocumentNotification.version: int64
   NesUserAction.timestampMs: uint64
   NesOpenFile.lastFocusedMs: uint64
-  McpError.code: int32
+  IntegerPropertySchema.minimum: int64
+  IntegerPropertySchema.maximum: int64
+  IntegerPropertySchema.default: int64
+  MultiSelectPropertySchema.minItems: uint64
+  MultiSelectPropertySchema.maxItems: uint64
+  RequestId: int64

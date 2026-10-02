@@ -352,7 +352,7 @@ type NesSuggestionID string
 //
 // These codes follow the JSON-RPC 2.0 specification for standard errors
 // and use the reserved range (-32000 to -32099) for protocol-specific errors.
-type ErrorCode int64
+type ErrorCode int32
 
 const (
 	ErrorCodeParseError             ErrorCode = -32700

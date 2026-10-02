@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,13 +11,18 @@ import (
 
 func TestPinnedSDKGeneration(t *testing.T) {
 	source := "../../../schema/typescript"
-	for version, count := range map[string]int{"v1": 276, "v2": 270} {
+	for _, version := range []string{"v1", "v2"} {
 		s, err := tsdef.ParseDir(filepath.Join(source, version))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(s.Types) != count || len(s.Constants) != 4 || len(s.Validators) != count {
-			t.Fatalf("%s: unexpected snapshot: %d types, %d constants", version, len(s.Types), len(s.Constants))
+		if len(s.Types) == 0 || len(s.Constants) != 4 || len(s.Validators) != len(s.Types) {
+			t.Fatalf("%s: unexpected snapshot: %d types, %d validators, %d constants", version, len(s.Types), len(s.Validators), len(s.Constants))
+		}
+		for _, d := range s.Types {
+			if s.Validators["z"+d.Name] == nil {
+				t.Fatalf("%s: %s has no Zod schema", version, d.Name)
+			}
 		}
 	}
 	output := t.TempDir()
@@ -29,20 +33,9 @@ func TestPinnedSDKGeneration(t *testing.T) {
 	if err := run(append(args, "-check")); err != nil {
 		t.Fatal(err)
 	}
-	for _, version := range []string{"v1", "v2"} {
-		for _, name := range []string{"methods.gen.go", "enums.gen.go", "types.gen.go", "unions.gen.go", "envelope.gen.go", "zod.gen.go"} {
-			generated, err := os.ReadFile(filepath.Join(output, version, name))
-			if err != nil {
-				t.Fatal(err)
-			}
-			checkedIn, err := os.ReadFile(filepath.Join("../../../schema", version, name))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !bytes.Equal(generated, checkedIn) {
-				t.Fatalf("%s/%s: checked-in output is stale; run go generate ./...", version, name)
-			}
-		}
+	// Every checked-in schema file, and no other, is the generator's output.
+	if err := run([]string{"-source", source, "-out", "../../../schema", "-check"}); err != nil {
+		t.Fatal(err)
 	}
 	// The façade files are checked in at the module root; they cannot compile
 	// standalone, so stale detection against the repository is their test.

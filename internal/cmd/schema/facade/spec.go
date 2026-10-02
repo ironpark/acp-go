@@ -199,6 +199,14 @@ func (g *emitter) validate(s side) error {
 			if !m.notification() && !g.types[m.Response] {
 				return fmt.Errorf("%s: response type %s not in schema", m.Wire, m.Response)
 			}
+			// The emitter honors one routing per side; reject the rest
+			// rather than drop a flag.
+			if m.Untimed && (m.notification() || m.CallVia != "") {
+				return fmt.Errorf("%s: Untimed applies only to a request sent directly, not a notification or a CallVia", m.Wire)
+			}
+			if (m.Via != "" || m.CallVia != "") && !group.Required {
+				return fmt.Errorf("%s: Via and CallVia apply only to the required group, whose handler always exists", m.Wire)
+			}
 		}
 	}
 	if required != 1 {

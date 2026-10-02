@@ -21,7 +21,7 @@ Implement the optional interfaces for the rest; unimplemented methods are
 answered with "method not found".`,
 			Methods: []Method{
 				{
-					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse", CallVia: "initialize",
+					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse", Via: "initialize", CallVia: "initialize",
 					Doc: `Initialize negotiates the protocol version and exchanges capabilities.`,
 					CallDoc: `Initialize negotiates the protocol version and exchanges capabilities. It is
 the first call on every connection. A zero ProtocolVersion, or nil params, sends

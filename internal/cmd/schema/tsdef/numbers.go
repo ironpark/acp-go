@@ -1,176 +1,159 @@
 package tsdef
 
 import (
+	"encoding/json/v2"
 	"fmt"
-	"strconv"
-	"strings"
-
-	ts "github.com/tree-sitter/go-tree-sitter"
-	grammar "github.com/tree-sitter/tree-sitter-typescript/bindings/go"
+	"maps"
+	"math"
+	"slices"
 )
 
-// ApplyNumericHints reads only Zod's numeric builders and bounds. It does not
-// attempt to reproduce Zod validation, defaults or recovery behavior.
-func ApplyNumericHints(schema *Schema, filename string, source []byte) error {
-	p := ts.NewParser()
-	defer p.Close()
-	if err := p.SetLanguage(ts.NewLanguage(grammar.LanguageTypescript())); err != nil {
-		return err
-	}
-	tree := p.Parse(source, nil)
-	if tree == nil {
-		return fmt.Errorf("%s: parser returned no tree", filename)
-	}
-	defer tree.Close()
-	r := reader{filename, source}
-	if tree.RootNode().HasError() {
-		return r.fail(firstError(tree.RootNode()), "invalid TypeScript syntax")
-	}
-	defs := map[string]*Type{}
+// ApplyNumericHints gives each number the Go integer type its Zod rule in
+// schema.Validators implies, walking every definition's type alongside its
+// rule. It reads only integer builders and bounds, not Zod's validation,
+// defaults or recovery. Every integer rule must reach a number: one the walk
+// cannot pair with its type fails, rather than leaving a float64 behind.
+func ApplyNumericHints(schema *Schema) error {
+	h := hinter{validators: schema.Validators, used: map[*Zod]bool{}}
 	for _, d := range schema.Types {
-		defs["z"+d.Name] = d.Type
+		if z := schema.Validators["z"+d.Name]; z != nil {
+			h.hint(d.Type, z)
+		}
 	}
-	for _, n := range children(tree.RootNode()) {
-		if n.Kind() != "export_statement" {
-			continue
-		}
-		decl := n.ChildByFieldName("declaration")
-		if decl == nil || decl.Kind() != "lexical_declaration" {
-			continue
-		}
-		for _, v := range children(decl) {
-			if v.Kind() != "variable_declarator" {
-				continue
+	for _, name := range slices.Sorted(maps.Keys(schema.Validators)) {
+		var missed error
+		walkZod(schema.Validators[name], func(z *Zod) {
+			if z.Kind == "int" && !h.used[z] && missed == nil {
+				missed = fmt.Errorf("%s: integer rule matches no number of the TypeScript type", name)
 			}
-			name := v.ChildByFieldName("name").Utf8Text(source)
-			if typ := defs[name]; typ != nil {
-				r.numericHints(typ, v.ChildByFieldName("value"))
-			}
+		})
+		if missed != nil {
+			return missed
 		}
 	}
 	return nil
 }
-func (r reader) numericHints(t *Type, n *ts.Node) {
-	if n == nil {
+
+type hinter struct {
+	validators map[string]*Zod
+	used       map[*Zod]bool // integer rules a number took its type from
+}
+
+// hint pairs t with z. A reference on either side is its own definition's
+// walk, so it ends here.
+func (h hinter) hint(t *Type, z *Zod) {
+	if t.Kind == KindRef || z.Kind == "ref" {
 		return
 	}
-	if t.Kind == KindUnion || t.Kind == KindIntersection {
+	switch t.Kind {
+	case KindUnion, KindIntersection:
 		// z.union([...]) members align positionally with the TypeScript union.
-		if elems := r.builderArray(n, "union"); elems != nil && len(elems) == len(t.Members) && t.Kind == KindUnion {
+		if u := unwrapZod(z); t.Kind == KindUnion && u.Kind == "union" && len(u.Members) == len(t.Members) {
 			for i, m := range t.Members {
-				r.numericHints(m, elems[i])
+				h.hint(m, u.Members[i])
 			}
 			return
 		}
 		for _, m := range t.Members {
-			r.numericHints(m, n)
+			h.hint(m, z)
 		}
-		return
-	}
-	if t.Kind == KindNumber {
-		integer, min, max := false, float64(-1), float64(0)
-		var visit func(*ts.Node)
-		visit = func(n *ts.Node) {
-			if n.Kind() != "call_expression" {
-				return
-			}
-			fn := n.ChildByFieldName("function")
-			args := n.ChildByFieldName("arguments")
-			if fn.Kind() == "member_expression" {
-				method := fn.ChildByFieldName("property").Utf8Text(r.source)
-				if method == "int" {
-					integer = true
-				}
-				if (method == "gte" || method == "min" || method == "lte" || method == "max") && args.NamedChildCount() > 0 {
-					value, err := strconv.ParseFloat(args.NamedChild(0).Utf8Text(r.source), 64)
-					if err == nil {
-						if method == "gte" || method == "min" {
-							min = value
-						} else {
-							max = value
-						}
+	case KindNumber:
+		h.number(t, z)
+	case KindObject:
+		for _, o := range reachable(z, "object") {
+			for _, zf := range o.Fields {
+				for i := range t.Fields {
+					if t.Fields[i].Name == zf.Name {
+						h.hint(t.Fields[i].Type, zf.Schema)
 					}
 				}
-				visit(fn.ChildByFieldName("object"))
-			} else if fn.Kind() == "identifier" && strings.HasSuffix(fn.Utf8Text(r.source), "OnError") && args.NamedChildCount() > 0 {
-				visit(args.NamedChild(0))
 			}
 		}
-		visit(n)
-		if integer {
-			t.Number = "int64"
-			if min >= 0 {
-				t.Number = "uint64"
-				if max > 0 && max <= 65535 {
-					t.Number = "uint16"
-				} else if max > 0 && max <= 4294967295 {
-					t.Number = "uint32"
-				}
+		if t.Element != nil {
+			for _, r := range reachable(z, "record") {
+				h.hint(t.Element, r.Inner)
 			}
 		}
-		return
-	}
-	// Find object/array builders through wrappers and intersections. Do not cross
-	// an object's properties: recurse with the matching property type instead.
-	var walk func(*ts.Node)
-	walk = func(n *ts.Node) {
-		if n == nil {
-			return
-		}
-		if n.Kind() == "call_expression" {
-			fn := n.ChildByFieldName("function")
-			args := n.ChildByFieldName("arguments")
-			if fn.Kind() == "member_expression" && fn.ChildByFieldName("object").Utf8Text(r.source) == "z" {
-				method := fn.ChildByFieldName("property").Utf8Text(r.source)
-				if method == "object" && args.NamedChildCount() > 0 {
-					if t.Kind != KindObject {
-						return
-					}
-					for _, pair := range children(args.NamedChild(0)) {
-						if pair.Kind() != "pair" {
-							continue
-						}
-						key := strings.Trim(pair.ChildByFieldName("key").Utf8Text(r.source), "\"")
-						for _, f := range t.Fields {
-							if f.Name == key {
-								r.numericHints(f.Type, pair.ChildByFieldName("value"))
-							}
-						}
-					}
-					return
-				}
-				if method == "array" && t.Kind == KindArray && args.NamedChildCount() > 0 {
-					r.numericHints(t.Element, args.NamedChild(0))
-					return
-				}
-			}
-		}
-		for _, c := range children(n) {
-			walk(c)
+	case KindArray:
+		for _, a := range reachable(z, "array", "skipArray") {
+			h.hint(t.Element, a.Inner)
 		}
 	}
-	walk(n)
 }
 
-// builderArray returns the elements of z.<method>([...]) when n is that call.
-func (r reader) builderArray(n *ts.Node, method string) []*ts.Node {
-	if n == nil || n.Kind() != "call_expression" {
-		return nil
-	}
-	fn := n.ChildByFieldName("function")
-	args := n.ChildByFieldName("arguments")
-	if fn.Kind() != "member_expression" || fn.ChildByFieldName("object").Utf8Text(r.source) != "z" || fn.ChildByFieldName("property").Utf8Text(r.source) != method || args.NamedChildCount() == 0 {
-		return nil
-	}
-	arr := args.NamedChild(0)
-	if arr.Kind() != "array" {
-		return nil
-	}
-	var out []*ts.Node
-	for _, c := range children(arr) {
-		if c.IsNamed() && c.Kind() != "comment" {
-			out = append(out, c)
+// number reads the integer builder and bounds wrapped around z's base rule.
+func (h hinter) number(t *Type, z *Zod) {
+	var integer *Zod
+	low, high := math.Inf(-1), math.Inf(1)
+	for ; z != nil; z = z.Inner {
+		var bound float64
+		switch z.Kind {
+		case "int":
+			integer = z
+		case "min", "gte":
+			if json.Unmarshal(z.Value, &bound) == nil {
+				low = max(low, bound)
+			}
+		case "max", "lte":
+			if json.Unmarshal(z.Value, &bound) == nil {
+				high = min(high, bound)
+			}
 		}
 	}
+	if integer == nil {
+		return
+	}
+	h.used[integer] = true
+	t.Number = integerType(low, high)
+}
+
+// integerType is the narrowest of the Go types the generator uses that holds
+// every integer in [low, high].
+func integerType(low, high float64) string {
+	switch {
+	case low >= 0 && high <= math.MaxUint16:
+		return "uint16"
+	case low >= 0 && high <= math.MaxUint32:
+		return "uint32"
+	case low >= 0:
+		return "uint64"
+	case low >= math.MinInt32 && high <= math.MaxInt32:
+		return "int32"
+	}
+	return "int64"
+}
+
+// unwrapZod returns the rule the wrappers around z (optional, nullable,
+// defaults, recovery, bounds) apply to.
+func unwrapZod(z *Zod) *Zod {
+	for z.Inner != nil && z.Kind != "array" && z.Kind != "skipArray" && z.Kind != "record" {
+		z = z.Inner
+	}
+	return z
+}
+
+// reachable returns the rules of the given kinds z is built from through
+// wrappers, intersections and unions. It crosses no reference and no other
+// container, whose contents describe another value.
+func reachable(z *Zod, kinds ...string) []*Zod {
+	if slices.Contains(kinds, z.Kind) {
+		return []*Zod{z}
+	}
+	switch z.Kind {
+	case "ref", "object", "array", "skipArray", "record":
+		return nil
+	}
+	var out []*Zod
+	for _, c := range z.Children() {
+		out = append(out, reachable(c, kinds...)...)
+	}
 	return out
+}
+
+// walkZod calls visit on z and every rule nested in it.
+func walkZod(z *Zod, visit func(*Zod)) {
+	visit(z)
+	for _, c := range z.Children() {
+		walkZod(c, visit)
+	}
 }

@@ -36,12 +36,12 @@ type RequestID struct{ raw jsontext.Value }
 
 // RequestIDAlternative is the set of Go types RequestID can hold.
 type RequestIDAlternative interface {
-	jsontext.Value | float64 | string
+	jsontext.Value | int64 | string
 }
 
 var requestIDAlternatives = union.Table(
 	union.Alt[jsontext.Value](union.Rule{Null: true}),
-	union.Alt[float64](union.Rule{NonNull: true}),
+	union.Alt[int64](union.Rule{NonNull: true}),
 	union.Alt[string](union.Rule{NonNull: true}),
 )
 
