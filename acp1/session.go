@@ -46,21 +46,40 @@ func (c *ClientSideConnection) Session(id SessionID) *ClientSession {
 // ends when the agent answers the prompt. A [ClientSession.Cancel] after
 // Prompt returns reaches the agent after the prompt. A v1 session runs one
 // turn at a time, so Prompt fails with [acp.ErrTurnInProgress] until the
-// previous turn has ended. Cancelling ctx abandons the request; use
-// [ClientSession.Cancel] to stop the turn the way the protocol intends.
+// previous turn has ended.
+//
+// ctx governs the whole turn, as the prompt request lasts until the turn
+// ends. When ctx is cancelled or its deadline passes, Prompt cancels the turn
+// the way the protocol intends, with session/cancel as [ClientSession.Cancel]
+// sends, and the turn ends once the agent answers, with
+// [StopReasonCancelled]. The connection's request timeout does not apply to
+// it; give ctx a deadline to bound a turn:
+//
+//	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+//	defer cancel()
+//	turn, err := session.Prompt(ctx, acp1.TextBlock("Fix the failing test"))
+//	response, err := turn.Wait() // before cancel runs
+//
+// Cancelling ctx before the turn ends cancels it, so keep ctx alive while
+// the turn runs.
 func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*Turn, error) {
 	t, err := s.conn.turns.Begin(s.ID)
 	if err != nil {
 		return nil, err
 	}
-	wait, err := acpconn.StartCall[PromptResponse](ctx, s.conn.conn, schema.AgentMethodsSessionPrompt,
+	// The request is cancelled with session/cancel, never abandoned, so its
+	// answer still ends the turn.
+	wait, err := acpconn.StartCall[PromptResponse](context.WithoutCancel(ctx), s.conn.conn, schema.AgentMethodsSessionPrompt,
 		&PromptRequest{SessionID: s.ID, Prompt: content})
 	if err != nil {
 		s.conn.turns.End(s.ID, t, nil, err)
 		return nil, err
 	}
+	// Queued after the prompt, so the cancel always reaches it.
+	stop := context.AfterFunc(ctx, func() { _ = s.Cancel(context.WithoutCancel(ctx)) })
 	go func() {
 		response, err := wait()
+		stop()
 		s.conn.turns.End(s.ID, t, response, err)
 	}()
 	return &Turn{t: t}, nil

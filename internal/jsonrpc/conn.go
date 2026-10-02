@@ -93,6 +93,7 @@ type Connection struct {
 	errorHandler    func(error)
 	writeQueueSize  int
 	requestTimeout  time.Duration
+	untimed         map[string]bool // methods requestTimeout does not bound
 	shutdownTimeout time.Duration
 
 	// Construction-only state, cleared by New.
@@ -138,6 +139,20 @@ func WithWriteQueueSize(size int) Option {
 // caller's context has no deadline of its own. Default: none.
 func WithRequestTimeout(d time.Duration) Option {
 	return func(c *Connection) { c.requestTimeout = d }
+}
+
+// WithUntimedMethods exempts outgoing requests for methods from the
+// [WithRequestTimeout] bound, for requests that wait on a person rather than
+// on the peer's work; their caller's context still bounds them.
+func WithUntimedMethods(methods ...string) Option {
+	return func(c *Connection) {
+		if c.untimed == nil {
+			c.untimed = map[string]bool{}
+		}
+		for _, m := range methods {
+			c.untimed[m] = true
+		}
+	}
 }
 
 // WithShutdownTimeout bounds how long [Connection.Close] waits for in-flight
@@ -600,7 +615,7 @@ func (c *Connection) StartRequest(ctx context.Context, method string, params any
 	}
 
 	cancel := context.CancelFunc(func() {})
-	if c.requestTimeout > 0 {
+	if c.requestTimeout > 0 && !c.untimed[method] {
 		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
 			ctx, cancel = context.WithTimeout(ctx, c.requestTimeout)
 		}

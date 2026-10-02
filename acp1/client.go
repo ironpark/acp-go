@@ -2,6 +2,7 @@ package acp1
 
 import (
 	"context"
+	"slices"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
@@ -41,6 +42,9 @@ var _ Agent = (*ClientSideConnection)(nil)
 func NewClientSideConnection(newClient func(*ClientSideConnection) Client, transport acp.Transport, opts ...acp.Option) *ClientSideConnection {
 	c := &ClientSideConnection{}
 	c.client = newClient(c)
+	// A v1 prompt request lasts the whole turn, however long the user's
+	// task takes; its context bounds it instead of the request timeout.
+	opts = append(slices.Clone(opts), jsonrpc.WithUntimedMethods(schema.AgentMethodsSessionPrompt))
 	c.conn = jsonrpc.New(c.handleRequest, c.handleNotification, transport, opts...)
 	return c
 }

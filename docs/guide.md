@@ -275,6 +275,12 @@ On the receiving side the matching handler's context is cancelled, and the peer 
 `-32800 Request cancelled` unless the handler answers first. This is separate from
 `session/cancel`, which cancels a whole prompt turn (see [Sessions](#sessions)).
 
+A v1 prompt is the exception: its request lasts the whole turn, so cancelling the context given to
+`ClientSession.Prompt`, or reaching its deadline, sends `session/cancel` instead, and the turn ends
+with the agent's cancelled answer. Keep that context alive while the turn runs. A v2 turn ends
+when the connection that started it closes: its context is cancelled with the connection's cause,
+and a client that reconnects resumes the session and prompts again.
+
 ## Connections and Versions
 
 ### Transport Layer
@@ -384,6 +390,9 @@ acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout)
     acp.WithErrorHandler(func(err error) {}),  // non-fatal errors
 )
 ```
+
+The request timeout spares requests that wait for the user: a v1 `session/prompt`,
+`session/request_permission` and `elicitation/create`. Bound those with their context.
 
 ## Errors and Middleware
 

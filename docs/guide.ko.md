@@ -258,6 +258,11 @@ tool call id는 세션
 `-32800 Request cancelled`가 전달됩니다. 프롬프트 턴 전체를 취소하는
 `session/cancel`과는 별개입니다([세션 관리](#세션-관리) 참고).
 
+v1 프롬프트는 예외입니다. 요청이 턴 전체 동안 유지되므로 `ClientSession.Prompt`에 준 컨텍스트를 취소하거나
+deadline이 지나면 `session/cancel`을 보내고, 턴은 에이전트의 cancelled 응답으로 끝납니다. 턴이 도는 동안
+그 컨텍스트를 살려 두세요. v2 턴은 그 턴을 시작한 연결이 닫히면 끝납니다. 턴 컨텍스트가 연결의 종료 원인으로
+취소되며, 다시 연결한 클라이언트는 세션을 resume하고 다시 프롬프트를 보냅니다.
+
 ## 연결과 버전
 
 ### 전송 계층
@@ -340,6 +345,9 @@ acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout)
     acp.WithErrorHandler(func(err error) {}),  // 치명적이지 않은 에러 콜백
 )
 ```
+
+요청 타임아웃은 사용자의 응답을 기다리는 요청에는 적용되지 않습니다: v1 `session/prompt`,
+`session/request_permission`, `elicitation/create`. 이런 요청은 컨텍스트로 제한하세요.
 
 ## 에러와 미들웨어
 

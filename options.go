@@ -43,7 +43,9 @@ func WithMiddleware(mw ...Middleware) Option { return jsonrpc.WithMiddleware(mw.
 func WithWriteQueueSize(size int) Option { return jsonrpc.WithWriteQueueSize(size) }
 
 // WithRequestTimeout bounds outgoing requests whose caller context carries no
-// deadline of its own. Default: none.
+// deadline of its own. Requests that wait for the user are exempt: a v1
+// session/prompt, which lasts its whole turn, and session/request_permission
+// and elicitation/create; bound those with their context. Default: none.
 func WithRequestTimeout(d time.Duration) Option { return jsonrpc.WithRequestTimeout(d) }
 
 // WithShutdownTimeout bounds how long Close waits for in-flight handlers.
