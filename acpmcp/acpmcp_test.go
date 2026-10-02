@@ -312,3 +312,35 @@ func toolCall(name string) map[string]jsontext.Value {
 			`"io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1"}}`),
 	}
 }
+
+// TestKeepAliveServer runs a tool on a server that pings its client while
+// the tool works: the binding answers the pings, and the call completes.
+func TestKeepAliveServer(t *testing.T) {
+	var agent *v1Agent
+	var client *v1Client
+	acp1.Pipe(t.Context(),
+		func(c *acp1.AgentSideConnection) acp1.Agent { agent = &v1Agent{acpmcp.NewDialerV1(c)}; return agent },
+		func(c *acp1.ClientSideConnection) acp1.Client {
+			client = &v1Client{HostV1: acpmcp.NewHostV1(c)}
+			return client
+		})
+
+	server := mcp.NewServer(&mcp.Implementation{Name: "tools", Version: "1.0.0"}, &mcp.ServerOptions{KeepAlive: 20 * time.Millisecond})
+	mcp.AddTool(server, &mcp.Tool{Name: "slow"},
+		func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, struct{}, error) {
+			time.Sleep(200 * time.Millisecond)
+			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "done"}}}, struct{}{}, nil
+		})
+	entry, _ := client.Add("tools", server).As[acp1.MCPServerACP]()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	session, err := agent.Connect(ctx, entry, newClient(make(chan float64, 1), make(chan struct{}, 1)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "slow", Arguments: map[string]any{}})
+	if err != nil || result.IsError {
+		t.Fatalf("CallTool: %+v %v", result, err)
+	}
+}

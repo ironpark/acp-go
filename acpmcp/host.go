@@ -91,9 +91,12 @@ func (h *host) message(ctx context.Context, m message) (outcome, error) {
 	var response *jsonrpc.Response
 	select {
 	case response = <-op.response:
+	case <-op.done:
+		return outcome{}, &acp.RequestError{Code: ErrorCodeBackendFailed, Message: "mcp server " + m.serverID + " ended the request without an outcome"}
 	case <-ctx.Done():
+		op.stop()
 		cancelled, _ := jsonv2.Marshal(map[string]string{"requestId": m.requestID})
-		op.incoming <- &jsonrpc.Request{Method: "notifications/cancelled", Params: cancelled}
+		op.deliver(&jsonrpc.Request{Method: "notifications/cancelled", Params: cancelled})
 		select {
 		case <-op.response:
 		case <-op.done:
@@ -115,7 +118,9 @@ func (h *host) message(ctx context.Context, m message) (outcome, error) {
 
 // operation is the [mcp.Connection] of one MCP request served by a host: it
 // reads the request, then waits; what the server writes is the request's
-// notifications and, last, its response.
+// notifications and, last, its response. A write it cannot carry closes it,
+// so the request ends with an error rather than waiting for an answer the
+// broken session will not send.
 type operation struct {
 	host     *host
 	message  message
@@ -126,7 +131,8 @@ type operation struct {
 	once     sync.Once
 
 	mu       sync.Mutex
-	answered bool
+	answered bool // the response was sent
+	stopped  bool // answered, or cancelled: no more notifications
 }
 
 func newOperation(h *host, m message, id jsonrpc.ID) *operation {
@@ -160,34 +166,65 @@ func (o *operation) Write(ctx context.Context, msg jsonrpc.Message) error {
 	switch msg := msg.(type) {
 	case *jsonrpc.Response:
 		if msg.ID != o.id {
-			return fmt.Errorf("acpmcp: response to unknown request %v", msg.ID.Raw())
+			return o.fail(fmt.Errorf("acpmcp: response to unknown request %v", msg.ID.Raw()))
 		}
 		o.mu.Lock()
 		defer o.mu.Unlock()
 		if !o.answered {
-			o.answered = true
+			o.answered, o.stopped = true, true
 			o.response <- msg
 		}
 		return nil
 	case *jsonrpc.Request:
 		if msg.IsCall() {
-			return errors.New("acpmcp: an MCP server cannot send requests over ACP")
+			if msg.Method == "ping" {
+				// A keepalive ping: the binding has no one to ask, so the
+				// operation answers it itself.
+				go o.deliver(&jsonrpc.Response{ID: msg.ID, Result: []byte("{}")})
+				return nil
+			}
+			return o.fail(errors.New("acpmcp: an MCP server cannot send requests over ACP"))
 		}
 		params, err := toParams(msg.Params)
 		if err != nil {
-			return err
+			return nil // not an MCP notification; there is no one to report it to
 		}
 		m := o.message
 		m.method, m.params = msg.Method, params
 		// Held across the send, so no notification follows the answer.
 		o.mu.Lock()
 		defer o.mu.Unlock()
-		if o.answered {
+		if o.stopped {
 			return nil
 		}
-		return o.host.notify(ctx, m)
+		if err := o.host.notify(ctx, m); err != nil {
+			return o.fail(err)
+		}
+		return nil
 	}
-	return fmt.Errorf("acpmcp: unexpected message %T", msg)
+	return o.fail(fmt.Errorf("acpmcp: unexpected message %T", msg))
+}
+
+// fail closes the operation, ending its request, and returns err.
+func (o *operation) fail(err error) error {
+	o.Close()
+	return err
+}
+
+// stop drops the notifications the server sends from now on, once the
+// request is cancelled.
+func (o *operation) stop() {
+	o.mu.Lock()
+	o.stopped = true
+	o.mu.Unlock()
+}
+
+// deliver hands the server msg to read, unless the operation has closed.
+func (o *operation) deliver(msg jsonrpc.Message) {
+	select {
+	case o.incoming <- msg:
+	case <-o.done:
+	}
 }
 
 func (o *operation) Close() error {
