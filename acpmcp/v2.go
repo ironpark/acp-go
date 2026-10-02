@@ -2,11 +2,8 @@ package acpmcp
 
 import (
 	"context"
-	"encoding/json"
-	"encoding/json/jsontext"
 
 	"github.com/ironpark/acp-go/acp2"
-	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -49,9 +46,7 @@ func (h *HostV2) MessageMCP(ctx context.Context, params *acp2.MessageMCPRequest)
 	}
 	var response acp2.MessageMCPResponse
 	if out.err != nil {
-		response, err = acp2.NewMessageMCPResponse(acp2.MessageMCPResponseError{Error: acp2.MCPError{
-			Code: int32(out.err.Code), Message: out.err.Message, Data: jsontext.Value(out.err.Data),
-		}})
+		response, err = acp2.NewMessageMCPResponse(acp2.MessageMCPResponseError{Error: acp2.MCPError(toMCPError(out.err))})
 	} else {
 		response, err = acp2.NewMessageMCPResponse(acp2.MessageMCPResponseResult{Result: out.result})
 	}
@@ -87,9 +82,7 @@ func NewDialerV2(conn *acp2.AgentSideConnection) *DialerV2 {
 			return outcome{result: result.Result}, nil
 		}
 		if failed, err := response.As[acp2.MessageMCPResponseError](); err == nil {
-			return outcome{err: &jsonrpc.Error{
-				Code: int64(failed.Error.Code), Message: failed.Error.Message, Data: json.RawMessage(failed.Error.Data),
-			}}, nil
+			return outcome{err: mcpError(failed.Error).wire()}, nil
 		}
 		return outcome{}, errNoOutcome
 	})}

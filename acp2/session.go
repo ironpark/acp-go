@@ -92,7 +92,10 @@ type Turn struct {
 
 // Updates yields the turn's session updates in order and stops when the turn
 // ends. Updates that arrived before the call are included. Only one reader
-// should range over it.
+// should range over it. The reader is not ordered with the agent's requests:
+// a permission request can be handled before the reader reaches the update
+// it follows. A client that shows both renders in [Client.SessionUpdate],
+// which the connection handles first.
 func (t *Turn) Updates() iter.Seq[SessionUpdate] { return t.t.Updates() }
 
 // Wait blocks until the turn ends and returns the stop reason from the

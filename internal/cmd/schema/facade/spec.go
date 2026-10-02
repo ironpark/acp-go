@@ -73,6 +73,10 @@ type Method struct {
 	// outgoing call's signature, that the call goes through instead of
 	// sending directly. It lets the connection fill in or observe the call.
 	CallVia string
+	// Untimed exempts the outgoing call from the connection's request
+	// timeout: it waits for the user, which no timeout can foresee, so only
+	// its context bounds it.
+	Untimed bool
 }
 
 func (m Method) notification() bool { return m.Response == "" }
@@ -445,6 +449,8 @@ func (g *emitter) outgoing(s side) {
 				g.write("\treturn c.%s(ctx, params)\n}\n\n", m.CallVia)
 			case m.notification():
 				g.write("\treturn c.conn.SendNotification(ctx, schema.%s, params)\n}\n\n", constant)
+			case m.Untimed:
+				g.write("\treturn acpconn.CallUntimed[%s](ctx, c.conn, schema.%s, params)\n}\n\n", m.Response, constant)
 			default:
 				g.write("\treturn acpconn.Call[%s](ctx, c.conn, schema.%s, params)\n}\n\n", m.Response, constant)
 			}

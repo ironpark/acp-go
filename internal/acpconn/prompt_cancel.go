@@ -27,9 +27,7 @@ const (
 // run in their own goroutines, so without this the cancel could find no turn
 // to cancel and be lost. Both are matched up on the read loop, in wire order,
 // so a cancel reaches exactly the prompts sent before it and never a later
-// one. See [PromptCancelSignal]. Requests that wait for the user to answer,
-// session/request_permission and elicitation/create, are exempt from the
-// request timeout.
+// one. See [PromptCancelSignal].
 func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.NotificationHandler, transport jsonrpc.Transport, opts []jsonrpc.Option) *jsonrpc.Connection {
 	prompts := &pendingPrompts{sessions: map[string][]*pendingPrompt{}}
 	received := func(method string, params jsontext.Value) {
@@ -37,9 +35,7 @@ func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.Not
 			prompts.cancel(sessionIDOf(params))
 		}
 	}
-	opts = append(slices.Clone(opts), jsonrpc.WithRequestContext(prompts.accept), jsonrpc.WithNotificationReceived(received),
-		// These wait for the user to answer, which no request timeout can foresee.
-		jsonrpc.WithUntimedMethods("session/request_permission", "elicitation/create"))
+	opts = append(slices.Clone(opts), jsonrpc.WithRequestContext(prompts.accept), jsonrpc.WithNotificationReceived(received))
 	return jsonrpc.New(request, notification, transport, opts...)
 }
 

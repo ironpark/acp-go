@@ -398,7 +398,7 @@ func (c *AgentSideConnection) SessionUpdate(ctx context.Context, params *UpdateS
 
 // RequestPermission asks the user to authorize a tool call.
 func (c *AgentSideConnection) RequestPermission(ctx context.Context, params *RequestPermissionRequest) (*RequestPermissionResponse, error) {
-	return acpconn.Call[RequestPermissionResponse](ctx, c.conn, schema.ClientMethodsSessionRequestPermission, params)
+	return acpconn.CallUntimed[RequestPermissionResponse](ctx, c.conn, schema.ClientMethodsSessionRequestPermission, params)
 }
 
 // MessageMCP sends one MCP request to a server the client provides and returns
@@ -412,7 +412,7 @@ func (c *AgentSideConnection) MessageMCP(ctx context.Context, params *MessageMCP
 // CreateElicitation asks the client to collect input from the user. Requires
 // the client's `capabilities.elicitation` capability.
 func (c *AgentSideConnection) CreateElicitation(ctx context.Context, params *CreateElicitationRequest) (*CreateElicitationResponse, error) {
-	return acpconn.Call[CreateElicitationResponse](ctx, c.conn, schema.ClientMethodsElicitationCreate, params)
+	return acpconn.CallUntimed[CreateElicitationResponse](ctx, c.conn, schema.ClientMethodsElicitationCreate, params)
 }
 
 // CompleteElicitation tells the client an elicitation no longer needs an answer.

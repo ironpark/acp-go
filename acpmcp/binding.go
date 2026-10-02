@@ -18,7 +18,8 @@ const protocolVersion = "2026-07-28"
 // itself could not admit, route or complete. An MCP error from the server is
 // not one of them; it travels inside the response.
 const (
-	// ErrorCodeResourceLimit reports a binding resource limit exceeded.
+	// ErrorCodeResourceLimit reports a binding resource limit exceeded. The
+	// RFD reserves it; this package sets no limits of its own yet.
 	ErrorCodeResourceLimit acp.ErrorCode = -33000
 	// ErrorCodeServerUnavailable reports a serverId that names no registered server.
 	ErrorCodeServerUnavailable acp.ErrorCode = -33001
@@ -28,6 +29,23 @@ const (
 
 // errNoOutcome is returned for a response carrying neither outcome.
 var errNoOutcome = &acp.RequestError{Code: ErrorCodeBackendFailed, Message: "mcp/message response has no outcome"}
+
+// mcpError has the fields of acp1.MCPError and acp2.MCPError, which convert
+// to and from it, so the two versions share one conversion.
+type mcpError struct {
+	Code                 int32                     `json:"code"`
+	Message              string                    `json:"message"`
+	Data                 jsontext.Value            `json:"data,omitzero"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func toMCPError(e *jsonrpc.Error) mcpError {
+	return mcpError{Code: int32(e.Code), Message: e.Message, Data: jsontext.Value(e.Data)}
+}
+
+func (e mcpError) wire() *jsonrpc.Error {
+	return &jsonrpc.Error{Code: int64(e.Code), Message: e.Message, Data: json.RawMessage(e.Data)}
+}
 
 // outcome is the inner MCP outcome of one mcp/message request: the result,
 // or the MCP error when err is set.

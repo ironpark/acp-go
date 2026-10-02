@@ -1,6 +1,7 @@
 package acp
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -45,8 +46,14 @@ func WithWriteQueueSize(size int) Option { return jsonrpc.WithWriteQueueSize(siz
 // WithRequestTimeout bounds outgoing requests whose caller context carries no
 // deadline of its own. Requests that wait for the user are exempt: a v1
 // session/prompt, which lasts its whole turn, and session/request_permission
-// and elicitation/create; bound those with their context. Default: none.
+// and elicitation/create; bound those with their context, and mark other
+// such requests with [WithoutRequestTimeout]. Default: none.
 func WithRequestTimeout(d time.Duration) Option { return jsonrpc.WithRequestTimeout(d) }
+
+// WithoutRequestTimeout returns a context whose requests the connection's
+// [WithRequestTimeout] does not bound, for an extension request that waits
+// for the user; ctx's own deadline still applies.
+func WithoutRequestTimeout(ctx context.Context) context.Context { return jsonrpc.WithoutTimeout(ctx) }
 
 // WithShutdownTimeout bounds how long Close waits for in-flight handlers.
 // Default: wait indefinitely.

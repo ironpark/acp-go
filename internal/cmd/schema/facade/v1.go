@@ -35,7 +35,7 @@ See protocol docs: [Session Setup](https://agentclientprotocol.com/protocol/sess
 					CallDoc: `NewSession creates a session. It may fail with an auth-required error.`,
 				},
 				{
-					Wire: "session/prompt", Name: "Prompt", Params: "PromptRequest", Response: "PromptResponse",
+					Wire: "session/prompt", Name: "Prompt", Params: "PromptRequest", Response: "PromptResponse", Untimed: true,
 					Doc: `Prompt runs one prompt turn and returns once it stops.
 
 See protocol docs: [Prompt Turn](https://agentclientprotocol.com/protocol/prompt-turn)`,
@@ -232,7 +232,7 @@ See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protoc
 					CallDoc: `SessionUpdate streams turn progress to the client.`,
 				},
 				{
-					Wire: "session/request_permission", Name: "RequestPermission", Params: "RequestPermissionRequest", Response: "RequestPermissionResponse",
+					Wire: "session/request_permission", Name: "RequestPermission", Params: "RequestPermissionRequest", Response: "RequestPermissionResponse", Untimed: true,
 					Doc: `RequestPermission asks the user to authorize a tool call.
 
 When the turn is cancelled the client MUST answer with the cancelled
@@ -338,7 +338,7 @@ var documentMethods = []Method{
 // elicitationMethods takes the capability path, which differs between versions.
 func elicitationMethods(capability string) []Method {
 	return []Method{
-		{Wire: "elicitation/create", Name: "CreateElicitation", Params: "CreateElicitationRequest", Response: "CreateElicitationResponse",
+		{Wire: "elicitation/create", Name: "CreateElicitation", Params: "CreateElicitationRequest", Response: "CreateElicitationResponse", Untimed: true,
 			CallDoc: `CreateElicitation asks the client to collect input from the user. Requires
 the client's ` + "`" + capability + "`" + ` capability.`},
 		{Wire: "elicitation/complete", Name: "CompleteElicitation", Params: "CompleteElicitationNotification",

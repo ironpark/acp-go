@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
-	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
 	"fmt"
 	"sync"
 
@@ -19,11 +17,17 @@ type dialer struct {
 	request func(ctx context.Context, m message) (outcome, error)
 
 	mu    sync.Mutex
-	calls map[string]*link // requestId of each request in flight -> its session
+	calls map[string]call // requestId of each request in flight
+}
+
+// call is a request in flight: the session that made it, and what cancels it.
+type call struct {
+	link   *link
+	cancel context.CancelFunc
 }
 
 func newDialer(request func(context.Context, message) (outcome, error)) *dialer {
-	return &dialer{request: request, calls: map[string]*link{}}
+	return &dialer{request: request, calls: map[string]call{}}
 }
 
 func (d *dialer) dial(ctx context.Context, serverID string, client *mcp.Client, opts *mcp.ClientSessionOptions) (*mcp.ClientSession, error) {
@@ -42,7 +46,7 @@ func (d *dialer) dial(ctx context.Context, serverID string, client *mcp.Client, 
 // made it. A notification for no such request is late, and dropped.
 func (d *dialer) notify(m message) {
 	d.mu.Lock()
-	l := d.calls[m.requestID]
+	l := d.calls[m.requestID].link
 	d.mu.Unlock()
 	if l == nil || l.serverID != m.serverID {
 		return
@@ -65,10 +69,9 @@ type link struct {
 	ctx      context.Context // ends when the session closes
 	cancel   context.CancelFunc
 
-	mu      sync.Mutex
-	queue   []jsonrpc.Message // read by the session, in order
-	ready   chan struct{}     // signalled when queue gains a message
-	pending map[string]context.CancelFunc
+	mu    sync.Mutex
+	queue []jsonrpc.Message // read by the session, in order
+	ready chan struct{}     // signalled when queue gains a message
 }
 
 func newLink(d *dialer, serverID string) *link {
@@ -76,7 +79,7 @@ func newLink(d *dialer, serverID string) *link {
 	return &link{
 		dialer: d, serverID: serverID, prefix: "mcp-request:" + rand.Text() + ":",
 		ctx: ctx, cancel: cancel,
-		ready: make(chan struct{}, 1), pending: map[string]context.CancelFunc{},
+		ready: make(chan struct{}, 1),
 	}
 }
 
@@ -100,6 +103,7 @@ func (l *link) Read(ctx context.Context) (jsonrpc.Message, error) {
 		l.mu.Lock()
 		if len(l.queue) > 0 {
 			msg := l.queue[0]
+			l.queue[0] = nil // let a large message go once read
 			l.queue = l.queue[1:]
 			l.mu.Unlock()
 			return msg, nil
@@ -136,26 +140,20 @@ func (l *link) Write(_ context.Context, msg jsonrpc.Message) error {
 	}
 	m := message{serverID: l.serverID, requestID: l.prefix + fmt.Sprint(request.ID.Raw()), method: request.Method, params: params}
 	ctx, cancel := context.WithCancel(l.ctx)
-	l.mu.Lock()
-	l.pending[m.requestID] = cancel
-	l.mu.Unlock()
-	l.dialer.mu.Lock()
-	l.dialer.calls[m.requestID] = l
-	l.dialer.mu.Unlock()
+	d := l.dialer
+	d.mu.Lock()
+	d.calls[m.requestID] = call{link: l, cancel: cancel}
+	d.mu.Unlock()
 	// The answer arrives later as a response; Write must not wait for it.
 	go func() {
-		out, err := l.dialer.request(ctx, m)
-		l.dialer.mu.Lock()
-		delete(l.dialer.calls, m.requestID)
-		l.dialer.mu.Unlock()
-		l.mu.Lock()
-		delete(l.pending, m.requestID)
-		l.mu.Unlock()
+		defer cancel()
+		out, err := d.request(ctx, m)
+		d.mu.Lock()
+		delete(d.calls, m.requestID)
+		d.mu.Unlock()
 		if ctx.Err() != nil {
-			cancel()
 			return // the session gave up on it, or closed
 		}
-		cancel()
 		response := &jsonrpc.Response{ID: request.ID}
 		switch {
 		case err != nil:
@@ -172,24 +170,20 @@ func (l *link) Write(_ context.Context, msg jsonrpc.Message) error {
 
 // cancelCall cancels the ACP request carrying the MCP request params names.
 func (l *link) cancelCall(raw json.RawMessage) {
-	var params struct {
-		RequestID jsontext.Value `json:"requestId"`
-	}
-	if err := jsonv2.Unmarshal(raw, &params); err != nil {
+	var params mcp.CancelledParams
+	if err := json.Unmarshal(raw, &params); err != nil {
 		return
 	}
-	var id any
-	if err := jsonv2.Unmarshal(params.RequestID, &id); err != nil {
+	id, err := jsonrpc.MakeID(params.RequestID)
+	if err != nil {
 		return
 	}
-	if f, ok := id.(float64); ok { // the session's ids are integers
-		id = int64(f)
-	}
-	l.mu.Lock()
-	cancel := l.pending[l.prefix+fmt.Sprint(id)]
-	l.mu.Unlock()
-	if cancel != nil {
-		cancel()
+	d := l.dialer
+	d.mu.Lock()
+	c := d.calls[l.prefix+fmt.Sprint(id.Raw())]
+	d.mu.Unlock()
+	if c.cancel != nil {
+		c.cancel()
 	}
 }
 

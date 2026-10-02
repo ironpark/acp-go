@@ -45,22 +45,19 @@ func (a *slowAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*ac
 }
 
 // slowClient answers permission requests after delay.
-type slowClient struct {
-	acp1test.Client
-	delay time.Duration
-}
-
-func (c *slowClient) RequestPermission(_ context.Context, params *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
-	time.Sleep(c.delay)
-	return acp1test.AllowOnce(params), nil
+func slowClient(delay time.Duration) *acp1test.Client {
+	return &acp1test.Client{Permission: func(params *acp1.RequestPermissionRequest) *acp1.RequestPermissionResponse {
+		time.Sleep(delay)
+		return acp1test.AllowOnce(params)
+	}}
 }
 
 func connectSlow(t *testing.T, agent *slowAgent, client acp1.Client, opts ...acp.Option) *acp1.ClientSession {
 	t.Helper()
-	_, conn := acp1.Pipe(t.Context(), func(c *acp1.AgentSideConnection) acp1.Agent {
+	conn := acp1test.Connect(t, func(c *acp1.AgentSideConnection) acp1.Agent {
 		agent.client = c
 		return agent
-	}, func(*acp1.ClientSideConnection) acp1.Client { return client }, opts...)
+	}, client, opts...)
 	session, err := conn.StartSession(t.Context(), &acp1.NewSessionRequest{Cwd: "/tmp"})
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +69,7 @@ func connectSlow(t *testing.T, agent *slowAgent, client acp1.Client, opts ...acp
 // with: the client sends session/cancel and the turn ends cancelled, with
 // the agent's answer, instead of being abandoned.
 func TestPromptContextCancelsTheTurn(t *testing.T) {
-	session := connectSlow(t, newSlowAgent(time.Minute), &slowClient{})
+	session := connectSlow(t, newSlowAgent(time.Minute), slowClient(0))
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 	turn, err := session.Prompt(ctx, acp1.TextBlock("work"))
@@ -96,7 +93,7 @@ func TestPromptContextCancelsTheTurn(t *testing.T) {
 // than the user takes to answer and the turn takes to run: neither the
 // permission request nor the prompt is cut short.
 func TestRequestTimeoutSparesUserPacedRequests(t *testing.T) {
-	session := connectSlow(t, newSlowAgent(150*time.Millisecond), &slowClient{delay: 150 * time.Millisecond},
+	session := connectSlow(t, newSlowAgent(150*time.Millisecond), slowClient(150*time.Millisecond),
 		acp.WithRequestTimeout(50*time.Millisecond))
 	turn, err := session.Prompt(t.Context(), acp1.TextBlock("work"))
 	if err != nil {

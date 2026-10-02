@@ -64,6 +64,13 @@ func Call[R any](ctx context.Context, conn *jsonrpc.Connection, method string, p
 	return DecodeResult[R](raw)
 }
 
+// CallUntimed is [Call] for a request that waits for the user, such as a
+// permission request: the connection's request timeout does not bound it,
+// only ctx does.
+func CallUntimed[R any](ctx context.Context, conn *jsonrpc.Connection, method string, params any) (*R, error) {
+	return Call[R](jsonrpc.WithoutTimeout(ctx), conn, method, params)
+}
+
 // StartCall sends a request like [Call] but returns once it is queued, with a
 // function that waits for and decodes the response. A message sent after
 // StartCall returns reaches the peer after the request.

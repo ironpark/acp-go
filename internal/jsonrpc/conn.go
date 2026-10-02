@@ -93,7 +93,6 @@ type Connection struct {
 	errorHandler    func(error)
 	writeQueueSize  int
 	requestTimeout  time.Duration
-	untimed         map[string]bool // methods requestTimeout does not bound
 	shutdownTimeout time.Duration
 
 	// Construction-only state, cleared by New.
@@ -141,18 +140,13 @@ func WithRequestTimeout(d time.Duration) Option {
 	return func(c *Connection) { c.requestTimeout = d }
 }
 
-// WithUntimedMethods exempts outgoing requests for methods from the
-// [WithRequestTimeout] bound, for requests that wait on a person rather than
-// on the peer's work; their caller's context still bounds them.
-func WithUntimedMethods(methods ...string) Option {
-	return func(c *Connection) {
-		if c.untimed == nil {
-			c.untimed = map[string]bool{}
-		}
-		for _, m := range methods {
-			c.untimed[m] = true
-		}
-	}
+type untimedKey struct{}
+
+// WithoutTimeout marks ctx so that requests sent with it, or a context
+// derived from it, are not bounded by [WithRequestTimeout]: they wait for a
+// person rather than the peer's work, and only ctx bounds them.
+func WithoutTimeout(ctx context.Context) context.Context {
+	return context.WithValue(ctx, untimedKey{}, true)
 }
 
 // WithShutdownTimeout bounds how long [Connection.Close] waits for in-flight
@@ -190,7 +184,9 @@ func New(request RequestHandler, notification NotificationHandler, transport Tra
 	c.notifications.wake = make(chan struct{}, 1)
 	// The connection is usable before Start: outgoing messages queue up and the
 	// write loop flushes them once it runs.
-	c.ctx, c.fail = context.WithCancelCause(context.Background())
+	// Every context the connection hands out derives from c.ctx, so they all
+	// carry the connection for ConnectionContext.
+	c.ctx, c.fail = context.WithCancelCause(context.WithValue(context.Background(), connectionKey{}, c))
 	c.cancel = func() { c.fail(nil) }
 
 	for _, mw := range slices.Backward(c.middlewares) {
@@ -415,21 +411,22 @@ func (c *Connection) trySend(msg wireMessage) bool {
 
 type connectionKey struct{}
 
-// ConnectionContext returns the context of the connection serving the
-// request ctx derives from, or nil for any other context. It ends, with the
+// ConnectionContext returns the context of the connection ctx derives from,
+// such as a request handler's, or nil for any other context. It ends, with the
 // connection's cause, when the connection closes, so work that outlives the
 // request can still end with the connection. Contexts detached from the
 // request with [context.WithoutCancel] carry it too.
 func ConnectionContext(ctx context.Context) context.Context {
-	conn, _ := ctx.Value(connectionKey{}).(context.Context)
-	return conn
+	if c, ok := ctx.Value(connectionKey{}).(*Connection); ok {
+		return c.ctx
+	}
+	return nil
 }
 
 // acceptRequest creates an incoming request's context and registers it for
 // $/cancel_request.
 func (c *Connection) acceptRequest(msg wireMessage) (context.Context, context.CancelCauseFunc) {
 	ctx, cancel := context.WithCancelCause(c.ctx)
-	ctx = context.WithValue(ctx, connectionKey{}, c.ctx)
 	c.incoming.Store(IDKey(msg.ID), cancel)
 	if c.requestContext != nil {
 		ctx = c.requestContext(ctx, msg.Method, msg.Params)
@@ -615,7 +612,7 @@ func (c *Connection) StartRequest(ctx context.Context, method string, params any
 	}
 
 	cancel := context.CancelFunc(func() {})
-	if c.requestTimeout > 0 && !c.untimed[method] {
+	if c.requestTimeout > 0 && ctx.Value(untimedKey{}) == nil {
 		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
 			ctx, cancel = context.WithTimeout(ctx, c.requestTimeout)
 		}

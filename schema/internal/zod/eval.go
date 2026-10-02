@@ -147,13 +147,6 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 			return outcome{n: s.value}, nil
 		}
 		return value, nil
-	case KindUnknown, KindAny:
-		// Zod accepts any value, but an object property under these rules
-		// must still be present unless it is optional.
-		if n == nil {
-			return fail("required value is missing")
-		}
-		return pass()
 	case KindNever:
 		return fail("value is not permitted")
 	case KindUnion:
@@ -310,6 +303,8 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		return fail("required value is missing")
 	}
 	switch s.Kind {
+	case KindUnknown, KindAny:
+		// Any present value; an absent one, as Zod has it, failed above.
 	case KindNull:
 		if n.kind != 'n' {
 			return fail("expected null")

@@ -175,7 +175,7 @@ Hand such calls to a goroutine.`,
 					CallDoc: `SessionUpdate streams turn progress to the client.`,
 				},
 				{
-					Wire: "session/request_permission", Name: "RequestPermission", Params: "RequestPermissionRequest", Response: "RequestPermissionResponse",
+					Wire: "session/request_permission", Name: "RequestPermission", Params: "RequestPermissionRequest", Response: "RequestPermissionResponse", Untimed: true,
 					Doc: `RequestPermission asks the user to authorize a tool call. When the turn
 is cancelled the client MUST answer with the cancelled outcome rather
 than leaving the request pending.`,

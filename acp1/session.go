@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ironpark/acp-go/internal/acpconn"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 	schema "github.com/ironpark/acp-go/schema/v1"
 )
 
@@ -68,8 +69,9 @@ func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*T
 		return nil, err
 	}
 	// The request is cancelled with session/cancel, never abandoned, so its
-	// answer still ends the turn.
-	wait, err := acpconn.StartCall[PromptResponse](context.WithoutCancel(ctx), s.conn.conn, schema.AgentMethodsSessionPrompt,
+	// answer still ends the turn; it lasts the whole turn, which no request
+	// timeout can foresee.
+	wait, err := acpconn.StartCall[PromptResponse](jsonrpc.WithoutTimeout(context.WithoutCancel(ctx)), s.conn.conn, schema.AgentMethodsSessionPrompt,
 		&PromptRequest{SessionID: s.ID, Prompt: content})
 	if err != nil {
 		s.conn.turns.End(s.ID, t, nil, err)
@@ -98,7 +100,10 @@ type Turn struct {
 
 // Updates yields the turn's session updates in order and stops when the turn
 // ends. Updates that arrived before the call are included. Only one reader
-// should range over it.
+// should range over it. The reader is not ordered with the agent's requests:
+// a permission request can be handled before the reader reaches the update
+// it follows. A client that shows both renders in [Client.SessionUpdate],
+// which the connection handles first.
 func (t *Turn) Updates() iter.Seq[SessionUpdate] { return t.t.Updates() }
 
 // Wait blocks until the turn ends and returns the agent's response.

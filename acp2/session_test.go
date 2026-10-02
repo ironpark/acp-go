@@ -9,6 +9,7 @@ import (
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp2"
+	"github.com/ironpark/acp-go/acp2/acp2test"
 	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
@@ -311,11 +312,11 @@ func TestPanickingTurnWorkEndsTheTurn(t *testing.T) {
 		func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, bareSession, error) {
 			return acp2.GenerateSessionID(), bareSession{}, nil
 		})}
-	client := newTestClient()
-	_, conn := acp2.Pipe(t.Context(), func(c *acp2.AgentSideConnection) acp2.Agent {
+	client := &acp2test.Client{}
+	conn := acp2test.Connect(t, func(c *acp2.AgentSideConnection) acp2.Agent {
 		agent.client = c
 		return agent
-	}, func(*acp2.ClientSideConnection) acp2.Client { return client })
+	}, client)
 
 	session, err := conn.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
 	if err != nil {
@@ -329,19 +330,15 @@ func TestPanickingTurnWorkEndsTheTurn(t *testing.T) {
 	if err != nil || reason != acp2.StopReasonInternalError {
 		t.Fatalf("turn ended with %v %v, want %s", reason, err, acp2.StopReasonInternalError)
 	}
-	for {
-		select {
-		case update := <-client.updates:
-			if _, ok := update.Update.As[acp2.SessionUpdateStateUpdate](); !ok || update.Meta == nil {
-				continue
-			}
-			if message, _, _ := update.Meta.Get[string]("error"); !strings.Contains(message, "boom") {
-				t.Errorf("idle _meta error = %q", message)
-			}
-			return
-		case <-time.After(2 * time.Second):
-			t.Fatal("no idle update carried the panic")
-		}
+	idle, err := client.WaitFor(t.Context(), func(n *acp2.UpdateSessionNotification) bool {
+		_, ok := n.Update.As[acp2.SessionUpdateStateUpdate]()
+		return ok && n.Meta != nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if message, _, _ := idle.Meta.Get[string]("error"); !strings.Contains(message, "boom") {
+		t.Errorf("idle _meta error = %q", message)
 	}
 }
 

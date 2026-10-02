@@ -316,7 +316,7 @@ func (c *ClientSideConnection) NewSession(ctx context.Context, params *NewSessio
 //
 // See protocol docs: [Prompt Turn](https://agentclientprotocol.com/protocol/prompt-turn)
 func (c *ClientSideConnection) Prompt(ctx context.Context, params *PromptRequest) (*PromptResponse, error) {
-	return acpconn.Call[PromptResponse](ctx, c.conn, schema.AgentMethodsSessionPrompt, params)
+	return acpconn.CallUntimed[PromptResponse](ctx, c.conn, schema.AgentMethodsSessionPrompt, params)
 }
 
 // CancelSession asks the agent to end the current turn. The pending Prompt call
@@ -489,7 +489,7 @@ func (c *AgentSideConnection) SessionUpdate(ctx context.Context, params *Session
 
 // RequestPermission asks the user to authorize a tool call.
 func (c *AgentSideConnection) RequestPermission(ctx context.Context, params *RequestPermissionRequest) (*RequestPermissionResponse, error) {
-	return acpconn.Call[RequestPermissionResponse](ctx, c.conn, schema.ClientMethodsSessionRequestPermission, params)
+	return acpconn.CallUntimed[RequestPermissionResponse](ctx, c.conn, schema.ClientMethodsSessionRequestPermission, params)
 }
 
 // ReadTextFile reads a text file through the client. Requires the client's
@@ -542,7 +542,7 @@ func (c *AgentSideConnection) MessageMCP(ctx context.Context, params *MessageMCP
 // CreateElicitation asks the client to collect input from the user. Requires
 // the client's `elicitation` capability.
 func (c *AgentSideConnection) CreateElicitation(ctx context.Context, params *CreateElicitationRequest) (*CreateElicitationResponse, error) {
-	return acpconn.Call[CreateElicitationResponse](ctx, c.conn, schema.ClientMethodsElicitationCreate, params)
+	return acpconn.CallUntimed[CreateElicitationResponse](ctx, c.conn, schema.ClientMethodsElicitationCreate, params)
 }
 
 // CompleteElicitation tells the client an elicitation no longer needs an answer.

@@ -95,7 +95,7 @@ func (h *host) message(ctx context.Context, m message) (outcome, error) {
 		return outcome{}, &acp.RequestError{Code: ErrorCodeBackendFailed, Message: "mcp server " + m.serverID + " ended the request without an outcome"}
 	case <-ctx.Done():
 		op.stop()
-		cancelled, _ := jsonv2.Marshal(map[string]string{"requestId": m.requestID})
+		cancelled, _ := jsonv2.Marshal(&mcp.CancelledParams{RequestID: m.requestID})
 		op.deliver(&jsonrpc.Request{Method: "notifications/cancelled", Params: cancelled})
 		select {
 		case <-op.response:
@@ -130,9 +130,8 @@ type operation struct {
 	done     chan struct{}          // closed by Close
 	once     sync.Once
 
-	mu       sync.Mutex
-	answered bool // the response was sent
-	stopped  bool // answered, or cancelled: no more notifications
+	mu      sync.Mutex
+	stopped bool // answered or cancelled: no more notifications
 }
 
 func newOperation(h *host, m message, id jsonrpc.ID) *operation {
@@ -170,9 +169,10 @@ func (o *operation) Write(ctx context.Context, msg jsonrpc.Message) error {
 		}
 		o.mu.Lock()
 		defer o.mu.Unlock()
-		if !o.answered {
-			o.answered, o.stopped = true, true
-			o.response <- msg
+		o.stopped = true
+		select {
+		case o.response <- msg: // the buffer holds the one answer
+		default:
 		}
 		return nil
 	case *jsonrpc.Request:
