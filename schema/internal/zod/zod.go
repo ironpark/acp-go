@@ -35,6 +35,7 @@ const (
 	KindExcludeTags
 	KindPreserve
 	KindOpenTags
+	KindDropMalformedTag
 	KindMin
 	KindMax
 	KindGte

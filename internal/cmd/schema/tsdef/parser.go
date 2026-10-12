@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -74,6 +75,14 @@ func Parse(filename string, source []byte) (*Schema, error) {
 			if decl != nil {
 				switch decl.Kind() {
 				case "type_alias_declaration":
+					if decl.ChildByFieldName("type_parameters") != nil {
+						// Generic aliases are type-level tools, not wire types;
+						// only the brands r.typ sees through are expected.
+						if name := decl.ChildByFieldName("name").Utf8Text(source); !brands[name] {
+							return nil, r.fail(decl, "unsupported generic type "+name)
+						}
+						break
+					}
 					typ, err := r.typ(decl.ChildByFieldName("value"))
 					if err != nil {
 						return nil, err
@@ -137,6 +146,11 @@ func doc(s string) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
+// brands are generic aliases that only mark a type for the TypeScript
+// compiler: UnknownVariant<T> brands a received catch-all variant. On the
+// wire each is T.
+var brands = map[string]bool{"UnknownVariant": true}
+
 // primitives maps TypeScript's predefined types to their kinds.
 var primitives = map[string]Kind{
 	"string": KindString, "number": KindNumber, "boolean": KindBoolean,
@@ -174,6 +188,10 @@ func (r reader) typ(n *ts.Node) (*Type, error) {
 		default:
 			return nil, r.fail(n, "unsupported literal")
 		}
+	case "template_literal_type":
+		// A pattern such as `_${string}` narrows a string for the compiler;
+		// the wire value is a string, and Zod rules say what it accepts.
+		t.Kind = KindString
 	case "union_type", "intersection_type":
 		t.Kind = KindUnion
 		if n.Kind() == "intersection_type" {
@@ -193,6 +211,15 @@ func (r reader) typ(n *ts.Node) (*Type, error) {
 				t.Members = append(t.Members, item)
 			}
 		}
+		// Alternatives that differ only in what the wire cannot tell apart,
+		// such as a branded and an unbranded catch-all, are one alternative.
+		var distinct []*Type
+		for _, m := range t.Members {
+			if !slices.ContainsFunc(distinct, func(d *Type) bool { return SameShape(d, m) }) {
+				distinct = append(distinct, m)
+			}
+		}
+		t.Members = distinct
 	case "array_type":
 		t.Kind = KindArray
 		elem, err := r.typ(n.NamedChild(0))
@@ -203,6 +230,9 @@ func (r reader) typ(n *ts.Node) (*Type, error) {
 	case "generic_type":
 		name := n.ChildByFieldName("name").Utf8Text(r.source)
 		args := n.ChildByFieldName("type_arguments")
+		if brands[name] && args.NamedChildCount() == 1 {
+			return r.typ(args.NamedChild(0))
+		}
 		if name != "Array" || args.NamedChildCount() != 1 {
 			return nil, r.fail(n, "unsupported generic "+name)
 		}
@@ -298,4 +328,27 @@ func (r reader) constant(n *ts.Node) (Constant, error) {
 		return c, r.fail(n, "unsupported constant value")
 	}
 	return c, nil
+}
+
+// SameShape reports whether a and b describe the same JSON, ignoring docs.
+func SameShape(a, b *Type) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Kind != b.Kind || a.Name != b.Name || a.Literal != b.Literal || a.Number != b.Number ||
+		len(a.Members) != len(b.Members) || len(a.Fields) != len(b.Fields) || !SameShape(a.Element, b.Element) {
+		return false
+	}
+	for i := range a.Members {
+		if !SameShape(a.Members[i], b.Members[i]) {
+			return false
+		}
+	}
+	for i := range a.Fields {
+		fa, fb := a.Fields[i], b.Fields[i]
+		if fa.Name != fb.Name || fa.Optional != fb.Optional || !SameShape(fa.Type, fb.Type) {
+			return false
+		}
+	}
+	return true
 }

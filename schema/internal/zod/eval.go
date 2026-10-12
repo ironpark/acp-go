@@ -199,6 +199,16 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 			return pass()
 		}
 		return inner()
+	case KindDropMalformedTag:
+		// defaultOnErrorOptionalStringTag: a Tag member that is neither a
+		// string nor null is removed before Inner picks a union member.
+		if kindOf(n) == '{' {
+			if v := n.get(s.Tag); v != nil && kindOf(v) != '"' && kindOf(v) != 'n' {
+				members := slices.DeleteFunc(slices.Clone(n.members), func(m member) bool { return m.name == s.Tag })
+				return r.apply(s.Inner, newObject(members), path, depth+1)
+			}
+		}
+		return inner()
 	case KindExcludeTags:
 		result, err := inner()
 		if err != nil {

@@ -190,15 +190,17 @@ func (m *SessionManager[T]) saveAfterTurn(ctx context.Context, id SessionID) {
 // stream, then runs work in a new goroutine with the turn's context and
 // reports idle with the stop reason work returns, or [StopReasonCancelled]
 // once [SessionManager.CancelSession] has cancelled the turn, before the turn
-// ends. Both reports are sent even after a cancel, so the client's turn always
-// ends. A prompt that arrives while the turn runs joins it: joined is true,
-// work does not run, and the running work picks the new message up from the
-// conversation. When work returns and a prompt joined since it started, it
-// runs again, so it answers the prompts not answered yet and returns once
-// none are left; see [SessionManager.SettleTurn]. A panic in work ends the
-// turn idle with [StopReasonInternalError] and the panic in the update's _meta
-// under "error", rather than taking the agent down. An unknown session and a
-// failed running report are returned as errors:
+// ends. Work that returns an error ends the turn with [StopReasonError] and
+// the error, since the prompt was accepted and its response cannot report a
+// later failure; a panic in work ends it the same way, as an internal error,
+// rather than taking the agent down. Both reports are sent even after a
+// cancel, so the client's turn always ends. A prompt that arrives while the
+// turn runs joins it: joined is true, work does not run, and the running work
+// picks the new message up from the conversation. When work returns and a
+// prompt joined since it started, it runs again, so it answers the prompts
+// not answered yet and returns once none are left; see
+// [SessionManager.SettleTurn]. An unknown session and a failed running report
+// are returned as errors:
 //
 //	func (a *myAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
 //		stream := acp2.NewSessionStream(a.client, params.SessionID)
@@ -214,7 +216,7 @@ func (m *SessionManager[T]) saveAfterTurn(ctx context.Context, id SessionID) {
 //
 // Work that reports its own state, such as requiring action, uses
 // [SessionManager.JoinTurn].
-func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream *SessionStream, work func(ctx context.Context, session T) StopReason) (joined bool, err error) {
+func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream *SessionStream, work func(ctx context.Context, session T) (StopReason, error)) (joined bool, err error) {
 	turn, done, joined := m.JoinTurn(ctx, id)
 	if joined {
 		return true, nil // a running turn means the session exists
@@ -232,14 +234,10 @@ func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream 
 	go func() {
 		defer done()
 		var reason StopReason
+		var failure error
 		for {
-			var failure error
 			reason, failure = runWork(turn, session, work)
 			if failure != nil {
-				var meta Meta
-				_ = meta.Set("error", failure.Error())
-				stream = stream.WithMeta(meta)
-				reason = StopReasonInternalError
 				break
 			}
 			if acp.TurnCancelled(turn) {
@@ -250,24 +248,24 @@ func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream 
 				break
 			}
 		}
-		_ = stream.Idle(report, reason) // the connection is gone if this fails
+		// The connection is gone if the report fails.
+		if failure != nil {
+			_ = stream.IdleError(report, failure)
+		} else {
+			_ = stream.Idle(report, reason)
+		}
 	}()
 	return false, nil
 }
 
-// StopReasonInternalError is the custom stop reason of a turn whose work
-// failed inside the agent, such as by panicking; custom stop reasons begin
-// with an underscore.
-const StopReasonInternalError StopReason = "_internal_error"
-
 // runWork runs work, turning a panic into an error.
-func runWork[T any](ctx context.Context, session T, work func(context.Context, T) StopReason) (reason StopReason, err error) {
+func runWork[T any](ctx context.Context, session T, work func(context.Context, T) (StopReason, error)) (reason StopReason, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic in turn work: %v", r)
 		}
 	}()
-	return work(ctx, session), nil
+	return work(ctx, session)
 }
 
 // JoinTurn returns the session's foreground work in progress, or starts it.

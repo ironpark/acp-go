@@ -258,11 +258,12 @@ func (g *generator) expand(t *tsdef.Type, seen map[string]bool) (*tsdef.Type, er
 						if old.Name == f.Name {
 							found = true
 							f.Optional = f.Optional && old.Optional
-							// A literal narrows a string: the literal is kept.
+							// The narrower of the two types is kept, as a
+							// literal narrows a string or a string narrows
+							// string | null.
 							switch {
-							case reflect.DeepEqual(f.Type, old.Type):
-							case f.Type.Kind == tsdef.KindLiteral && old.Type.Kind == tsdef.KindString:
-							case old.Type.Kind == tsdef.KindLiteral && f.Type.Kind == tsdef.KindString:
+							case within(f.Type, old.Type):
+							case within(old.Type, f.Type):
 								f.Type = old.Type
 							default:
 								return nil, fmt.Errorf("unsupported intersection for property %s", f.Name)
@@ -292,4 +293,34 @@ func (g *generator) reserve(name string) error {
 	}
 	g.names[name] = true
 	return nil
+}
+
+// within reports whether every value of narrow is a value of wide, for the
+// shapes intersections meet: literals within their primitive, and types
+// within a union that lists them or their primitive.
+func within(narrow, wide *tsdef.Type) bool {
+	switch {
+	case tsdef.SameShape(narrow, wide):
+		return true
+	case narrow.Kind == tsdef.KindUnion:
+		for _, m := range narrow.Members {
+			if !within(m, wide) {
+				return false
+			}
+		}
+		return true
+	case wide.Kind == tsdef.KindUnion:
+		for _, m := range wide.Members {
+			if within(narrow, m) {
+				return true
+			}
+		}
+		return false
+	case narrow.Kind == tsdef.KindLiteral:
+		kind, _ := literals(narrow)
+		return wide.Kind == tsdef.KindString && kind == "string" ||
+			wide.Kind == tsdef.KindNumber && kind != "string" && kind != "bool" ||
+			wide.Kind == tsdef.KindBoolean && kind == "bool"
+	}
+	return false
 }

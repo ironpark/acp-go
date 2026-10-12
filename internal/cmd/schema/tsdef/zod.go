@@ -250,6 +250,25 @@ func (r reader) zod(n *ts.Node) (*Zod, error) {
 			if method == "requiredDefaultOnError" {
 				z.Kind = "requiredCatch"
 			}
+		case "defaultOnErrorOptionalStringTag":
+			// Drops a tag member that is neither a string nor null before
+			// the union sees it, so a malformed optional tag reads as absent.
+			if err := arity(2, 2); err != nil {
+				return nil, err
+			}
+			var err error
+			z.Inner, err = r.zod(args[0])
+			if err != nil {
+				return nil, err
+			}
+			key, err := r.zodValue(args[1])
+			if err != nil {
+				return nil, err
+			}
+			if json.Unmarshal(key, &z.Tag) != nil || key.Kind() != '"' {
+				return nil, r.fail(args[1], "expected tag name")
+			}
+			z.Kind = "dropMalformedTag"
 		case "excludeKnownTags", "preserveCustomPayload":
 			if err := arity(3, 3); err != nil {
 				return nil, err

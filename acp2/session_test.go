@@ -30,7 +30,7 @@ func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2
 		_ = stream.SendText(ctx, "m1", "draft")
 		_ = stream.Send(ctx, schema.SessionUpdateAgentMessage{MessageID: "m1", Content: optional.Of([]acp2.ContentBlock{acp2.TextBlock("Hello")})})
 		_ = stream.SendText(ctx, "m1", ", world")
-		_ = stream.Idle(ctx, schema.StopReasonEndTurn)
+		_ = stream.Idle(ctx, acp2.StopReasonEndTurn)
 	}
 	if a.idleFirst {
 		work()
@@ -60,7 +60,7 @@ func TestTurnEndsOnIdle(t *testing.T) {
 		if err != nil || text != "Hello, world" {
 			t.Fatalf("idleFirst=%v: got %q %v", idleFirst, text, err)
 		}
-		if reason != schema.StopReasonEndTurn {
+		if reason != acp2.StopReasonEndTurn {
 			t.Fatalf("idleFirst=%v: got %v", idleFirst, reason)
 		}
 		// The next prompt starts a new turn once this one has ended.
@@ -90,13 +90,13 @@ func (cancellableAgent) Initialize(context.Context, *acp2.InitializeRequest) (*a
 // turn: StartTurn reports the cancelled stop reason instead.
 func (a *cancellableAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
-	joined, err := a.StartTurn(ctx, params.SessionID, stream, func(turn context.Context, _ bareSession) acp2.StopReason {
+	joined, err := a.StartTurn(ctx, params.SessionID, stream, func(turn context.Context, _ bareSession) (acp2.StopReason, error) {
 		close(a.started)
 		<-turn.Done()
 		if a.ended != nil {
 			a.ended <- context.Cause(turn)
 		}
-		return acp2.StopReasonEndTurn
+		return acp2.StopReasonEndTurn, nil
 	})
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 	}
 	for _, tr := range []*acp2.Turn{turn, joinedTurn} {
 		reason, err := tr.Wait()
-		if err != nil || reason != schema.StopReasonCancelled {
+		if err != nil || reason != acp2.StopReasonCancelled {
 			t.Fatalf("got %v %v", reason, err)
 		}
 	}
@@ -168,7 +168,7 @@ func (a *splitAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*a
 		_ = stream.Running(ctx)
 		close(a.reject) // the starter is rejected while the work runs
 		_ = stream.SendText(ctx, "m1", "done")
-		_ = stream.Idle(ctx, schema.StopReasonEndTurn)
+		_ = stream.Idle(ctx, acp2.StopReasonEndTurn)
 	}()
 	return &acp2.PromptResponse{MessageID: "user_2"}, nil
 }
@@ -202,7 +202,7 @@ func TestTurnSurvivesARejectedStarter(t *testing.T) {
 	if err != nil || text != "done" {
 		t.Fatalf("turn ended early: %q %v", text, err)
 	}
-	if reason != schema.StopReasonEndTurn {
+	if reason != acp2.StopReasonEndTurn {
 		t.Fatalf("got %v", reason)
 	}
 }
@@ -233,11 +233,11 @@ func (a *lateJoinAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) 
 	go func() {
 		defer done()
 		_ = stream.Running(turn)
-		reason := schema.StopReasonEndTurn
+		reason := acp2.StopReasonEndTurn
 		select {
 		case <-turn.Done():
 			if acp.TurnCancelled(turn) {
-				reason = schema.StopReasonCancelled
+				reason = acp2.StopReasonCancelled
 			}
 		case <-time.After(2 * time.Second):
 		}
@@ -283,63 +283,67 @@ func TestCancelBeforeJoinTurnCancelsTheTurn(t *testing.T) {
 	if turn == nil {
 		t.FailNow()
 	}
-	if reason, err := turn.Wait(); err != nil || reason != schema.StopReasonCancelled {
+	if reason, err := turn.Wait(); err != nil || reason != acp2.StopReasonCancelled {
 		t.Fatalf("got %v %v, want cancelled", reason, err)
 	}
 }
 
-// panickingAgent's turn work panics.
-type panickingAgent struct {
+// failingAgent's turn work fails with fail, or panics when fail is nil.
+type failingAgent struct {
 	*acp2.SessionManager[bareSession]
 	client acp2.Client
+	fail   error
 }
 
-func (panickingAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
+func (failingAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
 	return &acp2.InitializeResponse{ProtocolVersion: acp2.ProtocolVersion}, nil
 }
 
-func (a *panickingAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
+func (a *failingAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
-	if _, err := a.StartTurn(ctx, params.SessionID, stream, func(context.Context, bareSession) acp2.StopReason {
-		panic("boom")
+	if _, err := a.StartTurn(ctx, params.SessionID, stream, func(context.Context, bareSession) (acp2.StopReason, error) {
+		if a.fail == nil {
+			panic("boom")
+		}
+		return acp2.StopReasonEndTurn, a.fail
 	}); err != nil {
 		return nil, err
 	}
 	return &acp2.PromptResponse{MessageID: "user_1"}, nil
 }
 
-func TestPanickingTurnWorkEndsTheTurn(t *testing.T) {
-	agent := &panickingAgent{SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[bareSession](),
-		func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, bareSession, error) {
-			return acp2.GenerateSessionID(), bareSession{}, nil
-		})}
-	client := &acp2test.Client{}
-	conn := acp2test.Connect(t, func(c *acp2.AgentSideConnection) acp2.Agent {
-		agent.client = c
-		return agent
-	}, client)
-
-	session, err := conn.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	turn, _, err := session.Prompt(t.Context(), acp2.TextBlock("work"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	reason, err := turn.Wait()
-	if err != nil || reason != acp2.StopReasonInternalError {
-		t.Fatalf("turn ended with %v %v, want %s", reason, err, acp2.StopReasonInternalError)
-	}
-	idle, err := client.WaitFor(t.Context(), func(n *acp2.UpdateSessionNotification) bool {
-		_, ok := n.Update.As[acp2.SessionUpdateStateUpdate]()
-		return ok && n.Meta != nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if message, _, _ := idle.Meta.Get[string]("error"); !strings.Contains(message, "boom") {
-		t.Errorf("idle _meta error = %q", message)
+// A turn whose work fails ends with the error stop reason, which Wait returns
+// as the failure it carries: a panic as an internal error, and an
+// [acp.RequestError] with its own code.
+func TestFailingTurnWorkEndsTheTurn(t *testing.T) {
+	for _, tc := range []struct {
+		fail error
+		code acp.ErrorCode
+		text string
+	}{
+		{nil, acp.ErrorCode(schema.ErrorCodeInternalError), "boom"},
+		{acp.InvalidParams("bad path"), acp.ErrorCode(schema.ErrorCodeInvalidParams), "bad path"},
+	} {
+		agent := &failingAgent{fail: tc.fail, SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[bareSession](),
+			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, bareSession, error) {
+				return acp2.GenerateSessionID(), bareSession{}, nil
+			})}
+		conn := acp2test.Connect(t, func(c *acp2.AgentSideConnection) acp2.Agent {
+			agent.client = c
+			return agent
+		}, &acp2test.Client{})
+		session, err := conn.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		turn, _, err := session.Prompt(t.Context(), acp2.TextBlock("work"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		reason, err := turn.Wait()
+		if reason != acp2.StopReasonError || !acp.IsCode(err, tc.code) || !strings.Contains(err.Error(), tc.text) {
+			t.Errorf("turn ended with %q %v, want code %d about %q", reason, err, tc.code, tc.text)
+		}
 	}
 }
 

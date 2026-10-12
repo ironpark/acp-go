@@ -997,6 +997,15 @@ type ContentChunk struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
+// Details of a failure that ended active work.
+type ErrorStopReason struct {
+	// The failure, as a JSON-RPC error object.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting failure details.
+	// Agents SHOULD include it.
+	Error *Error `json:"error,omitzero"`
+}
+
 // Token usage information for completed session work.
 //
 // Experimental: not part of the spec yet; it may change or be removed.

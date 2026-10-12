@@ -38,13 +38,30 @@ func TestParseSchemaSubset(t *testing.T) {
 	}
 }
 func TestRejectUnsupportedSchema(t *testing.T) {
-	for _, source := range []string{`export type X = { value };`, `export type X = Pick<Foo, "bar">;`, `export type X = [string, number];`, `export type X = { run(): void };`, `export type X = { value: ; };`} {
+	for _, source := range []string{`export type X = { value };`, `export type X = Pick<Foo, "bar">;`, `export type X = [string, number];`, `export type X = { run(): void };`, `export type X = { value: ; };`, `export type Box<T> = { value: T };`} {
 		_, err := Parse("input.ts", []byte(source))
 		if err == nil || !strings.Contains(err.Error(), "input.ts:1:") {
 			t.Fatalf("expected located error for %q, got %v", source, err)
 		}
 	}
 }
+
+// The SDK brands received catch-alls and narrows custom tags with template
+// literals; neither changes the JSON, so both catch-alls are one alternative.
+func TestBrandedCatchAll(t *testing.T) {
+	s, err := Parse("input.ts", []byte(`
+ export type UnknownVariant<T> = T & { readonly [unknownVariant]: true };
+ export type X = { type: "a" } | { /** custom */ type: `+"`_${string}`"+`; [key: string]: unknown } | UnknownVariant<{ type: string; [key: string]: unknown }>;
+ `))
+	if err != nil {
+		t.Fatal(err)
+	}
+	members := s.Types[0].Type.Members
+	if len(s.Types) != 1 || len(members) != 2 || members[1].Fields[0].Type.Kind != KindString || members[1].Element == nil {
+		t.Fatalf("got %d types, members %+v", len(s.Types), members)
+	}
+}
+
 func TestTreeOwnership(t *testing.T) {
 	source := []byte(`export type X = { name: string };`)
 	s, err := Parse("input.ts", source)

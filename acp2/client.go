@@ -39,7 +39,8 @@ func (c *ClientSideConnection) sessionUpdate(ctx context.Context, n *UpdateSessi
 	if t := c.turns.Deliver(n.SessionID, n.Update); t != nil {
 		if state, ok := n.Update.As[schema.SessionUpdateStateUpdate](); ok {
 			if idle, ok := state.Value.As[schema.StateUpdateIdle](); ok {
-				c.turns.End(n.SessionID, t, idle.GetStopReason(), nil)
+				reason, failure := stopOf(idle.Value)
+				c.turns.End(n.SessionID, t, reason, failure)
 			}
 		}
 	}

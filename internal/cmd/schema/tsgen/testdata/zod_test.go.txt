@@ -111,3 +111,33 @@ func TestValidatedOption(t *testing.T) {
 		t.Fatal("unknown type accepted")
 	}
 }
+
+// Idle mirrors the schema's idle state: a stop reason union flattened into
+// an object with shared members, a branded catch-all, and a member without
+// the tag. A malformed tag reads as absent.
+func TestZodOptionalTag(t *testing.T) {
+	v, err := Decode[Idle]([]byte(`{"reason":7,"usage":2}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, ok := v.As[IdleUntagged](); !ok || u.Usage == nil || *u.Usage != 2 {
+		t.Fatalf("malformed reason: got %#v", v.Variant())
+	}
+	v, err = Decode[Idle]([]byte(`{"reason":"error","error":"boom"}`))
+	if e, ok := v.As[IdleError](); err != nil || !ok || e.Error == nil || *e.Error != "boom" {
+		t.Fatalf("error reason: got %#v %v", v.Variant(), err)
+	}
+	v, err = Decode[Idle]([]byte(`{"reason":"_custom","k":1}`))
+	if c, ok := v.As[IdleCustom](); err != nil || !ok || c.Reason != "_custom" || c.AdditionalProperties["k"] == nil {
+		t.Fatalf("custom reason: got %#v %v", v.Variant(), err)
+	}
+	for _, raw := range []string{`{}`, `{"reason":null}`} {
+		if v, err := Decode[Idle]([]byte(raw)); err != nil || v.Tag() != "" {
+			t.Fatalf("%s: got %#v %v, want no reason", raw, v.Variant(), err)
+		}
+	}
+	out, err := json.Marshal(NewIdle(IdleDone{}))
+	if err != nil || string(out) != `{"reason":"done"}` {
+		t.Fatalf("encoded %s %v", out, err)
+	}
+}

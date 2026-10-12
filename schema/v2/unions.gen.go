@@ -3472,15 +3472,13 @@ func (v *SessionUpdateUsageUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 
 // SessionUpdateNotice is the SessionUpdate variant with sessionUpdate "notice".
 //
-// Fire-and-forget advisory information for the user.
+// Fire-and-forget information for the user.
 //
 // Notices are live events rather than session history. Agents must not rely on
 // a notice being received, displayed, or seen by the user.
 // No Client capability is required, and unsupported Clients may ignore notices.
 //
 // See RFD: [Session Notices]
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 //
 // [Session Notices]: https://agentclientprotocol.com/rfds/session-notices
 type SessionUpdateNotice struct {
@@ -3515,25 +3513,22 @@ func (v *SessionUpdateNotice) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalSessionUpdateTagged(dec, "SessionUpdateNotice", "notice", (*sessionUpdateNoticeFields)(v))
 }
 
-// SessionUpdateCompactionUpdate is a context compaction upsert. The first update fixes the compaction's
+// SessionUpdateCompactionUpdate is a context compaction upsert. The first notification fixes the compaction's
 // timeline position. Later updates with the same ID patch that entity in place.
 //
 // `summary`, `error`, and `_meta` have patch semantics: omission leaves the
 // stored value unchanged, `null` clears it, and a concrete value replaces it.
-// `summary: []` also clears the retained summary. A non-empty summary is only
-// valid with `completed`; `error` is only valid with `failed`.
+// `summary: []` also clears the summary.
 //
 // SessionUpdateCompactionUpdate is the SessionUpdate variant with sessionUpdate "compaction_update".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateCompactionUpdate struct {
 	// The Agent-owned ID of this compaction, unique within the session.
 	CompactionID CompactionID `json:"compactionId"`
 	// Current lifecycle status.
 	Status CompactionStatus `json:"status"`
-	// Complete replacement user-displayable summary retained by the compaction.
+	// Complete replacement user-displayable summary content for the compaction.
 	Summary optional.Value[[]ContentBlock] `json:"summary,omitzero"`
-	// Human-readable description of why the compaction failed.
+	// Human-readable error details for the compaction.
 	Error optional.Value[string] `json:"error,omitzero"`
 	// Extensible metadata patch for this compaction.
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -3556,13 +3551,10 @@ func (v *SessionUpdateCompactionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	return unmarshalSessionUpdateTagged(dec, "SessionUpdateCompactionUpdate", "compaction_update", (*sessionUpdateCompactionUpdateFields)(v))
 }
 
-// SessionUpdateCompactionSummaryChunk is a content block appended to the retained summary of an in-progress
-// compaction. Agents send chunks only after an `in_progress` update and before
-// the terminal update for the same ID.
+// SessionUpdateCompactionSummaryChunk is a content block appended to a compaction's summary. A first-seen ID creates
+// an in-progress compaction. Chunks append in receive order.
 //
 // SessionUpdateCompactionSummaryChunk is the SessionUpdate variant with sessionUpdate "compaction_summary_chunk".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateCompactionSummaryChunk struct {
 	// ID of the compaction whose summary receives this content.
 	CompactionID CompactionID `json:"compactionId"`
@@ -3754,6 +3746,369 @@ func (SessionUpdateCustom) sessionUpdateVariant() {}
 // Tag returns the "sessionUpdate" member.
 func (v SessionUpdateCustom) Tag() string { return v.SessionUpdate }
 
+// IdleStateUpdate is a tagged union discriminated by the "stopReason" member. Use [NewIdleStateUpdate]
+// or a type switch on [IdleStateUpdate.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
+//
+// The agent is ready to process a new prompt.
+//
+// Agents SHOULD include a `stopReason` when the idle transition ends foreground
+// work. An omitted, `null`, or malformed `stopReason` means the agent is not
+// reporting one.
+type IdleStateUpdate struct{ value IdleStateUpdateVariant }
+
+// IdleStateUpdateVariant is implemented by [IdleStateUpdateEndTurn], [IdleStateUpdateMaxTokens], [IdleStateUpdateMaxTurnRequests], [IdleStateUpdateRefusal], [IdleStateUpdateCancelled], [IdleStateUpdateError], [IdleStateUpdateCustom], [IdleStateUpdateUntagged].
+type IdleStateUpdateVariant interface {
+	idleStateUpdateVariant()
+	Tag() string
+}
+
+// IdleStateUpdateVariants is the set of IdleStateUpdate variant types. It lists the types
+// themselves: a pointer to a variant also has the IdleStateUpdateVariant
+// methods, but is not one.
+type IdleStateUpdateVariants interface {
+	IdleStateUpdateEndTurn |
+		IdleStateUpdateMaxTokens |
+		IdleStateUpdateMaxTurnRequests |
+		IdleStateUpdateRefusal |
+		IdleStateUpdateCancelled |
+		IdleStateUpdateError |
+		IdleStateUpdateCustom |
+		IdleStateUpdateUntagged
+	IdleStateUpdateVariant
+}
+
+// NewIdleStateUpdate wraps a variant.
+func NewIdleStateUpdate[T IdleStateUpdateVariants](v T) IdleStateUpdate {
+	return IdleStateUpdate{value: v}
+}
+
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u IdleStateUpdate) Variant() IdleStateUpdateVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u IdleStateUpdate) As[T IdleStateUpdateVariants]() (T, bool) {
+	v, ok := u.value.(T)
+	return v, ok
+}
+
+// Tag returns the "stopReason" discriminator, or "" for the zero value.
+func (u IdleStateUpdate) Tag() string {
+	if u.value == nil {
+		return ""
+	}
+	return u.value.Tag()
+}
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u IdleStateUpdate) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u IdleStateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return errors.New("IdleStateUpdate: no variant set; use NewIdleStateUpdate")
+	}
+	return json.MarshalEncode(enc, u.value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *IdleStateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalIdleStateUpdateVariant(dec, &u.value)
+}
+
+// unmarshalIdleStateUpdateVariant decodes a IdleStateUpdateVariant by its "stopReason" member; it backs Unmarshalers.
+func unmarshalIdleStateUpdateVariant(dec *jsontext.Decoder, out *IdleStateUpdateVariant) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("IdleStateUpdate: expected object, got %s", raw.Kind())
+	}
+	tag, present, err := union.ReadTag(raw, "stopReason", dec.Options())
+	if err != nil {
+		return fmt.Errorf("IdleStateUpdate: %w", err)
+	}
+	if !present {
+		var v IdleStateUpdateUntagged
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+		return nil
+	}
+	switch tag {
+	case "end_turn":
+		var v IdleStateUpdateEndTurn
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "max_tokens":
+		var v IdleStateUpdateMaxTokens
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "max_turn_requests":
+		var v IdleStateUpdateMaxTurnRequests
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "refusal":
+		var v IdleStateUpdateRefusal
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "cancelled":
+		var v IdleStateUpdateCancelled
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "error":
+		var v IdleStateUpdateError
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v IdleStateUpdateCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
+	return nil
+}
+
+// IdleStateUpdateEndTurn is the IdleStateUpdate variant with stopReason "end_turn".
+type IdleStateUpdateEndTurn struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateEndTurn) idleStateUpdateVariant() {}
+
+// Tag returns "end_turn".
+func (IdleStateUpdateEndTurn) Tag() string { return "end_turn" }
+
+type idleStateUpdateEndTurnFields IdleStateUpdateEndTurn
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateEndTurn) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateEndTurnFields]{"end_turn", idleStateUpdateEndTurnFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateEndTurn) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateEndTurn", "end_turn", (*idleStateUpdateEndTurnFields)(v))
+}
+
+// IdleStateUpdateMaxTokens is the IdleStateUpdate variant with stopReason "max_tokens".
+type IdleStateUpdateMaxTokens struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateMaxTokens) idleStateUpdateVariant() {}
+
+// Tag returns "max_tokens".
+func (IdleStateUpdateMaxTokens) Tag() string { return "max_tokens" }
+
+type idleStateUpdateMaxTokensFields IdleStateUpdateMaxTokens
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateMaxTokens) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateMaxTokensFields]{"max_tokens", idleStateUpdateMaxTokensFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateMaxTokens) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateMaxTokens", "max_tokens", (*idleStateUpdateMaxTokensFields)(v))
+}
+
+// IdleStateUpdateMaxTurnRequests is the IdleStateUpdate variant with stopReason "max_turn_requests".
+type IdleStateUpdateMaxTurnRequests struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateMaxTurnRequests) idleStateUpdateVariant() {}
+
+// Tag returns "max_turn_requests".
+func (IdleStateUpdateMaxTurnRequests) Tag() string { return "max_turn_requests" }
+
+type idleStateUpdateMaxTurnRequestsFields IdleStateUpdateMaxTurnRequests
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateMaxTurnRequests) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateMaxTurnRequestsFields]{"max_turn_requests", idleStateUpdateMaxTurnRequestsFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateMaxTurnRequests) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateMaxTurnRequests", "max_turn_requests", (*idleStateUpdateMaxTurnRequestsFields)(v))
+}
+
+// IdleStateUpdateRefusal is the IdleStateUpdate variant with stopReason "refusal".
+type IdleStateUpdateRefusal struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateRefusal) idleStateUpdateVariant() {}
+
+// Tag returns "refusal".
+func (IdleStateUpdateRefusal) Tag() string { return "refusal" }
+
+type idleStateUpdateRefusalFields IdleStateUpdateRefusal
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateRefusal) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateRefusalFields]{"refusal", idleStateUpdateRefusalFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateRefusal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateRefusal", "refusal", (*idleStateUpdateRefusalFields)(v))
+}
+
+// IdleStateUpdateCancelled is the IdleStateUpdate variant with stopReason "cancelled".
+type IdleStateUpdateCancelled struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateCancelled) idleStateUpdateVariant() {}
+
+// Tag returns "cancelled".
+func (IdleStateUpdateCancelled) Tag() string { return "cancelled" }
+
+type idleStateUpdateCancelledFields IdleStateUpdateCancelled
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateCancelled) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateCancelledFields]{"cancelled", idleStateUpdateCancelledFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateCancelled) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateCancelled", "cancelled", (*idleStateUpdateCancelledFields)(v))
+}
+
+// IdleStateUpdateError is the IdleStateUpdate variant with stopReason "error".
+type IdleStateUpdateError struct {
+	// The failure, as a JSON-RPC error object.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting failure details.
+	// Agents SHOULD include it.
+	Error *Error `json:"error,omitzero"`
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateError) idleStateUpdateVariant() {}
+
+// Tag returns "error".
+func (IdleStateUpdateError) Tag() string { return "error" }
+
+type idleStateUpdateErrorFields IdleStateUpdateError
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateError) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateErrorFields]{"error", idleStateUpdateErrorFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateError) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateError", "error", (*idleStateUpdateErrorFields)(v))
+}
+
+// IdleStateUpdateCustom holds IdleStateUpdate values with an unrecognized "stopReason", keeping every member.
+type IdleStateUpdateCustom struct {
+	// Why foreground work stopped. The value selects one of this type's variants, which may add fields of their own.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting a stop reason; a malformed value is treated the same way.
+	//
+	// See protocol docs: [Stop Reasons](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#stop-reasons)
+	StopReason string `json:"stopReason"`
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage                *Usage                    `json:"usage,omitzero"`
+	Meta                 Meta                      `json:"_meta,omitzero"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (IdleStateUpdateCustom) idleStateUpdateVariant() {}
+
+// Tag returns the "stopReason" member.
+func (v IdleStateUpdateCustom) Tag() string { return v.StopReason }
+
+// IdleStateUpdateUntagged is the IdleStateUpdate variant without a "stopReason" member.
+type IdleStateUpdateUntagged struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateUntagged) idleStateUpdateVariant() {}
+
+// Tag returns "": IdleStateUpdateUntagged is the IdleStateUpdate variant without a "stopReason" member.
+func (IdleStateUpdateUntagged) Tag() string { return "" }
+
 // StateUpdate is a tagged union discriminated by the "state" member. Use [NewStateUpdate]
 // or a type switch on [StateUpdate.Variant] to work with it. The zero value holds no
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
@@ -3895,40 +4250,23 @@ func (v *StateUpdateRunning) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalStateTagged(dec, "StateUpdateRunning", "running", (*stateUpdateRunningFields)(v))
 }
 
-// StateUpdateIdle is the StateUpdate variant with state "idle".
-//
-// The agent is ready to process a new prompt.
-type StateUpdateIdle struct {
-	// Indicates why foreground work stopped.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting a stop reason.
-	// Agents SHOULD include this when the idle transition ends foreground work.
-	StopReason *StopReason `json:"stopReason,omitzero"`
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage *Usage `json:"usage,omitzero"`
-	Meta  Meta   `json:"_meta,omitzero"`
-}
+// StateUpdateIdle is the StateUpdate variant with state "idle"; its payload is the IdleStateUpdate union
+// whose members are written alongside the discriminator.
+type StateUpdateIdle struct{ Value IdleStateUpdate }
 
 func (StateUpdateIdle) stateUpdateVariant() {}
 
 // Tag returns "idle".
 func (StateUpdateIdle) Tag() string { return "idle" }
 
-type stateUpdateIdleFields StateUpdateIdle
-
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v StateUpdateIdle) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stateTagged[stateUpdateIdleFields]{"idle", stateUpdateIdleFields(v)})
+	return union.SpliceTag(enc, "state", "idle", v.Value)
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *StateUpdateIdle) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStateTagged(dec, "StateUpdateIdle", "idle", (*stateUpdateIdleFields)(v))
+	return union.UnspliceTag(dec, "state", "idle", &v.Value)
 }
 
 // StateUpdateRequiresAction is the StateUpdate variant with state "requires_action".
@@ -5288,6 +5626,7 @@ var unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalAvailableCommandInputVariant),
 	json.UnmarshalFromFunc(unmarshalNesSuggestionVariant),
 	json.UnmarshalFromFunc(unmarshalSessionUpdateVariant),
+	json.UnmarshalFromFunc(unmarshalIdleStateUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalStateUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalPlanUpdateContentVariant),
 	json.UnmarshalFromFunc(unmarshalMCPServerVariant),
@@ -5412,6 +5751,26 @@ func unmarshalStateTagged[F any](dec *jsontext.Decoder, name, want string, out *
 	}
 	if w.Tag != want {
 		return fmt.Errorf("%s: expected state %q, got %q", name, want, w.Tag)
+	}
+	*out = w.Fields
+	return nil
+}
+
+// stopReasonTagged is the wire form of a variant tagged by its "stopReason" member.
+type stopReasonTagged[F any] struct {
+	Tag    string `json:"stopReason"`
+	Fields F      `json:",embed"`
+}
+
+// unmarshalStopReasonTagged decodes a variant tagged by its "stopReason" member into out, failing
+// unless the tag is want; name is the variant's Go type, for the error.
+func unmarshalStopReasonTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
+	var w stopReasonTagged[F]
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != want {
+		return fmt.Errorf("%s: expected stopReason %q, got %q", name, want, w.Tag)
 	}
 	*out = w.Fields
 	return nil

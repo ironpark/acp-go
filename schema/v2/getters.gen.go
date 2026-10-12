@@ -668,6 +668,14 @@ func (x *EnumOption) GetDescription() string {
 	return zero
 }
 
+// GetError returns Error, or nil if x is nil.
+func (x *ErrorStopReason) GetError() *Error {
+	if x == nil {
+		return nil
+	}
+	return x.Error
+}
+
 // GetMIMEType returns the value of MIMEType, or the zero value if x or MIMEType is nil.
 func (x *Icon) GetMIMEType() MediaType {
 	if x != nil && x.MIMEType != nil {
@@ -684,6 +692,78 @@ func (x *Icon) GetTheme() IconTheme {
 	}
 	var zero IconTheme
 	return zero
+}
+
+// GetUsage returns Usage, or nil if x is nil.
+func (x *IdleStateUpdateCancelled) GetUsage() *Usage {
+	if x == nil {
+		return nil
+	}
+	return x.Usage
+}
+
+// GetUsage returns Usage, or nil if x is nil.
+func (x *IdleStateUpdateCustom) GetUsage() *Usage {
+	if x == nil {
+		return nil
+	}
+	return x.Usage
+}
+
+// GetUsage returns Usage, or nil if x is nil.
+func (x *IdleStateUpdateEndTurn) GetUsage() *Usage {
+	if x == nil {
+		return nil
+	}
+	return x.Usage
+}
+
+// GetError returns Error, or nil if x is nil.
+func (x *IdleStateUpdateError) GetError() *Error {
+	if x == nil {
+		return nil
+	}
+	return x.Error
+}
+
+// GetUsage returns Usage, or nil if x is nil.
+func (x *IdleStateUpdateError) GetUsage() *Usage {
+	if x == nil {
+		return nil
+	}
+	return x.Usage
+}
+
+// GetUsage returns Usage, or nil if x is nil.
+func (x *IdleStateUpdateMaxTokens) GetUsage() *Usage {
+	if x == nil {
+		return nil
+	}
+	return x.Usage
+}
+
+// GetUsage returns Usage, or nil if x is nil.
+func (x *IdleStateUpdateMaxTurnRequests) GetUsage() *Usage {
+	if x == nil {
+		return nil
+	}
+	return x.Usage
+}
+
+// GetUsage returns Usage, or nil if x is nil.
+func (x *IdleStateUpdateRefusal) GetUsage() *Usage {
+	if x == nil {
+		return nil
+	}
+	return x.Usage
+}
+
+// GetUsage returns Usage, or nil if x is nil.
+func (x *IdleStateUpdateUntagged) GetUsage() *Usage {
+	if x == nil {
+		return nil
+	}
+	return x.Usage
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
@@ -1502,23 +1582,6 @@ func (x *StartNesRequest) GetRepository() *NesRepository {
 		return nil
 	}
 	return x.Repository
-}
-
-// GetStopReason returns the value of StopReason, or the zero value if x or StopReason is nil.
-func (x *StateUpdateIdle) GetStopReason() StopReason {
-	if x != nil && x.StopReason != nil {
-		return *x.StopReason
-	}
-	var zero StopReason
-	return zero
-}
-
-// GetUsage returns Usage, or nil if x is nil.
-func (x *StateUpdateIdle) GetUsage() *Usage {
-	if x == nil {
-		return nil
-	}
-	return x.Usage
 }
 
 // GetCancel returns Cancel, or nil if x is nil.

@@ -91,6 +91,12 @@ prompt with `acp.ErrTurnInProgress` (`-32600`). In v2 a prompt may contribute to
 turn, and `SessionManager.StartTurn` (or `JoinTurn`) hands the agent the running turn's context,
 reporting running and idle around its work.
 
+Once a v2 prompt is accepted, its response cannot report a later failure. Work that fails ends the
+turn idle with the `error` stop reason and a JSON-RPC error object: `SessionStream.IdleError`
+sends it, `StartTurn` does so when its work returns an error or panics, and the client's
+`Turn.Wait` returns `acp2.StopReasonError` with that error as an `*acp.RequestError`, as a v1
+prompt's error response would.
+
 ### Cancellation ordering
 
 A `session/cancel` sent after a prompt always reaches that prompt's turn. `ClientSession.Prompt`

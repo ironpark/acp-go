@@ -69,3 +69,16 @@ func TestUnsupportedZodFails(t *testing.T) {
 		t.Fatal("accepted unresolved reference")
 	}
 }
+
+func TestZodOptionalStringTag(t *testing.T) {
+	schemas, err := ParseZod("zod.ts", []byte(`export const zIdle = defaultOnErrorOptionalStringTag(z.object({ reason: z.string().optional() }), "reason");`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if z := schemas["zIdle"]; z.Kind != "dropMalformedTag" || z.Tag != "reason" || z.Inner.Kind != "object" {
+		t.Fatalf("got %+v", z)
+	}
+	if _, err := ParseZod("zod.ts", []byte(`export const zIdle = defaultOnErrorOptionalStringTag(z.object({}), 1);`)); err == nil {
+		t.Fatal("accepted a non-string tag name")
+	}
+}
