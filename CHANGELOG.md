@@ -6,6 +6,44 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-12
+
+### Schema
+
+- Pinned the TypeScript SDK at `f4ea219` (1.8.0). The ACP schema moves to **v1.25.0**, and the v2
+  draft to **2.0.0-alpha.8**.
+- **Error stop reason (unstable):** work that fails after a v2 prompt was accepted ends idle with
+  `stopReason: "error"` and a JSON-RPC error object, since the prompt response can no longer
+  report it. The idle state's stop reason is now a union tagged by `stopReason`, flattened into the
+  idle update. v1 subagent states get the same stop reason; the v1 prompt response is unchanged.
+- **Stricter fields:** malformed values that a receiver acts on are rejected instead of being
+  replaced by a fallback. Examples are `terminal/create` arguments, `fs/read_text_file` `line` and
+  `limit`, `mcpServers`, `additionalDirectories`, `replayFrom` and `didChange` edits.
+- Session notices and session compaction are stable.
+
+### Breaking changes
+
+- **Idle states are tagged unions:**
+  - `StateUpdateIdle` in both schema versions wraps an `IdleStateUpdate`, with one variant per
+    stop reason: `IdleStateUpdateEndTurn`, …, `IdleStateUpdateError`, `IdleStateUpdateCustom`, and
+    `IdleStateUpdateUntagged` for none. It no longer has a `StopReason` field.
+  - `schema/v2` no longer has a `StopReason` type. `acp2.StopReason` is now declared by `acp2`,
+    with the same constants plus `StopReasonError`.
+- **`acp2.SessionManager.StartTurn` work returns `(StopReason, error)`.** An error, or a panic,
+  ends the turn with `StopReasonError`.
+- **`acp2.StopReasonInternalError` (`_internal_error`) is removed**, replaced by the standard
+  error stop reason.
+- **The client's `Turn.Wait` and `Turn.Text` report the error stop reason** as
+  `acp2.StopReasonError` together with the agent's error as an `*acp.RequestError`.
+
+### Added
+
+- `SessionStream.IdleError` and `SubagentStream.IdleError` in `acp2`, and
+  `SubagentStream.IdleError` in `acp1`, report failed work with the error stop reason.
+- The generator reads TypeScript template literal types, the `UnknownVariant<T>` brand and the
+  `defaultOnErrorOptionalStringTag` Zod helper. It also narrows a member that an intersection
+  declares twice, and treats a `tag?: null` alternative as a tagged union's untagged default.
+
 ### Changed
 
 - `acpmcp` requires the released `github.com/ironpark/acp-go v0.1.0` instead of a `replace` of the
@@ -19,7 +57,7 @@ below cover the changes made since `c7b0f78`.
 
 ### Schema
 
-- Pinned the TypeScript SDK at `a1a80ff` (1.5.1). The ACP schema moves from v1.23.0 to
+- Pinned the TypeScript SDK at `a1a80ff` (1.6.0). The ACP schema moves from v1.23.0 to
   **v1.24.1**, and the v2 draft from 2.0.0-alpha.5 to **2.0.0-alpha.7** ([ce46ac9]).
 - MCP-over-ACP is now request-scoped. `mcp/connect` and `mcp/disconnect` are gone. Each
   `mcp/message` request names its server and a `requestId`, and answers with an MCP result or an
@@ -170,7 +208,8 @@ below cover the changes made since `c7b0f78`.
 - **Request contexts carry their connection's context** (`jsonrpc.ConnectionContext`)
   ([0c86c9f], [e204a53]).
 
-[Unreleased]: https://github.com/ironpark/acp-go/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ironpark/acp-go/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ironpark/acp-go/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ironpark/acp-go/releases/tag/v0.1.0
 [ce46ac9]: https://github.com/ironpark/acp-go/commit/ce46ac9
 [904142a]: https://github.com/ironpark/acp-go/commit/904142a

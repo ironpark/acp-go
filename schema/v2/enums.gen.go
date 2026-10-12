@@ -338,7 +338,11 @@ type SessionConfigGroupID string
 // SessionListCursor is an opaque cursor used to paginate `session/list` results.
 type SessionListCursor string
 
-// MessageID is a unique identifier for a message within a session.
+// Identifier for a message, unique among messages of the same type within a session.
+//
+// Each message type, such as user messages, agent messages, and agent thoughts,
+// has its own ID space: messages of different types may share an ID and remain
+// distinct messages.
 type MessageID string
 
 // NesSuggestionID is a unique identifier for an NES suggestion.
@@ -369,32 +373,6 @@ const (
 func (v ErrorCode) Known() bool {
 	switch v {
 	case ErrorCodeParseError, ErrorCodeInvalidRequest, ErrorCodeMethodNotFound, ErrorCodeInvalidParams, ErrorCodeInternalError, ErrorCodeRequestCancelled, ErrorCodeAuthenticationRequired, ErrorCodeResourceNotFound:
-		return true
-	}
-	return false
-}
-
-// StopReason also accepts values outside the listed constants; use [StopReason.Known] to check.
-//
-// Reasons why an agent stops active session work.
-//
-// See protocol docs: [Stop Reasons]
-//
-// [Stop Reasons]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#stop-reasons
-type StopReason string
-
-const (
-	StopReasonEndTurn         StopReason = "end_turn"
-	StopReasonMaxTokens       StopReason = "max_tokens"
-	StopReasonMaxTurnRequests StopReason = "max_turn_requests"
-	StopReasonRefusal         StopReason = "refusal"
-	StopReasonCancelled       StopReason = "cancelled"
-)
-
-// Known reports whether v is one of the protocol-defined constants.
-func (v StopReason) Known() bool {
-	switch v {
-	case StopReasonEndTurn, StopReasonMaxTokens, StopReasonMaxTurnRequests, StopReasonRefusal, StopReasonCancelled:
 		return true
 	}
 	return false
@@ -458,8 +436,6 @@ func (v PlanEntryStatus) Known() bool {
 // NoticeSeverity also accepts values outside the listed constants; use [NoticeSeverity.Known] to check.
 //
 // Severity hint for a session notice.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type NoticeSeverity string
 
 const (
@@ -478,15 +454,11 @@ func (v NoticeSeverity) Known() bool {
 }
 
 // CompactionID is a unique identifier for a context compaction within a session.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type CompactionID string
 
 // CompactionStatus also accepts values outside the listed constants; use [CompactionStatus.Known] to check.
 //
 // Lifecycle state of a context compaction.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type CompactionStatus string
 
 const (

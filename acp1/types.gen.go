@@ -154,8 +154,21 @@ type (
 	EmbeddedResourceResourceAlternative      = schema.EmbeddedResourceResourceAlternative
 	EnumOption                               = schema.EnumOption
 	EnvVariable                              = schema.EnvVariable
+	Error                                    = schema.Error
+	ErrorCode                                = schema.ErrorCode
 	FileSystemCapabilities                   = schema.FileSystemCapabilities
 	HTTPHeader                               = schema.HTTPHeader
+	IdleStateUpdate                          = schema.IdleStateUpdate
+	IdleStateUpdateCancelled                 = schema.IdleStateUpdateCancelled
+	IdleStateUpdateCustom                    = schema.IdleStateUpdateCustom
+	IdleStateUpdateEndTurn                   = schema.IdleStateUpdateEndTurn
+	IdleStateUpdateError                     = schema.IdleStateUpdateError
+	IdleStateUpdateMaxTokens                 = schema.IdleStateUpdateMaxTokens
+	IdleStateUpdateMaxTurnRequests           = schema.IdleStateUpdateMaxTurnRequests
+	IdleStateUpdateRefusal                   = schema.IdleStateUpdateRefusal
+	IdleStateUpdateUntagged                  = schema.IdleStateUpdateUntagged
+	IdleStateUpdateVariant                   = schema.IdleStateUpdateVariant
+	IdleStateUpdateVariants                  = schema.IdleStateUpdateVariants
 	Implementation                           = schema.Implementation
 	LLMProtocol                              = schema.LLMProtocol
 	LogoutCapabilities                       = schema.LogoutCapabilities
@@ -350,6 +363,14 @@ const (
 	CompactionStatusFailed                  = schema.CompactionStatusFailed
 	CompactionStatusCancelled               = schema.CompactionStatusCancelled
 	ElicitationSchemaTypeObject             = schema.ElicitationSchemaTypeObject
+	ErrorCodeParseError                     = schema.ErrorCodeParseError
+	ErrorCodeInvalidRequest                 = schema.ErrorCodeInvalidRequest
+	ErrorCodeMethodNotFound                 = schema.ErrorCodeMethodNotFound
+	ErrorCodeInvalidParams                  = schema.ErrorCodeInvalidParams
+	ErrorCodeInternalError                  = schema.ErrorCodeInternalError
+	ErrorCodeRequestCancelled               = schema.ErrorCodeRequestCancelled
+	ErrorCodeAuthenticationRequired         = schema.ErrorCodeAuthenticationRequired
+	ErrorCodeResourceNotFound               = schema.ErrorCodeResourceNotFound
 	LLMProtocolAnthropic                    = schema.LLMProtocolAnthropic
 	LLMProtocolOpenAI                       = schema.LLMProtocolOpenAI
 	LLMProtocolAzure                        = schema.LLMProtocolAzure
@@ -444,6 +465,11 @@ func NewElicitationPropertySchema[T ElicitationPropertySchemaVariants](v T) Elic
 // NewEmbeddedResourceResource encodes value, one of the EmbeddedResourceResourceAlternative types.
 func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T) (EmbeddedResourceResource, error) {
 	return schema.NewEmbeddedResourceResource(value)
+}
+
+// NewIdleStateUpdate wraps a variant.
+func NewIdleStateUpdate[T IdleStateUpdateVariants](v T) IdleStateUpdate {
+	return schema.NewIdleStateUpdate(v)
 }
 
 // NewMCPServer wraps a variant.

@@ -80,7 +80,13 @@ func (s *SubagentStream) RequiresAction(ctx context.Context) error {
 // Idle reports that the subagent's work stopped for reason; the parent may
 // give it more. Cancelled work is idle with [StopReasonCancelled].
 func (s *SubagentStream) Idle(ctx context.Context, reason StopReason) error {
-	return s.mirror(ctx, schema.NewStateUpdate(schema.StateUpdateIdle{StopReason: &reason}))
+	return s.mirror(ctx, schema.NewStateUpdate(schema.StateUpdateIdle{Value: idleState(reason)}))
+}
+
+// IdleError reports that the subagent's work stopped because it failed; see
+// [SessionStream.IdleError].
+func (s *SubagentStream) IdleError(ctx context.Context, failure error) error {
+	return s.mirror(ctx, schema.NewStateUpdate(schema.StateUpdateIdle{Value: errorState(failure)}))
 }
 
 // Unknown reports that the agent lost sight of the subagent's work, such as

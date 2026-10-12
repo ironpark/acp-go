@@ -8,12 +8,7 @@
       "limit": 3,
       "_meta": 42
     },
-    "success": true,
-    "output": {
-      "sessionId": "s",
-      "path": "/tmp/a",
-      "limit": 3
-    }
+    "success": false
   },
   {
     "schema": "zReadTextFileRequest",

@@ -150,6 +150,10 @@ func classify(tag string, shapes []taggedShape) ([]taggedMember, bool) {
 			switch {
 			case field == nil:
 				m = taggedMember{kind: memberDefault, object: sh.expanded, ref: sh.ref}
+			case field.Optional && field.Type.Kind == tsdef.KindNull:
+				// `tag?: null` admits only an absent tag, as decoding
+				// treats null: the member is the default without it.
+				m = taggedMember{kind: memberDefault, object: withoutField(sh.expanded, tag)}
 			case field.Optional:
 				return nil, false
 			case stringLiteral(field.Type):
@@ -849,4 +853,11 @@ func (g *generator) emitTaggedWires() {
 		g.write("if w.Tag != want { return fmt.Errorf(\"%%s: expected %s %%q, got %%q\", name, want, w.Tag) }\n", tag)
 		g.write("*out = w.Fields; return nil\n}\n")
 	}
+}
+
+// withoutField returns object t without its member name.
+func withoutField(t *tsdef.Type, name string) *tsdef.Type {
+	out := *t
+	out.Fields = slices.DeleteFunc(slices.Clone(t.Fields), func(f tsdef.Field) bool { return f.Name == name })
+	return &out
 }

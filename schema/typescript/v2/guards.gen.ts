@@ -15,34 +15,43 @@ const zGuardRequestPermissionSubjectToolCall =
   validate.zToolCallPermissionSubject.and(
     z.object({ type: z.literal("tool_call") }),
   );
-const zGuardRequestPermissionSubjectCommand =
-  validate.zCommandPermissionSubject.and(
-    z.object({ type: z.literal("command") }),
-  );
+const zGuardRequestPermissionSubjectCommand = validate.zCommandPermissionSubject
+  .and(
+    z.object({
+      toolCallId: validate.zToolCallId.nullish(),
+      terminalId: validate.zTerminalId.nullish(),
+    }),
+  )
+  .and(z.object({ type: z.literal("command") }));
 const zGuardToolCallContentContent = validate.zContent.and(
   z.object({ type: z.literal("content") }),
 );
-const zGuardToolCallContentDiff = validate.zDiff.and(
-  z.object({ type: z.literal("diff") }),
-);
+const zGuardToolCallContentDiff = validate.zDiff
+  .and(z.object({ patch: validate.zDiffPatch.nullish() }))
+  .and(z.object({ type: z.literal("diff") }));
 const zGuardToolCallContentTerminal = validate.zTerminal.and(
   z.object({ type: z.literal("terminal") }),
 );
-const zGuardContentBlockText = validate.zTextContent.and(
-  z.object({ type: z.literal("text") }),
-);
-const zGuardContentBlockImage = validate.zImageContent.and(
-  z.object({ type: z.literal("image") }),
-);
-const zGuardContentBlockAudio = validate.zAudioContent.and(
-  z.object({ type: z.literal("audio") }),
-);
-const zGuardContentBlockResourceLink = validate.zResourceLink.and(
-  z.object({ type: z.literal("resource_link") }),
-);
-const zGuardContentBlockResource = validate.zEmbeddedResource.and(
-  z.object({ type: z.literal("resource") }),
-);
+const zGuardContentBlockText = validate.zTextContent
+  .and(z.object({ annotations: validate.zAnnotations.nullish() }))
+  .and(z.object({ type: z.literal("text") }));
+const zGuardContentBlockImage = validate.zImageContent
+  .and(z.object({ annotations: validate.zAnnotations.nullish() }))
+  .and(z.object({ type: z.literal("image") }));
+const zGuardContentBlockAudio = validate.zAudioContent
+  .and(z.object({ annotations: validate.zAnnotations.nullish() }))
+  .and(z.object({ type: z.literal("audio") }));
+const zGuardContentBlockResourceLink = validate.zResourceLink
+  .and(
+    z.object({
+      mimeType: validate.zMediaType.nullish(),
+      annotations: validate.zAnnotations.nullish(),
+    }),
+  )
+  .and(z.object({ type: z.literal("resource_link") }));
+const zGuardContentBlockResource = validate.zEmbeddedResource
+  .and(z.object({ annotations: validate.zAnnotations.nullish() }))
+  .and(z.object({ type: z.literal("resource") }));
 const zGuardDiffChangeAdd = validate.zDiffPathChange.and(
   z.object({ operation: z.literal("add") }),
 );
@@ -106,9 +115,9 @@ const zGuardSessionConfigOptionCustom = z.object({
 const zGuardAvailableCommandInputText = validate.zTextCommandInput.and(
   z.object({ type: z.literal("text") }),
 );
-const zGuardNesSuggestionEdit = validate.zNesEditSuggestion.and(
-  z.object({ kind: z.literal("edit") }),
-);
+const zGuardNesSuggestionEdit = validate.zNesEditSuggestion
+  .and(z.object({ cursorPosition: validate.zPosition.nullish() }))
+  .and(z.object({ kind: z.literal("edit") }));
 const zGuardNesSuggestionJump = validate.zNesJumpSuggestion.and(
   z.object({ kind: z.literal("jump") }),
 );
@@ -147,12 +156,23 @@ const zGuardSessionUpdateToolCallContentChunk =
   validate.zToolCallContentChunk.and(
     z.object({ sessionUpdate: z.literal("tool_call_content_chunk") }),
   );
-const zGuardSessionUpdateToolCallUpdate = validate.zToolCallUpdate.and(
-  z.object({ sessionUpdate: z.literal("tool_call_update") }),
-);
-const zGuardSessionUpdateTerminalUpdate = validate.zTerminalUpdate.and(
-  z.object({ sessionUpdate: z.literal("terminal_update") }),
-);
+const zGuardSessionUpdateToolCallUpdate = validate.zToolCallUpdate
+  .and(
+    z.object({
+      kind: validate.zToolKind.nullish(),
+      status: validate.zToolCallStatus.nullish(),
+    }),
+  )
+  .and(z.object({ sessionUpdate: z.literal("tool_call_update") }));
+const zGuardSessionUpdateTerminalUpdate = validate.zTerminalUpdate
+  .and(
+    z.object({
+      cwd: validate.zAbsolutePath.nullish(),
+      output: validate.zTerminalOutput.nullish(),
+      exitStatus: validate.zTerminalExitStatus.nullish(),
+    }),
+  )
+  .and(z.object({ sessionUpdate: z.literal("terminal_update") }));
 const zGuardSessionUpdateTerminalOutputChunk =
   validate.zTerminalOutputChunk.and(
     z.object({ sessionUpdate: z.literal("terminal_output_chunk") }),
@@ -173,9 +193,9 @@ const zGuardSessionUpdateConfigOptionUpdate = validate.zConfigOptionUpdate.and(
 const zGuardSessionUpdateSessionInfoUpdate = validate.zSessionInfoUpdate.and(
   z.object({ sessionUpdate: z.literal("session_info_update") }),
 );
-const zGuardSessionUpdateUsageUpdate = validate.zUsageUpdate.and(
-  z.object({ sessionUpdate: z.literal("usage_update") }),
-);
+const zGuardSessionUpdateUsageUpdate = validate.zUsageUpdate
+  .and(z.object({ cost: validate.zCost.nullish() }))
+  .and(z.object({ sessionUpdate: z.literal("usage_update") }));
 const zGuardSessionUpdateNotice = validate.zNotice.and(
   z.object({ sessionUpdate: z.literal("notice") }),
 );
@@ -186,22 +206,55 @@ const zGuardSessionUpdateCompactionSummaryChunk =
   validate.zCompactionSummaryChunk.and(
     z.object({ sessionUpdate: z.literal("compaction_summary_chunk") }),
   );
-const zGuardSessionUpdateSubagentUpdate = validate.zSubagentUpdate.and(
-  z.object({ sessionUpdate: z.literal("subagent_update") }),
-);
-const zGuardSessionUpdateSessionMessage = validate.zSessionMessage.and(
-  z.object({ sessionUpdate: z.literal("session_message") }),
-);
-const zGuardSessionUpdateSessionMessageChunk =
-  validate.zSessionMessageChunk.and(
-    z.object({ sessionUpdate: z.literal("session_message_chunk") }),
-  );
+const zGuardSessionUpdateSubagentUpdate = validate.zSubagentUpdate
+  .and(
+    z.object({
+      capabilities: validate.zSubagentSessionCapabilities.nullish(),
+      state: validate.zStateUpdate.nullish(),
+    }),
+  )
+  .and(z.object({ sessionUpdate: z.literal("subagent_update") }));
+const zGuardSessionUpdateSessionMessage = validate.zSessionMessage
+  .and(
+    z.object({
+      senderSessionId: validate.zSessionId.nullish(),
+      recipientSessionId: validate.zSessionId.nullish(),
+    }),
+  )
+  .and(z.object({ sessionUpdate: z.literal("session_message") }));
+const zGuardSessionUpdateSessionMessageChunk = validate.zSessionMessageChunk
+  .and(
+    z.object({
+      senderSessionId: validate.zSessionId.nullish(),
+      recipientSessionId: validate.zSessionId.nullish(),
+    }),
+  )
+  .and(z.object({ sessionUpdate: z.literal("session_message_chunk") }));
+const zGuardIdleStateUpdateEndTurn = z.object({
+  stopReason: z.literal("end_turn"),
+});
+const zGuardIdleStateUpdateMaxTokens = z.object({
+  stopReason: z.literal("max_tokens"),
+});
+const zGuardIdleStateUpdateMaxTurnRequests = z.object({
+  stopReason: z.literal("max_turn_requests"),
+});
+const zGuardIdleStateUpdateRefusal = z.object({
+  stopReason: z.literal("refusal"),
+});
+const zGuardIdleStateUpdateCancelled = z.object({
+  stopReason: z.literal("cancelled"),
+});
+const zGuardIdleStateUpdateError = validate.zErrorStopReason
+  .and(z.object({ error: validate.zError.nullish() }))
+  .and(z.object({ stopReason: z.literal("error") }));
+const zGuardIdleStateUpdateNone = z.object({ stopReason: z.null().optional() });
 const zGuardStateUpdateRunning = validate.zRunningStateUpdate.and(
   z.object({ state: z.literal("running") }),
 );
-const zGuardStateUpdateIdle = validate.zIdleStateUpdate.and(
-  z.object({ state: z.literal("idle") }),
-);
+const zGuardStateUpdateIdle = validate.zIdleStateUpdate
+  .and(z.object({ usage: validate.zUsage.nullish() }))
+  .and(z.object({ state: z.literal("idle") }));
 const zGuardStateUpdateRequiresAction = validate.zRequiresActionStateUpdate.and(
   z.object({ state: z.literal("requires_action") }),
 );
@@ -323,7 +376,9 @@ export const RequestPermissionSubject = {
    */
   isCustom(
     value: types.RequestPermissionSubject,
-  ): value is { type: string; [key: string]: unknown } {
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return typeof tag === "string" && !["command", "tool_call"].includes(tag);
   },
@@ -391,7 +446,9 @@ export const ToolCallContent = {
    */
   isCustom(
     value: types.ToolCallContent,
-  ): value is { type: string; [key: string]: unknown } {
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return (
       typeof tag === "string" && !["content", "diff", "terminal"].includes(tag)
@@ -492,7 +549,9 @@ export const ContentBlock = {
    */
   isCustom(
     value: types.ContentBlock,
-  ): value is { type: string; [key: string]: unknown } {
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return (
       typeof tag === "string" &&
@@ -588,10 +647,11 @@ export const DiffChange = {
    */
   isCustom(
     value: types.DiffChange,
-  ): value is { operation: string; [key: string]: unknown } & Pick<
-    types.DiffChange,
-    "fileType" | "mimeType" | "_meta"
-  > {
+  ): value is (
+    | { operation: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ operation: string; [key: string]: unknown }>
+  ) &
+    Pick<types.DiffChange, "fileType" | "mimeType" | "_meta"> {
     const tag = tagOf(value, "operation");
     return (
       typeof tag === "string" &&
@@ -655,9 +715,11 @@ export const CreateElicitationRequest = {
    */
   isCustom(
     value: types.CreateElicitationRequest,
-  ): value is ((
-    types.ElicitationSessionScope | types.ElicitationRequestScope
-  ) & { mode: string; [key: string]: unknown }) &
+  ): value is ((types.ElicitationSessionScope | types.ElicitationRequestScope) &
+    (
+      | { mode: `_${string}`; [key: string]: unknown }
+      | types.UnknownVariant<{ mode: string; [key: string]: unknown }>
+    )) &
     Pick<types.CreateElicitationRequest, "message" | "_meta"> {
     const tag = tagOf(value, "mode");
     return (
@@ -751,7 +813,9 @@ export const ElicitationPropertySchema = {
    */
   isCustom(
     value: types.ElicitationPropertySchema,
-  ): value is { type: string; [key: string]: unknown } {
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return (
       typeof tag === "string" &&
@@ -809,7 +873,9 @@ export const MultiSelectItems = {
    */
   isCustom(
     value: types.MultiSelectItems,
-  ): value is { type: string; [key: string]: unknown } {
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return typeof tag === "string" && !["string"].includes(tag);
   },
@@ -864,13 +930,12 @@ export const AuthMethod = {
    * structural subtypes of the catch-all), so read vendor payload keys
    * via a widening cast: `(value as Record<string, unknown>).someKey`.
    */
-  isCustom(value: types.AuthMethod): value is {
-    type: string;
-    [key: string]: unknown;
-  } & {
-    methodId: types.AuthMethodId;
-    name: string;
-  } {
+  isCustom(
+    value: types.AuthMethod,
+  ): value is (
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }>
+  ) & { methodId: types.AuthMethodId; name: string } {
     const tag = tagOf(value, "type");
     return (
       typeof tag === "string" &&
@@ -937,10 +1002,14 @@ export const SessionConfigOption = {
    */
   isCustom(
     value: types.SessionConfigOption,
-  ): value is { type: string; [key: string]: unknown } & Pick<
-    types.SessionConfigOption,
-    "configId" | "name" | "description" | "category" | "_meta"
-  > {
+  ): value is (
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }>
+  ) &
+    Pick<
+      types.SessionConfigOption,
+      "configId" | "name" | "description" | "category" | "_meta"
+    > {
     const tag = tagOf(value, "type");
     return (
       typeof tag === "string" &&
@@ -989,7 +1058,9 @@ export const AvailableCommandInput = {
    */
   isCustom(
     value: types.AvailableCommandInput,
-  ): value is { type: string; [key: string]: unknown } {
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return typeof tag === "string" && !["text"].includes(tag);
   },
@@ -1064,12 +1135,12 @@ export const NesSuggestion = {
    * structural subtypes of the catch-all), so read vendor payload keys
    * via a widening cast: `(value as Record<string, unknown>).someKey`.
    */
-  isCustom(value: types.NesSuggestion): value is {
-    kind: string;
-    [key: string]: unknown;
-  } & {
-    suggestionId: types.NesSuggestionId;
-  } {
+  isCustom(
+    value: types.NesSuggestion,
+  ): value is (
+    | { kind: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ kind: string; [key: string]: unknown }>
+  ) & { suggestionId: types.NesSuggestionId } {
     const tag = tagOf(value, "kind");
     return (
       typeof tag === "string" &&
@@ -1356,7 +1427,9 @@ export const SessionUpdate = {
    */
   isCustom(
     value: types.SessionUpdate,
-  ): value is { sessionUpdate: string; [key: string]: unknown } {
+  ): value is
+    | { sessionUpdate: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ sessionUpdate: string; [key: string]: unknown }> {
     const tag = tagOf(value, "sessionUpdate");
     return (
       typeof tag === "string" &&
@@ -1384,6 +1457,149 @@ export const SessionUpdate = {
         "usage_update",
         "user_message",
         "user_message_chunk",
+      ].includes(tag)
+    );
+  },
+} as const;
+
+/**
+ * The agent is ready to process a new prompt.
+ *
+ * Agents SHOULD include a `stopReason` when the idle transition ends foreground
+ * work. An omitted, `null`, or malformed `stopReason` means the agent is not
+ * reporting one.
+ */
+export type IdleStateUpdate = types.IdleStateUpdate;
+/**
+ * Validated type guards for `IdleStateUpdate`'s known variants.
+ *
+ * Each guard validates the variant's payload, not just its discriminant
+ * tag: a malformed known variant (right tag, wrong payload) matches no
+ * guard — mirroring wire validation, which rejects such values instead
+ * of classifying them as custom.
+ *
+ * Guards check the value as given: fields that wire deserialization
+ * salvages to a default (e.g. a malformed `_meta`) are only normalized
+ * by parsing, and for ambiguous raw shapes (a known tag combined with
+ * another variant's payload) guards are conservative where wire parsing
+ * may still accept the value — narrow wire-parsed values when exact
+ * parity matters.
+ */
+export const IdleStateUpdate = {
+  /** Narrow to the `end_turn` variant, validating its payload. */
+  isEndTurn(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "end_turn" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "end_turn" &&
+      zGuardIdleStateUpdateEndTurn.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `max_tokens` variant, validating its payload. */
+  isMaxTokens(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "max_tokens" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "max_tokens" &&
+      zGuardIdleStateUpdateMaxTokens.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `max_turn_requests` variant, validating its payload. */
+  isMaxTurnRequests(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "max_turn_requests" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "max_turn_requests" &&
+      zGuardIdleStateUpdateMaxTurnRequests.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `refusal` variant, validating its payload. */
+  isRefusal(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "refusal" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "refusal" &&
+      zGuardIdleStateUpdateRefusal.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `cancelled` variant, validating its payload. */
+  isCancelled(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "cancelled" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "cancelled" &&
+      zGuardIdleStateUpdateCancelled.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `error` variant, validating its payload. */
+  isError(
+    value: types.IdleStateUpdate,
+  ): value is (types.ErrorStopReason & { stopReason: "error" }) &
+    Pick<types.IdleStateUpdate, "usage" | "_meta" | "stopReason"> {
+    return (
+      tagOf(value, "stopReason") === "error" &&
+      zGuardIdleStateUpdateError.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `none` variant, validating its payload. */
+  isNone(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason?: null } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "_meta" | "stopReason"
+  > {
+    return (
+      (tagOf(value, "stopReason") === null ||
+        tagOf(value, "stopReason") === undefined) &&
+      zGuardIdleStateUpdateNone.safeParse(value).success
+    );
+  },
+
+  /**
+   * Narrow to a custom or future variant: the `stopReason` tag matches no known variant.
+   *
+   * TypeScript keeps the known variants in the narrowed union (they are
+   * structural subtypes of the catch-all), so read vendor payload keys
+   * via a widening cast: `(value as Record<string, unknown>).someKey`.
+   */
+  isCustom(
+    value: types.IdleStateUpdate,
+  ): value is (
+    | { stopReason: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ stopReason: string; [key: string]: unknown }>
+  ) &
+    Pick<types.IdleStateUpdate, "usage" | "_meta" | "stopReason"> {
+    const tag = tagOf(value, "stopReason");
+    return (
+      typeof tag === "string" &&
+      ![
+        "cancelled",
+        "end_turn",
+        "error",
+        "max_tokens",
+        "max_turn_requests",
+        "refusal",
       ].includes(tag)
     );
   },
@@ -1461,7 +1677,9 @@ export const StateUpdate = {
    */
   isCustom(
     value: types.StateUpdate,
-  ): value is { state: string; [key: string]: unknown } {
+  ): value is
+    | { state: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ state: string; [key: string]: unknown }> {
     const tag = tagOf(value, "state");
     return (
       typeof tag === "string" &&
@@ -1527,12 +1745,12 @@ export const PlanUpdateContent = {
    * structural subtypes of the catch-all), so read vendor payload keys
    * via a widening cast: `(value as Record<string, unknown>).someKey`.
    */
-  isCustom(value: types.PlanUpdateContent): value is {
-    type: string;
-    [key: string]: unknown;
-  } & {
-    planId: types.PlanId;
-  } {
+  isCustom(
+    value: types.PlanUpdateContent,
+  ): value is (
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }>
+  ) & { planId: types.PlanId } {
     const tag = tagOf(value, "type");
     return (
       typeof tag === "string" &&
@@ -1604,7 +1822,9 @@ export const McpServer = {
    */
   isCustom(
     value: types.McpServer,
-  ): value is { type: string; [key: string]: unknown } {
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return typeof tag === "string" && !["acp", "http", "stdio"].includes(tag);
   },
@@ -1651,7 +1871,9 @@ export const ReplayFrom = {
    */
   isCustom(
     value: types.ReplayFrom,
-  ): value is { type: string; [key: string]: unknown } {
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return typeof tag === "string" && !["start"].includes(tag);
   },
@@ -1714,7 +1936,10 @@ export const SetSessionConfigOptionRequest = {
    */
   isCustom(
     value: types.SetSessionConfigOptionRequest,
-  ): value is ({ type: string; [key: string]: unknown } & { value: unknown }) &
+  ): value is ((
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }>
+  ) & { value: unknown }) &
     Pick<
       types.SetSessionConfigOptionRequest,
       "sessionId" | "configId" | "_meta"
@@ -1777,7 +2002,9 @@ export const RequestPermissionOutcome = {
    */
   isCustom(
     value: types.RequestPermissionOutcome,
-  ): value is { outcome: string; [key: string]: unknown } {
+  ): value is
+    | { outcome: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ outcome: string; [key: string]: unknown }> {
     const tag = tagOf(value, "outcome");
     return typeof tag === "string" && !["cancelled", "selected"].includes(tag);
   },
@@ -1849,10 +2076,11 @@ export const CreateElicitationResponse = {
    */
   isCustom(
     value: types.CreateElicitationResponse,
-  ): value is { action: string; [key: string]: unknown } & Pick<
-    types.CreateElicitationResponse,
-    "_meta"
-  > {
+  ): value is (
+    | { action: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ action: string; [key: string]: unknown }>
+  ) &
+    Pick<types.CreateElicitationResponse, "_meta"> {
     const tag = tagOf(value, "action");
     return (
       typeof tag === "string" && !["accept", "cancel", "decline"].includes(tag)

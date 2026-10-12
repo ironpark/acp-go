@@ -90,6 +90,11 @@ v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MC
 `SessionManager.StartTurn`(또는 `JoinTurn`)은 에이전트에게 진행 중인 턴의 context를 넘겨주며 작업 앞뒤로
 running과 idle을 보고합니다.
 
+v2 프롬프트는 접수된 뒤에는 응답으로 이후의 실패를 알릴 수 없습니다. 실패한 작업은 `error` stop reason과
+JSON-RPC 오류 객체를 담은 idle로 턴을 끝냅니다. `SessionStream.IdleError`가 이를 보내고, `StartTurn`은
+작업이 오류를 반환하거나 panic하면 이를 보냅니다. 클라이언트의 `Turn.Wait`는 v1 프롬프트의 오류 응답처럼
+`acp2.StopReasonError`와 그 오류를 `*acp.RequestError`로 돌려줍니다.
+
 ### 취소 순서
 
 프롬프트 뒤에 보낸 `session/cancel`은 항상 그 프롬프트의 턴에 닿습니다. `ClientSession.Prompt`는 프롬프트를

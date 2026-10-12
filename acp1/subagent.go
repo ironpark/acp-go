@@ -85,7 +85,15 @@ func (s *SubagentStream) RequiresAction(ctx context.Context) error {
 // Idle reports that the subagent's work stopped for reason; the parent may
 // give it more. Cancelled work is idle with [StopReasonCancelled].
 func (s *SubagentStream) Idle(ctx context.Context, reason StopReason) error {
-	return s.state(ctx, schema.NewStateUpdate(schema.StateUpdateIdle{StopReason: &reason}))
+	return s.state(ctx, schema.NewStateUpdate(schema.StateUpdateIdle{Value: subagentIdle(reason)}))
+}
+
+// IdleError reports that the subagent's work stopped because it failed,
+// with the "error" stop reason and failure as a JSON-RPC error object: an
+// [acp.RequestError] keeps its code and data, and any other error is an
+// internal error.
+func (s *SubagentStream) IdleError(ctx context.Context, failure error) error {
+	return s.state(ctx, schema.NewStateUpdate(schema.StateUpdateIdle{Value: schema.NewIdleStateUpdate(schema.IdleStateUpdateError{Error: errorObject(failure)})}))
 }
 
 // Unknown reports that the agent lost sight of the subagent's work, such as

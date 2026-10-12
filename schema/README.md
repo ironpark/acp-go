@@ -61,13 +61,17 @@ lifecycle methods and the extension hooks.
 
 - `types.gen.ts`: exported aliases, references, primitives, literal enums, objects,
   optional properties, nullable types, arrays, string index signatures, unions and object intersections.
+  Template literal types such as `` `_${string}` `` are strings, and the `UnknownVariant<T>` brand
+  is `T`; union alternatives that are then the same JSON shape merge into one. Other generic
+  declarations fail. An intersection that declares a member twice keeps the narrower type.
 - `index.ts`: protocol version and method constants. Imports, re-exports and private declarations
   are ignored. Unsupported exported declarations fail with a source location.
 - `zod.gen.ts`: schema references, primitives, scalar literals, objects, records, arrays,
   unions/intersections, optional/nullable/nullish wrappers, defaults, integer/numeric/length
   bounds, regular expressions, URL and ISO datetime builders. The ACP helpers
-  `defaultOnError`, `requiredDefaultOnError`, `vecSkipError`, `excludeKnownTags` and
-  `preserveCustomPayload` retain their ordering and distinct semantics. Unsupported builder
+  `defaultOnError`, `requiredDefaultOnError`, `vecSkipError`, `excludeKnownTags`,
+  `preserveCustomPayload` and `defaultOnErrorOptionalStringTag` retain their ordering and distinct
+  semantics. Unsupported builder
   expressions fail with a source location; no JavaScript code is evaluated.
 - `guards.gen.ts`: retained with the upstream snapshot for reference; not executed or translated.
 

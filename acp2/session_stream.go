@@ -210,9 +210,18 @@ func (s *SessionStream) Unknown(ctx context.Context) error {
 }
 
 // Idle reports that the agent is ready for a new prompt, ending the turn with
-// the given reason. Clients treat this as the end of the turn.
+// the given reason, or none for "". Clients treat this as the end of the
+// turn. Work that failed ends with [SessionStream.IdleError] instead.
 func (s *SessionStream) Idle(ctx context.Context, reason StopReason) error {
-	return s.state(ctx, schema.StateUpdateIdle{StopReason: &reason})
+	return s.state(ctx, schema.StateUpdateIdle{Value: idleState(reason)})
+}
+
+// IdleError ends the turn with [StopReasonError] because its work failed
+// after the prompt was accepted, when session/prompt can no longer report
+// it. failure travels as a JSON-RPC error object: an [acp.RequestError]
+// keeps its code and data, and any other error is an internal error.
+func (s *SessionStream) IdleError(ctx context.Context, failure error) error {
+	return s.state(ctx, schema.StateUpdateIdle{Value: errorState(failure)})
 }
 
 // RequestPermission asks the user whether the action title describes may go

@@ -109,14 +109,14 @@ func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2
 	session.accept(v2Exchange{userMessage: userMessage, prompt: params.Prompt})
 	// A prompt that arrives while the turn runs joins it, and the running
 	// work answers it too, so the work answers every accepted prompt.
-	if _, err := a.StartTurn(ctx, params.SessionID, stream, func(ctx context.Context, session *v2Session) acp2.StopReason {
+	if _, err := a.StartTurn(ctx, params.SessionID, stream, func(ctx context.Context, session *v2Session) (acp2.StopReason, error) {
 		for exchange, ok := session.next(); ok; exchange, ok = session.next() {
 			exchange.reply = acp2.GenerateMessageID()
 			exchange.text = "v2 echo: " + acp2.JoinTexts(exchange.prompt)
 			_ = stream.SendText(ctx, exchange.reply, exchange.text) // fails only once the client is gone
 			session.answered(exchange)
 		}
-		return acp2.StopReasonEndTurn
+		return acp2.StopReasonEndTurn, nil
 	}); err != nil {
 		return nil, err
 	}

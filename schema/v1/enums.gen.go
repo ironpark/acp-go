@@ -305,8 +305,6 @@ type PlanID string
 // NoticeSeverity also accepts values outside the listed constants; use [NoticeSeverity.Known] to check.
 //
 // Severity hint for a session notice.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type NoticeSeverity string
 
 const (
@@ -325,15 +323,11 @@ func (v NoticeSeverity) Known() bool {
 }
 
 // CompactionID is a unique identifier for a context compaction within a session.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type CompactionID string
 
 // CompactionStatus also accepts values outside the listed constants; use [CompactionStatus.Known] to check.
 //
 // Lifecycle state of a context compaction.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type CompactionStatus string
 
 const (

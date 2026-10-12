@@ -13,8 +13,8 @@ See the [official ACP documentation](https://agentclientprotocol.com/) for the p
 
 | Protocol | Schema version |
 | --- | --- |
-| ACP v1 | [`1.24.1`](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/schema/v1/CHANGELOG.md) |
-| ACP v2 (draft) | [`2.0.0-alpha.7`](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/schema/v2/CHANGELOG.md) |
+| ACP v1 | [`1.25.0`](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/schema/v1/CHANGELOG.md) |
+| ACP v2 (draft) | [`2.0.0-alpha.8`](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/schema/v2/CHANGELOG.md) |
 
 [Quick start](#quick-start) · [Packages](#packages) · [Examples](#examples) · [Documentation](#documentation)
 

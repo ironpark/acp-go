@@ -1101,6 +1101,17 @@ type SessionCancelCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
+// Details of a failure that ended a child's foreground work.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ErrorStopReason struct {
+	// The failure, as a JSON-RPC error object.
+	//
+	// Optional. Omitted or `null` both mean the agent is not reporting failure details.
+	// Agents SHOULD include it.
+	Error *Error `json:"error,omitzero"`
+}
+
 // Notification sent by the agent when a URL-based elicitation is complete.
 type CompleteElicitationNotification struct {
 	// The ID of the elicitation that completed.
@@ -1213,27 +1224,21 @@ type FileSystemCapabilities struct {
 type ClientSessionCapabilities struct {
 	// Support for ID-addressed context compaction updates. Omitted or `null`
 	// means unsupported; `{}` advertises the complete compaction contract.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
 	Compaction *CompactionCapabilities `json:"compaction,omitzero"`
 	// Config option capabilities supported by the client.
 	//
 	// Omitted or `null` both mean the client does not advertise support for any
 	// config option extensions.
 	ConfigOptions *SessionConfigOptionsCapabilities `json:"configOptions,omitzero"`
-	// Support for live advisory `notice` session updates.
+	// Support for live user-facing `notice` session updates.
 	//
 	// Optional. Omitted or `null` both mean the client does not advertise support.
 	// Supplying `{}` means the client can present notices to the user.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
 	Notices *NoticeCapabilities `json:"notices,omitzero"`
 	Meta    Meta                `json:"_meta,omitzero"`
 }
 
 // Client support for ID-addressed context compaction updates.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type CompactionCapabilities = map[string]jsontext.Value
 
 // Session configuration option capabilities supported by the client.
@@ -1255,9 +1260,7 @@ type BooleanConfigOptionCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Client support for presenting live advisory notices to the user.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
+// Client support for presenting live notices to the user.
 type NoticeCapabilities = map[string]jsontext.Value
 
 // Capability marker for exposing reusable child sessions as restricted ACP sessions.

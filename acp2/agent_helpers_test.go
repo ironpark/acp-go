@@ -33,8 +33,8 @@ func (*helperAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.
 
 func (a *helperAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
-	if _, err := a.StartTurn(ctx, params.SessionID, stream, func(context.Context, commandSession) acp2.StopReason {
-		return acp2.StopReasonEndTurn
+	if _, err := a.StartTurn(ctx, params.SessionID, stream, func(context.Context, commandSession) (acp2.StopReason, error) {
+		return acp2.StopReasonEndTurn, nil
 	}); err != nil {
 		return nil, err
 	}

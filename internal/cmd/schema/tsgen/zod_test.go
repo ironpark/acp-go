@@ -23,6 +23,15 @@ func TestGeneratedZod(t *testing.T) {
  export type Options = { count: Count; label?: string; required: Array<number>; url?: URL; };
  export type Text = { text: string; note?: string | null; };
  export type Message = ((Text & {kind: "text"}) | {kind: string; [key:string]:unknown;}) & {_meta?: {[key:string]:unknown}|null;};
+ export type UnknownVariant<T> = T & { readonly [unknownVariant]: true };
+ export type Failure = { error?: string | null; };
+ export type Idle = (
+  | { reason: "done" }
+  | (Failure & { reason: "error" })
+  | { reason: `+"`_${string}`"+`; [key: string]: unknown }
+  | UnknownVariant<{ reason: string; [key: string]: unknown }>
+  | { reason?: null }
+ ) & { usage?: number | null; reason?: string | null; };
  `))
 	if err != nil {
 		t.Fatal(err)
@@ -43,6 +52,13 @@ func TestGeneratedZod(t *testing.T) {
   zText.and(z.object({kind:z.literal("text")})),
   excludeKnownTags(z.object({kind:z.string()}),"kind",["text"]),
  ]),z.object({_meta:defaultOnError(z.record(z.string(),z.unknown()).nullish(),()=>undefined)})),"kind",["text"]);
+ export const zFailure = z.object({error:defaultOnError(z.string().nullish(),()=>undefined)});
+ export const zIdle = defaultOnErrorOptionalStringTag(preserveCustomPayload(z.intersection(z.union([
+  z.object({reason:z.literal("done")}),
+  zFailure.and(z.object({reason:z.literal("error")})),
+  excludeKnownTags(z.object({reason:z.string()}),"reason",["done","error"]),
+  z.object({reason:z.null().optional()}),
+ ]),z.object({usage:defaultOnError(z.number().nullish(),()=>undefined),reason:defaultOnError(z.string().nullish(),()=>undefined)})),"reason",["done","error"]),"reason");
  `))
 	if err != nil {
 		t.Fatal(err)

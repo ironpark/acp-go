@@ -32,7 +32,7 @@ var zodKinds = map[string]string{
 	"default": "Default", "catch": "Catch", "requiredCatch": "RequiredCatch",
 	"unknown": "Unknown", "any": "Any", "never": "Never",
 	"union": "Union", "intersection": "Intersection",
-	"excludeTags": "ExcludeTags", "preserve": "Preserve", "openTags": "OpenTags",
+	"excludeTags": "ExcludeTags", "preserve": "Preserve", "openTags": "OpenTags", "dropMalformedTag": "DropMalformedTag",
 	"min": "Min", "max": "Max", "gte": "Gte", "lte": "Lte", "regex": "Regex", "int": "Int",
 	"null": "Null", "string": "String", "boolean": "Boolean", "number": "Number", "literal": "Literal",
 	"url": "URL", "datetime": "DateTime",

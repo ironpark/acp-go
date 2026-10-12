@@ -3,6 +3,7 @@ package jsonrpc
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 )
 
@@ -132,6 +133,24 @@ type wireError struct {
 	Code    ErrorCode      `json:"code"`
 	Message string         `json:"message"`
 	Data    jsontext.Value `json:"data,omitzero"`
+}
+
+// ErrorObject returns err as the members of a JSON-RPC error object, as an
+// error response would carry it: a *RequestError keeps its own, and any
+// other error is an internal error with its message.
+func ErrorObject(err error) (code ErrorCode, message string, data jsontext.Value) {
+	re, ok := errors.AsType[*RequestError](err)
+	if !ok {
+		re = InternalError(err.Error())
+	}
+	w := re.toWire()
+	return w.Code, w.Message, w.Data
+}
+
+// FromErrorObject returns the *RequestError a JSON-RPC error object
+// describes, as a received error response would.
+func FromErrorObject(code ErrorCode, message string, data jsontext.Value) *RequestError {
+	return (&wireError{Code: code, Message: message, Data: data}).toRequestError()
 }
 
 func (e *wireError) toRequestError() *RequestError {
