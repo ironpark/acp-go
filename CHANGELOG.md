@@ -6,6 +6,8 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-12
+
 ### Schema
 
 - Pinned the TypeScript SDK at `f4ea219` (1.8.0). The ACP schema moves to **v1.25.0**, and the v2
@@ -206,7 +208,8 @@ below cover the changes made since `c7b0f78`.
 - **Request contexts carry their connection's context** (`jsonrpc.ConnectionContext`)
   ([0c86c9f], [e204a53]).
 
-[Unreleased]: https://github.com/ironpark/acp-go/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ironpark/acp-go/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ironpark/acp-go/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ironpark/acp-go/releases/tag/v0.1.0
 [ce46ac9]: https://github.com/ironpark/acp-go/commit/ce46ac9
 [904142a]: https://github.com/ironpark/acp-go/commit/904142a
