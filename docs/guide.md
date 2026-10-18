@@ -52,7 +52,7 @@ if err := conn.Start(context.Background()); err != nil {
 
 `Agent` requires only `Initialize`, `NewSession`, `Prompt` and `CancelSession`.
 Everything else is an optional interface — implement `acp1.Authenticator`, `acp1.SessionLoader`, `acp1.SessionLister`,
-`acp1.SessionModeSetter`, `acp1.NesHandler` and so on. Methods you do not implement are answered
+`acp1.SessionModeSetter`, `acp1.LogoutHandler` and so on. Methods you do not implement are answered
 with `-32601`. `acp1.CapabilitiesOf(agent)` returns the capabilities those interfaces imply, so the
 `Initialize` response cannot advertise a method the connection would reject:
 

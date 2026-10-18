@@ -264,16 +264,6 @@ func v2ClientCapabilitiesToV1(capabilities *schemav2.ClientCapabilities) (*schem
 		}
 		result.Elicitation = &elicitation
 	}
-	if capabilities.Nes != nil {
-		nes, err := convert[schemav1.ClientNesCapabilities](capabilities.Nes)
-		if err != nil {
-			return nil, err
-		}
-		result.Nes = &nes
-	}
-	for _, encoding := range capabilities.PositionEncodings {
-		result.PositionEncodings = append(result.PositionEncodings, schemav1.PositionEncodingKind(encoding))
-	}
 	result.Meta = capabilities.Meta
 	return result, nil
 }

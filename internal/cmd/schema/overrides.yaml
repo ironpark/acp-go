@@ -18,12 +18,6 @@ numbers:
   UsageUpdate.size: uint64
   CreateTerminalRequest.outputByteLimit: uint64
   ResourceLink.size: int64
-  SuggestNesRequest.version: int64
-  DidOpenDocumentNotification.version: int64
-  DidChangeDocumentNotification.version: int64
-  DidFocusDocumentNotification.version: int64
-  NesUserAction.timestampMs: uint64
-  NesOpenFile.lastFocusedMs: uint64
   IntegerPropertySchema.minimum: int64
   IntegerPropertySchema.maximum: int64
   IntegerPropertySchema.default: int64

@@ -50,7 +50,7 @@ func TestCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
 	if session == nil || session.Delete == nil || session.Resume == nil || session.Close == nil || session.List != nil {
 		t.Errorf("session capabilities = %+v, want delete, resume and close", session)
 	}
-	if caps.SessionCapabilities.Fork != nil || caps.Providers != nil || caps.Nes != nil || caps.Auth != nil || caps.MCPCapabilities != nil {
+	if caps.SessionCapabilities.Fork != nil || caps.Providers != nil || caps.Auth != nil || caps.MCPCapabilities != nil {
 		t.Errorf("advertised unimplemented capabilities: %+v", caps)
 	}
 	if caps := acp1.CapabilitiesOf(logoutAgent{bareAgent{manager}}); caps.Auth == nil || caps.Auth.Logout == nil {

@@ -50,8 +50,9 @@ type RequestPermissionRequest struct {
 // omitted fields leave the existing tool call value unchanged, `null` clears or
 // unsets the value, and concrete values replace the previous value. For
 // collection fields, concrete arrays replace the previous collection, and both
-// `null` and `[]` clear the collection. When a client receives a tool call ID it
-// has not seen before, omitted fields use client defaults.
+// `null` and `[]` clear the collection. A concrete `_meta` object instead
+// patches the stored metadata by top-level key. When a client receives a tool
+// call ID it has not seen before, omitted fields use client defaults.
 //
 // See protocol docs: [Tool Calls]
 //
@@ -82,7 +83,9 @@ type ToolCallUpdate struct {
 	RawInput jsontext.Value `json:"rawInput,omitzero"`
 	// Raw output returned by the tool.
 	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
-	// Omitted means no metadata update; `null` is an explicit clear signal.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -337,8 +340,9 @@ type AgentCapabilities struct {
 	//
 	// Optional. Omitted or `null` both mean the agent does not support the
 	// `session*` method surface. Supplying `{}` means the agent supports the
-	// baseline session methods: `session/new`, `session/prompt`,
-	// `session/cancel`, and `session/update`.
+	// baseline session methods: `session/new`, `session/list`,
+	// `session/resume`, `session/close`, `session/prompt`, `session/cancel`,
+	// and `session/update`.
 	Session *SessionCapabilities `json:"session,omitzero"`
 	// Authentication-related extension capabilities supported by the agent.
 	//
@@ -354,18 +358,7 @@ type AgentCapabilities struct {
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Providers *ProvidersCapabilities `json:"providers,omitzero"`
-	// NES (Next Edit Suggestions) capabilities supported by the agent.
-	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support
-	// for NES methods.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Nes *NesCapabilities `json:"nes,omitzero"`
-	// The position encoding selected by the agent from the client's supported encodings.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	PositionEncoding *PositionEncodingKind `json:"positionEncoding,omitzero"`
-	Meta             Meta                  `json:"_meta,omitzero"`
+	Meta      Meta                   `json:"_meta,omitzero"`
 }
 
 // Session capabilities supported by the agent.
@@ -407,6 +400,13 @@ type SessionCapabilities struct {
 	// Agents may return `SessionInfo.additionalDirectories` to report the
 	// complete ordered additional-root list associated with a listed session.
 	AdditionalDirectories *SessionAdditionalDirectoriesCapabilities `json:"additionalDirectories,omitzero"`
+	// Whether the agent supports `systemPrompt` on session lifecycle requests.
+	//
+	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports `systemPrompt` in `append` mode.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	SystemPrompt *SessionSystemPromptCapabilities `json:"systemPrompt,omitzero"`
 	// Whether the agent supports `session/fork`.
 	//
 	// Optional. Omitted or `null` both mean the agent does not advertise support.
@@ -536,6 +536,46 @@ type SessionAdditionalDirectoriesCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
+// Capabilities for client-provided system prompts.
+//
+// Supplying `{}` means the agent supports `systemPrompt` on session lifecycle
+// requests in `append` mode.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionSystemPromptCapabilities struct {
+	// Delivery modes the agent supports in addition to `append`.
+	//
+	// Optional. Omitted or `null` both mean the agent supports only `append`.
+	Mode *SessionSystemPromptModeCapabilities `json:"mode,omitzero"`
+	Meta Meta                                 `json:"_meta,omitzero"`
+}
+
+// System prompt delivery modes the agent supports in addition to `append`.
+//
+// `append` has no entry because every agent advertising `session.systemPrompt`
+// supports it.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionSystemPromptModeCapabilities struct {
+	// Whether the agent supports `override` mode.
+	//
+	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports replacing its built-in default
+	// instructions with the client-provided system prompt.
+	Override *SessionSystemPromptOverrideCapabilities `json:"override,omitzero"`
+	Meta     Meta                                     `json:"_meta,omitzero"`
+}
+
+// Capabilities for the `override` system prompt mode.
+//
+// Supplying `{}` means the agent supports replacing its built-in default
+// instructions with the client-provided system prompt.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionSystemPromptOverrideCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
 // Capabilities for the `session/fork` method.
 //
 // Supplying `{}` means the agent supports forking sessions.
@@ -560,120 +600,6 @@ type AgentAuthCapabilities struct {
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type ProvidersCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// NES capabilities advertised by the agent during initialization.
-//
-// Supplying `{}` means the agent supports the NES method surface. Omitted or
-// `null` both mean the agent does not advertise support for `nes*` methods.
-type NesCapabilities struct {
-	// Events the agent wants to receive.
-	Events *NesEventCapabilities `json:"events,omitzero"`
-	// Context the agent wants attached to each suggestion request.
-	Context *NesContextCapabilities `json:"context,omitzero"`
-	Meta    Meta                    `json:"_meta,omitzero"`
-}
-
-// Event capabilities the agent can consume.
-type NesEventCapabilities struct {
-	// Document event capabilities.
-	Document *NesDocumentEventCapabilities `json:"document,omitzero"`
-	Meta     Meta                          `json:"_meta,omitzero"`
-}
-
-// Document event capabilities the agent wants to receive.
-type NesDocumentEventCapabilities struct {
-	// Whether the agent wants `document/didOpen` events.
-	DidOpen *NesDocumentDidOpenCapabilities `json:"didOpen,omitzero"`
-	// Whether the agent wants `document/didChange` events, and the sync kind.
-	DidChange *NesDocumentDidChangeCapabilities `json:"didChange,omitzero"`
-	// Whether the agent wants `document/didClose` events.
-	DidClose *NesDocumentDidCloseCapabilities `json:"didClose,omitzero"`
-	// Whether the agent wants `document/didSave` events.
-	DidSave *NesDocumentDidSaveCapabilities `json:"didSave,omitzero"`
-	// Whether the agent wants `document/didFocus` events.
-	DidFocus *NesDocumentDidFocusCapabilities `json:"didFocus,omitzero"`
-	Meta     Meta                             `json:"_meta,omitzero"`
-}
-
-// NesDocumentDidOpenCapabilities is a marker for `document/didOpen` capability support.
-type NesDocumentDidOpenCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Capabilities for `document/didChange` events.
-type NesDocumentDidChangeCapabilities struct {
-	// The sync kind the agent wants: `"full"` or `"incremental"`.
-	SyncKind TextDocumentSyncKind `json:"syncKind"`
-	Meta     Meta                 `json:"_meta,omitzero"`
-}
-
-// NesDocumentDidCloseCapabilities is a marker for `document/didClose` capability support.
-type NesDocumentDidCloseCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// NesDocumentDidSaveCapabilities is a marker for `document/didSave` capability support.
-type NesDocumentDidSaveCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// NesDocumentDidFocusCapabilities is a marker for `document/didFocus` capability support.
-type NesDocumentDidFocusCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Context capabilities the agent wants attached to each suggestion request.
-type NesContextCapabilities struct {
-	// Whether the agent wants recent files context.
-	RecentFiles *NesRecentFilesCapabilities `json:"recentFiles,omitzero"`
-	// Whether the agent wants related snippets context.
-	RelatedSnippets *NesRelatedSnippetsCapabilities `json:"relatedSnippets,omitzero"`
-	// Whether the agent wants edit history context.
-	EditHistory *NesEditHistoryCapabilities `json:"editHistory,omitzero"`
-	// Whether the agent wants user actions context.
-	UserActions *NesUserActionsCapabilities `json:"userActions,omitzero"`
-	// Whether the agent wants open files context.
-	OpenFiles *NesOpenFilesCapabilities `json:"openFiles,omitzero"`
-	// Whether the agent wants diagnostics context.
-	Diagnostics *NesDiagnosticsCapabilities `json:"diagnostics,omitzero"`
-	Meta        Meta                        `json:"_meta,omitzero"`
-}
-
-// Capabilities for recent files context.
-type NesRecentFilesCapabilities struct {
-	// Maximum number of recent files the agent can use.
-	MaxCount *uint32 `json:"maxCount,omitzero"`
-	Meta     Meta    `json:"_meta,omitzero"`
-}
-
-// Capabilities for related snippets context.
-type NesRelatedSnippetsCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Capabilities for edit history context.
-type NesEditHistoryCapabilities struct {
-	// Maximum number of edit history entries the agent can use.
-	MaxCount *uint32 `json:"maxCount,omitzero"`
-	Meta     Meta    `json:"_meta,omitzero"`
-}
-
-// Capabilities for user actions context.
-type NesUserActionsCapabilities struct {
-	// Maximum number of user actions the agent can use.
-	MaxCount *uint32 `json:"maxCount,omitzero"`
-	Meta     Meta    `json:"_meta,omitzero"`
-}
-
-// Capabilities for open files context.
-type NesOpenFilesCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Capabilities for diagnostics context.
-type NesDiagnosticsCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -748,6 +674,10 @@ type LogoutAuthResponse struct {
 }
 
 // NewSessionResponse is a response from creating a new session.
+//
+// New sessions default to `idle` until a state update reports otherwise.
+// Updates may arrive before or after this response. Clients MUST NOT overwrite
+// an already-reported state when the response arrives.
 //
 // See protocol docs: [Creating a Session]
 //
@@ -867,6 +797,14 @@ type ForkSessionResponse struct {
 }
 
 // ResumeSessionResponse is a response from resuming an existing session.
+//
+// The agent MUST send a current `state_update` after any requested history
+// replay and before this response, even without replay. The update reports
+// foreground state after resuming. The response alone does not imply `idle`.
+//
+// See protocol docs: [Current-State Synchronization]
+//
+// [Current-State Synchronization]: https://agentclientprotocol.com/protocol/v2/draft/session-setup#current-state-synchronization
 type ResumeSessionResponse struct {
 	// Initial session configuration options.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
@@ -897,6 +835,9 @@ type SetSessionConfigOptionResponse struct {
 // agent has finished processing it.
 // Processing and completion are reported through `state_update` session updates.
 //
+// Insertion is the logical addition of a user message with a message ID and a position
+// relative to other messages in the ACP conversation.
+//
 // See protocol docs: [Prompt Accepted]
 //
 // [Prompt Accepted]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#2-prompt-accepted
@@ -910,54 +851,6 @@ type PromptResponse struct {
 	// not required to retain it. If retained and replayed, the message keeps this identifier.
 	MessageID MessageID `json:"messageId"`
 	Meta      Meta      `json:"_meta,omitzero"`
-}
-
-// StartNesResponse is a response to `nes/start`.
-type StartNesResponse struct {
-	// The session ID for the newly started NES session.
-	SessionID SessionID `json:"sessionId"`
-	Meta      Meta      `json:"_meta,omitzero"`
-}
-
-// SuggestNesResponse is a response to `nes/suggest`.
-type SuggestNesResponse struct {
-	// The list of suggestions.
-	Suggestions []NesSuggestion `json:"suggestions"`
-	Meta        Meta            `json:"_meta,omitzero"`
-}
-
-// NesTextEdit is a text edit within a suggestion.
-type NesTextEdit struct {
-	// The range to replace.
-	Range Range `json:"range"`
-	// The replacement text.
-	NewText string `json:"newText"`
-	Meta    Meta   `json:"_meta,omitzero"`
-}
-
-// Range is a range in a text document, expressed as start and end positions.
-type Range struct {
-	// The start position (inclusive).
-	Start Position `json:"start"`
-	// The end position (exclusive).
-	End  Position `json:"end"`
-	Meta Meta     `json:"_meta,omitzero"`
-}
-
-// Position is a zero-based position in a text document.
-//
-// The meaning of `character` depends on the negotiated position encoding.
-type Position struct {
-	// Zero-based line number.
-	Line uint32 `json:"line"`
-	// Zero-based character offset (encoding-dependent).
-	Character uint32 `json:"character"`
-	Meta      Meta   `json:"_meta,omitzero"`
-}
-
-// CloseNesResponse is a response from closing an NES session.
-type CloseNesResponse struct {
-	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Allows for sending an arbitrary response to an [ExtRequest] that is not part of the ACP spec.
@@ -1101,6 +994,8 @@ type SessionCancelCapabilities struct {
 }
 
 // Notification sent by the agent when a URL-based elicitation is complete.
+//
+// This notification is not a foreground state update.
 type CompleteElicitationNotification struct {
 	// The ID of the elicitation that completed.
 	ElicitationID ElicitationID `json:"elicitationId"`
@@ -1156,18 +1051,7 @@ type ClientCapabilities struct {
 	// Optional. Omitted or `null` both mean the client does not advertise
 	// elicitation support.
 	Elicitation *ElicitationCapabilities `json:"elicitation,omitzero"`
-	// NES (Next Edit Suggestions) capabilities supported by the client.
-	//
-	// Optional. Omitted or `null` both mean the client does not advertise any
-	// NES suggestion-kind extensions.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Nes *ClientNesCapabilities `json:"nes,omitzero"`
-	// The position encodings supported by the client, in order of preference.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	PositionEncodings []PositionEncodingKind `json:"positionEncodings,omitzero"`
-	Meta              Meta                   `json:"_meta,omitzero"`
+	Meta        Meta                     `json:"_meta,omitzero"`
 }
 
 // Authentication capabilities supported by the client.
@@ -1224,32 +1108,6 @@ type ElicitationFormCapabilities struct {
 // Supplying `{}` means the client supports URL-based elicitation.
 type ElicitationURLCapabilities struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// NES capabilities advertised by the client during initialization.
-type ClientNesCapabilities struct {
-	// Whether the client supports the `jump` suggestion kind.
-	Jump *NesJumpCapabilities `json:"jump,omitzero"`
-	// Whether the client supports the `rename` suggestion kind.
-	Rename *NesRenameCapabilities `json:"rename,omitzero"`
-	// Whether the client supports the `searchAndReplace` suggestion kind.
-	SearchAndReplace *NesSearchAndReplaceCapabilities `json:"searchAndReplace,omitzero"`
-	Meta             Meta                             `json:"_meta,omitzero"`
-}
-
-// NesJumpCapabilities is a marker for jump suggestion support.
-type NesJumpCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// NesRenameCapabilities is a marker for rename suggestion support.
-type NesRenameCapabilities struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// NesSearchAndReplaceCapabilities is a marker for search and replace suggestion support.
-type NesSearchAndReplaceCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1328,7 +1186,15 @@ type NewSessionRequest struct {
 	AdditionalDirectories []AbsolutePath `json:"additionalDirectories,omitzero"`
 	// List of MCP (Model Context Protocol) servers the agent should connect to.
 	MCPServers []MCPServer `json:"mcpServers,omitzero"`
-	Meta       Meta        `json:"_meta,omitzero"`
+	// System-level instructions for the new session.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent uses its
+	// own default instructions. Clients MUST only send this when the Agent
+	// advertises `session.systemPrompt`.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
+	Meta         Meta          `json:"_meta,omitzero"`
 }
 
 // HTTPHeader is an HTTP header to set when making requests to the MCP server.
@@ -1338,6 +1204,33 @@ type HTTPHeader struct {
 	// The value to set for the HTTP header.
 	Value string `json:"value"`
 	Meta  Meta   `json:"_meta,omitzero"`
+}
+
+// Client-provided system-level instructions for a session.
+//
+// Clients MUST only send this when the Agent advertises
+// `session.systemPrompt`. Agents that cannot apply it, for example because of
+// an unadvertised mode or an unsupported content block type, MUST return an
+// error instead of creating, resuming, or forking the session.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SystemPrompt struct {
+	// How the Agent combines `content` with its own instructions.
+	//
+	// Required on the wire, so every request states its mode. In Rust,
+	// SystemPrompt.New starts it as [SystemPromptModeAppend]. Unknown
+	// values parse as SystemPromptMode.Other; Agents MUST return an error
+	// for modes they do not support.
+	Mode SystemPromptMode `json:"mode"`
+	// The system prompt content.
+	//
+	// Agents advertising the capability MUST accept [ContentBlockText].
+	// Clients MUST NOT send other content block types until a future
+	// capability allows them, and Agents MUST return an error for content
+	// blocks they do not support, including unknown types preserved as
+	// ContentBlock.Other.
+	Content []ContentBlock `json:"content"`
+	Meta    Meta           `json:"_meta,omitzero"`
 }
 
 // Request parameters for listing existing sessions.
@@ -1379,7 +1272,17 @@ type ForkSessionRequest struct {
 	AdditionalDirectories []AbsolutePath `json:"additionalDirectories,omitzero"`
 	// List of MCP servers to connect to for this session.
 	MCPServers []MCPServer `json:"mcpServers,omitzero"`
-	Meta       Meta        `json:"_meta,omitzero"`
+	// System-level instructions for the forked session.
+	//
+	// Optional. Omitted and `null` are equivalent; the Agent may then keep a
+	// system prompt it stored with the source session or use its default
+	// instructions. Clients MUST only send this when the Agent advertises
+	// `session.systemPrompt`, and SHOULD send the same value they used for the
+	// source session.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
+	Meta         Meta          `json:"_meta,omitzero"`
 }
 
 // Request parameters for resuming an existing session.
@@ -1407,8 +1310,22 @@ type ResumeSessionRequest struct {
 	// replay includes the position identified by the cursor. Supplying
 	// `{ "type": "start" }` means the Agent should replay all retained
 	// conversation history before responding.
+	//
+	// Agents MUST reject unsupported cursor types or malformed cursor values
+	// with `-32602` (Invalid params), rather than substituting another cursor
+	// or resuming without replay.
 	ReplayFrom ReplayFrom `json:"replayFrom,omitzero"`
-	Meta       Meta       `json:"_meta,omitzero"`
+	// System-level instructions for the resumed session.
+	//
+	// Optional. Omitted and `null` are equivalent; the Agent may then keep a
+	// system prompt it stored with the session or use its default instructions.
+	// Clients MUST only send this when the Agent advertises
+	// `session.systemPrompt`, and SHOULD send the same value they used when the
+	// session was created.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
+	Meta         Meta          `json:"_meta,omitzero"`
 }
 
 // Request parameters for closing an active session.
@@ -1416,6 +1333,17 @@ type ResumeSessionRequest struct {
 // The agent **must** cancel any ongoing work related to the session (treat it
 // as if `session/cancel` was called) and then free up any resources associated
 // with the session.
+//
+// When closing cancels active foreground work, the Agent MUST send the final
+// updates for that work and the idle `state_update` with `stopReason: "cancelled"`
+// before responding successfully to `session/close`. Closing an idle session
+// does not itself require another idle update.
+//
+// Closing may also cancel pending `session/prompt` requests, including queued
+// prompts. If closing prevents a prompt's user message from being inserted, the
+// Agent MUST answer that request with `-32800` (Request Cancelled). If the message
+// has already been inserted, the Agent MUST respond successfully with its
+// `messageId`. Prompt responses need not precede the close response.
 type CloseSessionRequest struct {
 	// The ID of the session to close.
 	SessionID SessionID `json:"sessionId"`
@@ -1447,162 +1375,6 @@ type PromptRequest struct {
 	// pieces of context from sources the agent may not have access to.
 	Prompt []ContentBlock `json:"prompt"`
 	Meta   Meta           `json:"_meta,omitzero"`
-}
-
-// StartNesRequest is a request to start an NES session.
-type StartNesRequest struct {
-	// The root URI of the workspace.
-	WorkspaceURI *string `json:"workspaceUri,omitzero"`
-	// The workspace folders.
-	WorkspaceFolders []WorkspaceFolder `json:"workspaceFolders,omitzero"`
-	// Repository metadata, if the workspace is a git repository.
-	Repository *NesRepository `json:"repository,omitzero"`
-	Meta       Meta           `json:"_meta,omitzero"`
-}
-
-// WorkspaceFolder is a workspace folder.
-type WorkspaceFolder struct {
-	// The URI of the folder.
-	URI string `json:"uri"`
-	// The display name of the folder.
-	Name string `json:"name"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-// Repository metadata for an NES session.
-type NesRepository struct {
-	// The repository name.
-	Name string `json:"name"`
-	// The repository owner.
-	Owner string `json:"owner"`
-	// The remote URL of the repository.
-	RemoteURL string `json:"remoteUrl"`
-	Meta      Meta   `json:"_meta,omitzero"`
-}
-
-// SuggestNesRequest is a request for a code suggestion.
-type SuggestNesRequest struct {
-	// The session ID for this request.
-	SessionID SessionID `json:"sessionId"`
-	// The URI of the document to suggest for.
-	URI string `json:"uri"`
-	// The version number of the document.
-	Version int64 `json:"version"`
-	// The current cursor position.
-	Position Position `json:"position"`
-	// The current text selection range, if any.
-	Selection *Range `json:"selection,omitzero"`
-	// What triggered this suggestion request.
-	TriggerKind NesTriggerKind `json:"triggerKind"`
-	// Context for the suggestion, included based on agent capabilities.
-	Context *NesSuggestContext `json:"context,omitzero"`
-	Meta    Meta               `json:"_meta,omitzero"`
-}
-
-// Context attached to a suggestion request.
-type NesSuggestContext struct {
-	// Recently accessed files.
-	RecentFiles []NesRecentFile `json:"recentFiles,omitzero"`
-	// Related code snippets.
-	RelatedSnippets []NesRelatedSnippet `json:"relatedSnippets,omitzero"`
-	// Recent edit history.
-	EditHistory []NesEditHistoryEntry `json:"editHistory,omitzero"`
-	// Recent user actions (typing, navigation, etc.).
-	UserActions []NesUserAction `json:"userActions,omitzero"`
-	// Currently open files in the editor.
-	OpenFiles []NesOpenFile `json:"openFiles,omitzero"`
-	// Current diagnostics (errors, warnings).
-	Diagnostics []NesDiagnostic `json:"diagnostics,omitzero"`
-	Meta        Meta            `json:"_meta,omitzero"`
-}
-
-// NesRecentFile is a recently accessed file.
-type NesRecentFile struct {
-	// The URI of the file.
-	URI string `json:"uri"`
-	// The language identifier.
-	LanguageID string `json:"languageId"`
-	// The full text content of the file.
-	Text string `json:"text"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-// NesRelatedSnippet is a related code snippet from a file.
-type NesRelatedSnippet struct {
-	// The URI of the file containing the snippets.
-	URI string `json:"uri"`
-	// The code excerpts.
-	Excerpts []NesExcerpt `json:"excerpts"`
-	Meta     Meta         `json:"_meta,omitzero"`
-}
-
-// NesExcerpt is a code excerpt from a file.
-type NesExcerpt struct {
-	// The start line of the excerpt (zero-based).
-	StartLine uint32 `json:"startLine"`
-	// The end line of the excerpt (zero-based).
-	EndLine uint32 `json:"endLine"`
-	// The text content of the excerpt.
-	Text string `json:"text"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-// NesEditHistoryEntry is an entry in the edit history.
-type NesEditHistoryEntry struct {
-	// The URI of the edited file.
-	URI string `json:"uri"`
-	// A diff representing the edit.
-	Diff string `json:"diff"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-// NesUserAction is a user action (typing, cursor movement, etc.).
-type NesUserAction struct {
-	// The kind of action (e.g., "insertChar", "cursorMovement").
-	Action string `json:"action"`
-	// The URI of the file where the action occurred.
-	URI string `json:"uri"`
-	// The position where the action occurred.
-	Position Position `json:"position"`
-	// Timestamp in milliseconds since epoch.
-	TimestampMs uint64 `json:"timestampMs"`
-	Meta        Meta   `json:"_meta,omitzero"`
-}
-
-// NesOpenFile is an open file in the editor.
-type NesOpenFile struct {
-	// The URI of the file.
-	URI string `json:"uri"`
-	// The language identifier.
-	LanguageID string `json:"languageId"`
-	// The visible range in the editor, if any.
-	VisibleRange *Range `json:"visibleRange,omitzero"`
-	// Timestamp in milliseconds since epoch of when the file was last focused.
-	LastFocusedMs *uint64 `json:"lastFocusedMs,omitzero"`
-	Meta          Meta    `json:"_meta,omitzero"`
-}
-
-// NesDiagnostic is a diagnostic (error, warning, etc.).
-type NesDiagnostic struct {
-	// The URI of the file containing the diagnostic.
-	URI string `json:"uri"`
-	// The range of the diagnostic.
-	Range Range `json:"range"`
-	// The severity of the diagnostic.
-	Severity NesDiagnosticSeverity `json:"severity"`
-	// The diagnostic message.
-	Message string `json:"message"`
-	Meta    Meta   `json:"_meta,omitzero"`
-}
-
-// CloseNesRequest is a request to close an NES session.
-//
-// The agent **must** cancel any ongoing work related to the NES session
-// and then free up any resources associated with the session.
-type CloseNesRequest struct {
-	// The ID of the NES session to close.
-	SessionID SessionID `json:"sessionId"`
-	Meta      Meta      `json:"_meta,omitzero"`
 }
 
 // RequestPermissionResponse is a response to a permission request.
@@ -1643,99 +1415,6 @@ type CancelSessionNotification struct {
 	// The ID of the session to cancel operations for.
 	SessionID SessionID `json:"sessionId"`
 	Meta      Meta      `json:"_meta,omitzero"`
-}
-
-// Notification sent when a file is opened in the editor.
-type DidOpenDocumentNotification struct {
-	// The session ID for this notification.
-	SessionID SessionID `json:"sessionId"`
-	// The URI of the opened document.
-	URI string `json:"uri"`
-	// The language identifier of the document (e.g., "rust", "python").
-	LanguageID string `json:"languageId"`
-	// The version number of the document.
-	Version int64 `json:"version"`
-	// The full text content of the document.
-	Text string `json:"text"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-// Notification sent when a file is edited.
-type DidChangeDocumentNotification struct {
-	// The session ID for this notification.
-	SessionID SessionID `json:"sessionId"`
-	// The URI of the changed document.
-	URI string `json:"uri"`
-	// The new version number of the document.
-	Version int64 `json:"version"`
-	// The content changes.
-	ContentChanges []TextDocumentContentChangeEvent `json:"contentChanges"`
-	Meta           Meta                             `json:"_meta,omitzero"`
-}
-
-// TextDocumentContentChangeEvent is a content change event for a document.
-//
-// When `range` is `None`, `text` is the full content of the document.
-// When `range` is `Some`, `text` replaces the given range.
-type TextDocumentContentChangeEvent struct {
-	// The range of the document that changed. If `None`, the entire content is replaced.
-	Range *Range `json:"range,omitzero"`
-	// The new text for the range, or the full document content if `range` is `None`.
-	Text string `json:"text"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-// Notification sent when a file is closed.
-type DidCloseDocumentNotification struct {
-	// The session ID for this notification.
-	SessionID SessionID `json:"sessionId"`
-	// The URI of the closed document.
-	URI  string `json:"uri"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-// Notification sent when a file is saved.
-type DidSaveDocumentNotification struct {
-	// The session ID for this notification.
-	SessionID SessionID `json:"sessionId"`
-	// The URI of the saved document.
-	URI  string `json:"uri"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-// DidFocusDocumentNotification is a notification sent when a file becomes the active editor tab.
-type DidFocusDocumentNotification struct {
-	// The session ID for this notification.
-	SessionID SessionID `json:"sessionId"`
-	// The URI of the focused document.
-	URI string `json:"uri"`
-	// The version number of the document.
-	Version int64 `json:"version"`
-	// The current cursor position.
-	Position Position `json:"position"`
-	// The portion of the file currently visible in the editor viewport.
-	VisibleRange Range `json:"visibleRange"`
-	Meta         Meta  `json:"_meta,omitzero"`
-}
-
-// Notification sent when a suggestion is accepted.
-type AcceptNesNotification struct {
-	// The session ID for this notification.
-	SessionID SessionID `json:"sessionId"`
-	// The ID of the accepted suggestion.
-	SuggestionID NesSuggestionID `json:"suggestionId"`
-	Meta         Meta            `json:"_meta,omitzero"`
-}
-
-// Notification sent when a suggestion is rejected.
-type RejectNesNotification struct {
-	// The session ID for this notification.
-	SessionID SessionID `json:"sessionId"`
-	// The ID of the rejected suggestion.
-	SuggestionID NesSuggestionID `json:"suggestionId"`
-	// The reason for rejection.
-	Reason *NesRejectReason `json:"reason,omitzero"`
-	Meta   Meta             `json:"_meta,omitzero"`
 }
 
 // MessageMCPNotification is a notification for an active request, sent from provider to consumer.

@@ -179,22 +179,6 @@ every option, since one change may affect the others.`,
 			}},
 		},
 		{
-			Interface:    "NesHandler",
-			Capability:   "nes",
-			Experimental: true,
-			Doc: `NesHandler handles the nes/* methods for Next Edit Suggestions. AcceptNes
-and RejectNes are notifications.`,
-			Methods: nesMethods,
-		},
-		{
-			Interface:    "DocumentHandler",
-			NoCapability: true,
-			Experimental: true,
-			Doc: `DocumentHandler receives the document/did* notifications that mirror the
-client's open editors.`,
-			Methods: documentMethods,
-		},
-		{
 			Interface:    "MCPMessageHandler",
 			Capability:   "mcpCapabilities.acp",
 			Experimental: true,
@@ -314,33 +298,6 @@ notification.`,
 			Methods: elicitationMethods("elicitation"),
 		},
 	},
-}
-
-// nesMethods is shared by both versions; the wire methods and types match.
-var nesMethods = []Method{
-	{Wire: "nes/start", Name: "StartNes", Params: "StartNesRequest", Response: "StartNesResponse",
-		CallDoc: "StartNes starts a Next Edit Suggestions stream."},
-	{Wire: "nes/suggest", Name: "SuggestNes", Params: "SuggestNesRequest", Response: "SuggestNesResponse",
-		CallDoc: "SuggestNes asks for the next edit suggestion."},
-	{Wire: "nes/close", Name: "CloseNes", Params: "CloseNesRequest", Response: "CloseNesResponse",
-		CallDoc: "CloseNes ends a Next Edit Suggestions stream."},
-	{Wire: "nes/accept", Name: "AcceptNes", Params: "AcceptNesNotification",
-		CallDoc: "AcceptNes reports that the user accepted a suggestion."},
-	{Wire: "nes/reject", Name: "RejectNes", Params: "RejectNesNotification",
-		CallDoc: "RejectNes reports that the user rejected a suggestion."},
-}
-
-var documentMethods = []Method{
-	{Wire: "document/didOpen", Name: "DidOpenDocument", Params: "DidOpenDocumentNotification",
-		CallDoc: "DidOpenDocument tells the agent a document was opened."},
-	{Wire: "document/didChange", Name: "DidChangeDocument", Params: "DidChangeDocumentNotification",
-		CallDoc: "DidChangeDocument tells the agent a document changed."},
-	{Wire: "document/didClose", Name: "DidCloseDocument", Params: "DidCloseDocumentNotification",
-		CallDoc: "DidCloseDocument tells the agent a document was closed."},
-	{Wire: "document/didSave", Name: "DidSaveDocument", Params: "DidSaveDocumentNotification",
-		CallDoc: "DidSaveDocument tells the agent a document was saved."},
-	{Wire: "document/didFocus", Name: "DidFocusDocument", Params: "DidFocusDocumentNotification",
-		CallDoc: "DidFocusDocument tells the agent a document was focused."},
 }
 
 // elicitationMethods takes the capability path, which differs between versions.

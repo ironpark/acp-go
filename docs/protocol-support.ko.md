@@ -37,8 +37,6 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
 | `logout` | `LogoutHandler` |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
 | `mcp/message` (알림) | `MCPMessageHandler` (unstable) |
 
 ## 클라이언트 메서드 (에이전트 → 클라이언트)
@@ -66,8 +64,6 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `session/fork` | `SessionForker` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/*` | `ProviderManager` (unstable) |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
 | `mcp/message` (알림) | `MCPMessageHandler` (unstable) |
 
 ### 클라이언트 메서드 (에이전트 → 클라이언트)

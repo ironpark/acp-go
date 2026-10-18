@@ -94,8 +94,8 @@ func TestResponseWaitsForEarlierNotifications(t *testing.T) {
 }
 
 // A request's handler starts only once the notifications read before it have
-// been handled: an agent answering nes/suggest must already have applied the
-// document/didChange sent ahead of it.
+// been handled: an agent answering session/set_mode must already have applied
+// the session/cancel sent ahead of it.
 func TestRequestWaitsForEarlierNotifications(t *testing.T) {
 	transport := newPipeTransport()
 	handler, entered, release := blockingNotifications(t)
@@ -105,9 +105,9 @@ func TestRequestWaitsForEarlierNotifications(t *testing.T) {
 		return nil, nil
 	}, handler, transport)
 
-	transport.in <- jsontext.Value(`{"jsonrpc":"2.0","method":"document/didChange"}`)
-	waitEntered(t, entered, "document/didChange")
-	transport.in <- jsontext.Value(`{"jsonrpc":"2.0","id":1,"method":"nes/suggest"}`)
+	transport.in <- jsontext.Value(`{"jsonrpc":"2.0","method":"session/cancel"}`)
+	waitEntered(t, entered, "session/cancel")
+	transport.in <- jsontext.Value(`{"jsonrpc":"2.0","id":1,"method":"session/set_mode"}`)
 
 	select {
 	case <-called:

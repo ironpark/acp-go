@@ -2,9 +2,36 @@
 
 All notable changes to this module are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Unstable areas
-(`acpmcp`, MCP-over-ACP, subagents, NES, providers) may change in any release.
+(`acpmcp`, MCP-over-ACP, subagents, providers) may change in any release.
 
 ## [Unreleased]
+
+### Schema
+
+- Pinned the TypeScript SDK at `1db4d43` (1.9.0). The ACP schema moves to **v1.26.0**, and the v2
+  draft to **2.0.0-alpha.9**.
+- **Client system prompt (unstable):** `session/new`, `session/load` (v1), `session/fork` and
+  `session/resume` take an optional `systemPrompt` (`SystemPrompt`, with an open `SystemPromptMode`
+  of `append` or `override`). Agents advertise it as `SessionCapabilities.SystemPrompt`.
+- **Next Edit Suggestions are removed** from the protocol, with the `nes/*` and `document/did*`
+  methods and the client's `positionEncodings` / agent's `positionEncoding`.
+- v2 documents a concrete `_meta` in an update as a patch of the stored metadata by top-level key.
+  The members already decode as `optional.Value[Meta]`, so absent, `null` and an object stay
+  distinct.
+
+### Breaking changes
+
+- **NES is gone:** `NesHandler`, `DocumentHandler`, their `nes/*` and `document/did*` calls on
+  `ClientSideConnection`, and the `Nes*`, `*DocumentNotification`, `Position`, `Range`,
+  `PositionEncodingKind`, `TextDocument*` and `WorkspaceFolder` types are removed from `acp1`,
+  `acp2` and both schema packages. `AgentCapabilities.Nes` / `PositionEncoding` and
+  `ClientCapabilities.Nes` / `PositionEncodings` are removed as well.
+
+### Fixed
+
+- Requests with `"params": null` decode as an empty object, as omitted params already did, so
+  all-optional requests such as `session/list` and `logout` are accepted. Requests with required
+  fields still fail with `-32602`.
 
 ## [0.2.0] - 2026-10-12
 

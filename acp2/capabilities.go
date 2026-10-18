@@ -10,11 +10,11 @@ package acp2
 // The session object is always set: every [Agent] handles the baseline
 // session methods it advertises, session/new, session/list, session/resume,
 // session/close, session/prompt and session/cancel. Group capabilities with
-// their own sub-flags — auth, providers and nes — are set to empty objects,
-// which advertises the group; fill in the sub-flags the agent supports.
-// [MCPMessageHandler] sets session.mcp.acp. Prompt capabilities, the other
-// MCP transports and position encoding describe content rather than methods
-// and are left for the agent to set.
+// their own sub-flags — auth and providers — are set to empty objects, which
+// advertises the group; fill in the sub-flags the agent supports.
+// [MCPMessageHandler] sets session.mcp.acp. Prompt capabilities and the other
+// MCP transports describe content rather than methods and are left for the
+// agent to set.
 func CapabilitiesOf(agent Agent) *AgentCapabilities {
 	caps := &AgentCapabilities{}
 	capabilitiesOf(agent, caps)
@@ -24,9 +24,9 @@ func CapabilitiesOf(agent Agent) *AgentCapabilities {
 // ClientCapabilitiesOf derives the client capabilities implied by the optional
 // interfaces client implements: an empty elicitation object from
 // [ElicitationHandler], whose form/url sub-flags the client fills in. MCP
-// proxying has no client capability flag in v2. Auth, nes and position
-// encoding capabilities describe what the client can display rather than which
-// methods it serves and are left for the client to set.
+// proxying has no client capability flag in v2. Auth capabilities describe
+// what the client can display rather than which methods it serves and are left
+// for the client to set.
 func ClientCapabilitiesOf(client Client) *ClientCapabilities {
 	caps := &ClientCapabilities{}
 	clientCapabilitiesOf(client, caps)

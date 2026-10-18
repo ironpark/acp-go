@@ -8,14 +8,18 @@ import (
 	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
-// emptyParams stands in for an omitted params member so that requests whose
-// fields are all optional still validate.
+// emptyParams stands in for an omitted or null params member so that requests
+// whose fields are all optional still validate, as in the Rust and TypeScript
+// SDKs.
 var emptyParams = jsontext.Value(`{}`)
+
+// absent reports whether raw is an omitted or null JSON value.
+func absent(raw jsontext.Value) bool { return len(raw) == 0 || string(raw) == "null" }
 
 // decodeParams decodes raw into a T, applying the schema version's Zod rules
 // carried by validated. Failures become -32602, as in the TypeScript SDK.
 func decodeParams[T any](validated json.Options, raw jsontext.Value) (*T, error) {
-	if len(raw) == 0 {
+	if absent(raw) {
 		raw = emptyParams
 	}
 	params := new(T)
@@ -92,7 +96,7 @@ func StartCall[R any](ctx context.Context, conn *jsonrpc.Connection, method stri
 // value.
 func DecodeResult[R any](raw jsontext.Value) (*R, error) {
 	response := new(R)
-	if len(raw) == 0 || string(raw) == "null" {
+	if absent(raw) {
 		return response, nil
 	}
 	if err := json.Unmarshal(raw, response); err != nil {

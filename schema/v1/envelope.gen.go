@@ -368,7 +368,7 @@ type ClientRequestParams struct{ raw jsontext.Value }
 
 // ClientRequestParamsAlternative is the set of Go types ClientRequestParams can hold.
 type ClientRequestParamsAlternative interface {
-	InitializeRequest | AuthenticateRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutRequest | NewSessionRequest | LoadSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionModeRequest | SetSessionConfigOptionRequest | PromptRequest | StartNesRequest | SuggestNesRequest | CloseNesRequest | jsontext.Value
+	InitializeRequest | AuthenticateRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutRequest | NewSessionRequest | LoadSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionModeRequest | SetSessionConfigOptionRequest | PromptRequest | jsontext.Value
 }
 
 var clientRequestParamsAlternatives = union.Table(
@@ -388,9 +388,6 @@ var clientRequestParamsAlternatives = union.Table(
 	union.Alt[SetSessionModeRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "modeId"}, NotNull: []string{"sessionId", "modeId"}}),
 	union.Alt[SetSessionConfigOptionRequest](union.Rule{NonNull: true}),
 	union.Alt[PromptRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "prompt"}, NotNull: []string{"sessionId", "prompt"}}),
-	union.Alt[StartNesRequest](union.Rule{NonNull: true}),
-	union.Alt[SuggestNesRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "position", "triggerKind"}, NotNull: []string{"sessionId", "uri", "version", "position", "triggerKind"}}),
-	union.Alt[CloseNesRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -451,18 +448,11 @@ type ClientNotificationParams struct{ raw jsontext.Value }
 
 // ClientNotificationParamsAlternative is the set of Go types ClientNotificationParams can hold.
 type ClientNotificationParamsAlternative interface {
-	CancelNotification | DidOpenDocumentNotification | DidChangeDocumentNotification | DidCloseDocumentNotification | DidSaveDocumentNotification | DidFocusDocumentNotification | AcceptNesNotification | RejectNesNotification | MessageMCPNotification | jsontext.Value
+	CancelNotification | MessageMCPNotification | jsontext.Value
 }
 
 var clientNotificationParamsAlternatives = union.Table(
 	union.Alt[CancelNotification](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
-	union.Alt[DidOpenDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "languageId", "version", "text"}, NotNull: []string{"sessionId", "uri", "languageId", "version", "text"}}),
-	union.Alt[DidChangeDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "contentChanges"}, NotNull: []string{"sessionId", "uri", "version", "contentChanges"}}),
-	union.Alt[DidCloseDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri"}, NotNull: []string{"sessionId", "uri"}}),
-	union.Alt[DidSaveDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri"}, NotNull: []string{"sessionId", "uri"}}),
-	union.Alt[DidFocusDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "position", "visibleRange"}, NotNull: []string{"sessionId", "uri", "version", "position", "visibleRange"}}),
-	union.Alt[AcceptNesNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "id"}, NotNull: []string{"sessionId", "id"}}),
-	union.Alt[RejectNesNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "id"}, NotNull: []string{"sessionId", "id"}}),
 	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"serverId", "requestId", "method"}, NotNull: []string{"serverId", "requestId", "method"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
@@ -510,7 +500,7 @@ type AgentResponseResultResult struct{ raw jsontext.Value }
 
 // AgentResponseResultResultAlternative is the set of Go types AgentResponseResultResult can hold.
 type AgentResponseResultResultAlternative interface {
-	InitializeResponse | AuthenticateResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutResponse | NewSessionResponse | LoadSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ResumeSessionResponse | CloseSessionResponse | SetSessionModeResponse | SetSessionConfigOptionResponse | PromptResponse | StartNesResponse | SuggestNesResponse | CloseNesResponse | jsontext.Value
+	InitializeResponse | AuthenticateResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutResponse | NewSessionResponse | LoadSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ResumeSessionResponse | CloseSessionResponse | SetSessionModeResponse | SetSessionConfigOptionResponse | PromptResponse | jsontext.Value
 }
 
 var agentResponseResultResultAlternatives = union.Table(
@@ -530,9 +520,6 @@ var agentResponseResultResultAlternatives = union.Table(
 	union.Alt[SetSessionModeResponse](union.Rule{NonNull: true}),
 	union.Alt[SetSessionConfigOptionResponse](union.Rule{NonNull: true, Required: []string{"configOptions"}, NotNull: []string{"configOptions"}}),
 	union.Alt[PromptResponse](union.Rule{NonNull: true, Required: []string{"stopReason"}, NotNull: []string{"stopReason"}}),
-	union.Alt[StartNesResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
-	union.Alt[SuggestNesResponse](union.Rule{NonNull: true, Required: []string{"suggestions"}, NotNull: []string{"suggestions"}}),
-	union.Alt[CloseNesResponse](union.Rule{NonNull: true}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 

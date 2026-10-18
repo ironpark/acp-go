@@ -318,9 +318,7 @@ func comment(s string) string {
 // initialisms are the words Name writes in all capitals, following Go's
 // convention that an initialism keeps one case (MCPServer, not McpServer):
 // staticcheck's list plus the protocol's own. The façade method tables name
-// their Go methods by hand and are tested against Name. Nes (next edit
-// suggestions) is left out on purpose: it sits mid-name in most identifiers,
-// where an all-capitals run is hard to read.
+// their Go methods by hand and are tested against Name.
 var initialisms = map[string]bool{
 	"acl": true, "amqp": true, "api": true, "ascii": true, "cpu": true, "css": true, "db": true,
 	"dns": true, "eof": true, "gid": true, "guid": true, "html": true, "http": true, "https": true,

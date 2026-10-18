@@ -37,8 +37,6 @@ The next two tables describe **ACP v1**.
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
 | `logout` | `LogoutHandler` |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
 | `mcp/message` (notifications) | `MCPMessageHandler` (unstable) |
 
 ## Client methods (agent → client)
@@ -66,8 +64,6 @@ The next two tables describe **ACP v1**.
 | `session/fork` | `SessionForker` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/*` | `ProviderManager` (unstable) |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
 | `mcp/message` (notifications) | `MCPMessageHandler` (unstable) |
 
 ### Client methods (agent → client)

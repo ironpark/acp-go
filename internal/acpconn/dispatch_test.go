@@ -19,18 +19,20 @@ type sampleResult struct {
 }
 
 func TestDecodeParams(t *testing.T) {
-	ctx := t.Context()
-	_ = ctx
-
 	params, err := decodeParams[sampleParams](schema.Validated(), jsontext.Value(`{"name":"x"}`))
 	if err != nil || params.Name != "x" {
 		t.Fatalf("decodeParams = %+v, %v", params, err)
 	}
 
-	// An omitted params member stands in as an empty object.
-	empty, err := decodeParams[sampleParams](schema.Validated(), nil)
-	if err != nil || empty.Name != "" {
-		t.Fatalf("decodeParams(nil) = %+v, %v", empty, err)
+	// An omitted or null params member stands in as an empty object, so
+	// all-optional requests validate and required members are still enforced.
+	for _, raw := range []jsontext.Value{nil, jsontext.Value("null")} {
+		if _, err := decodeParams[schema.ListSessionsRequest](schema.Validated(), raw); err != nil {
+			t.Errorf("decodeParams(%q) for session/list = %v", raw, err)
+		}
+		if _, err := decodeParams[schema.NewSessionRequest](schema.Validated(), raw); !isInvalidParams(err) {
+			t.Errorf("decodeParams(%q) for session/new = %v, want invalid params", raw, err)
+		}
 	}
 
 	// A type mismatch is an invalid-params error, not a decode panic.
