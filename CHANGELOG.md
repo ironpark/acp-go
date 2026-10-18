@@ -26,6 +26,16 @@ All notable changes to this module are recorded here. The format follows
   `PositionEncodingKind`, `TextDocument*` and `WorkspaceFolder` types are removed from `acp1`,
   `acp2` and both schema packages. `AgentCapabilities.Nes` / `PositionEncoding` and
   `ClientCapabilities.Nes` / `PositionEncodings` are removed as well.
+- **The v2 client reads session updates apart from prompts** (TypeScript SDK #280). An idle update
+  reports that the session's foreground work stopped, not that a prompt was processed, so a turn
+  tied to a prompt could end on the idle of earlier work and drop the updates that followed.
+  - `acp2.ClientSession.Prompt` returns `(MessageID, error)`: the insertion receipt. A rejection is
+    reported there only and no longer ends a turn.
+  - Each `ClientSession` queues its session's updates from the moment `Session` or `StartSession`
+    creates it. `ClientSession.UntilIdle(ctx)` returns a `Turn` that reads them up to and including
+    the next idle update; `Turn.Updates`, `Wait` and `Text` keep their meaning, and `Turn.Done` is
+    removed. `ClientSession.NextUpdate(ctx)` reads one update.
+  - `ClientSession.Close(ctx)` sends `session/close` and releases the queue.
 
 ### Fixed
 

@@ -52,23 +52,96 @@ func TestTurnEndsOnIdle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		turn, messageID, err := session.Prompt(t.Context(), acp2.TextBlock("hi"))
+		messageID, err := session.Prompt(t.Context(), acp2.TextBlock("hi"))
 		if err != nil || messageID != "user_1" {
 			t.Fatalf("idleFirst=%v: prompt %q %v", idleFirst, messageID, err)
 		}
-		text, reason, err := turn.Text()
+		text, reason, err := session.UntilIdle(t.Context()).Text()
 		if err != nil || text != "Hello, world" {
 			t.Fatalf("idleFirst=%v: got %q %v", idleFirst, text, err)
 		}
 		if reason != acp2.StopReasonEndTurn {
 			t.Fatalf("idleFirst=%v: got %v", idleFirst, reason)
 		}
-		// The next prompt starts a new turn once this one has ended.
-		if next, _, err := session.Prompt(t.Context(), acp2.TextBlock("again")); err != nil {
-			t.Fatal(err)
-		} else if _, err := next.Wait(); err != nil {
+		// The next read starts after the idle update the last one ended on.
+		if _, err := session.Prompt(t.Context(), acp2.TextBlock("again")); err != nil {
 			t.Fatal(err)
 		}
+		if text, _, err := session.UntilIdle(t.Context()).Text(); err != nil || text != "Hello, world" {
+			t.Fatalf("idleFirst=%v: second read %q %v", idleFirst, text, err)
+		}
+	}
+}
+
+// staleIdleAgent reports idle for earlier work before it inserts the prompt,
+// then runs the work the prompt starts in the background.
+type staleIdleAgent struct{ *testAgent }
+
+func (a *staleIdleAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
+	stream := acp2.NewSessionStream(a.client, params.SessionID)
+	_ = stream.Idle(ctx, acp2.StopReasonEndTurn)
+	go func() {
+		ctx := context.Background()
+		_ = stream.Running(ctx)
+		_ = stream.SendText(ctx, "m1", "after")
+		_ = stream.Idle(ctx, acp2.StopReasonMaxTokens)
+	}()
+	return &acp2.PromptResponse{MessageID: "user_1"}, nil
+}
+
+// An idle update that arrives before the prompt is inserted ends only the
+// read in progress; the work the prompt starts is queued for the next read
+// instead of being dropped.
+func TestIdleBeforeInsertionKeepsTheLaterUpdates(t *testing.T) {
+	agent := &staleIdleAgent{newTestAgent()}
+	_, conn := acp2.Pipe(t.Context(), func(c *acp2.AgentSideConnection) acp2.Agent {
+		agent.client = c
+		return agent
+	}, func(*acp2.ClientSideConnection) acp2.Client { return newTestClient() })
+	session, err := conn.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.Prompt(t.Context(), acp2.TextBlock("hi")); err != nil {
+		t.Fatal(err)
+	}
+	if text, reason, err := session.UntilIdle(t.Context()).Text(); err != nil || text != "" || reason != acp2.StopReasonEndTurn {
+		t.Fatalf("first read = %q %v %v, want the stale idle", text, reason, err)
+	}
+	if text, reason, err := session.UntilIdle(t.Context()).Text(); err != nil || text != "after" || reason != acp2.StopReasonMaxTokens {
+		t.Fatalf("second read = %q %v %v, want the prompt's work", text, reason, err)
+	}
+}
+
+// Closing a session stops queueing its updates; those already queued are
+// still read, after which reads fail.
+func TestCloseReleasesTheSessionQueue(t *testing.T) {
+	agent := &v2Agent{testAgent: newTestAgent(), idleFirst: true}
+	_, conn := acp2.Pipe(t.Context(), func(c *acp2.AgentSideConnection) acp2.Agent {
+		agent.client = c
+		return agent
+	}, func(*acp2.ClientSideConnection) acp2.Client { return newTestClient() })
+	session, err := conn.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.Prompt(t.Context(), acp2.TextBlock("hi")); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Close(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if text, _, err := session.UntilIdle(t.Context()).Text(); err != nil || text != "Hello, world" {
+		t.Fatalf("queued updates after Close = %q %v", text, err)
+	}
+	if _, err := session.NextUpdate(t.Context()); err == nil {
+		t.Fatal("NextUpdate on a closed session reported no error")
+	}
+	// A handle taken afterwards queues afresh: its read waits instead of failing.
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	if _, err := conn.Session(session.ID).NextUpdate(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("NextUpdate on a new handle = %v, want it to wait", err)
 	}
 }
 
@@ -107,7 +180,7 @@ func (a *cancellableAgent) Prompt(ctx context.Context, params *acp2.PromptReques
 	return &acp2.PromptResponse{MessageID: "user_1"}, nil
 }
 
-func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
+func TestPromptsJoinAndCancelTheRunningWork(t *testing.T) {
 	agent := &cancellableAgent{
 		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[bareSession](),
 			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, bareSession, error) {
@@ -124,15 +197,13 @@ func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turn, _, err := session.Prompt(t.Context(), acp2.TextBlock("work"))
-	if err != nil {
+	if _, err := session.Prompt(t.Context(), acp2.TextBlock("work")); err != nil {
 		t.Fatal(err)
 	}
 	<-agent.started
 
-	// A prompt sent while the work runs contributes to it: the agent joins it
-	// and the client gets the same turn.
-	joinedTurn, messageID, err := session.Prompt(t.Context(), acp2.TextBlock("also this"))
+	// A prompt sent while the work runs contributes to it: the agent joins it.
+	messageID, err := session.Prompt(t.Context(), acp2.TextBlock("also this"))
 	if err != nil || messageID != "user_2" {
 		t.Fatalf("joining prompt: %q %v", messageID, err)
 	}
@@ -140,11 +211,9 @@ func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 	if err := session.Cancel(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	for _, tr := range []*acp2.Turn{turn, joinedTurn} {
-		reason, err := tr.Wait()
-		if err != nil || reason != acp2.StopReasonCancelled {
-			t.Fatalf("got %v %v", reason, err)
-		}
+	reason, err := session.UntilIdle(t.Context()).Wait()
+	if err != nil || reason != acp2.StopReasonCancelled {
+		t.Fatalf("got %v %v", reason, err)
 	}
 }
 
@@ -173,7 +242,9 @@ func (a *splitAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*a
 	return &acp2.PromptResponse{MessageID: "user_2"}, nil
 }
 
-func TestTurnSurvivesARejectedStarter(t *testing.T) {
+// A rejected prompt is reported by its own response only; the session's
+// updates still run to the idle update of the work another prompt started.
+func TestRejectedPromptLeavesTheUpdatesAlone(t *testing.T) {
 	agent := &splitAgent{testAgent: newTestAgent(), firstArrived: make(chan struct{}), reject: make(chan struct{})}
 	_, conn := acp2.Pipe(t.Context(), func(c *acp2.AgentSideConnection) acp2.Agent {
 		agent.client = c
@@ -186,21 +257,21 @@ func TestTurnSurvivesARejectedStarter(t *testing.T) {
 
 	firstErr := make(chan error, 1)
 	go func() {
-		_, _, err := session.Prompt(t.Context(), acp2.TextBlock("bad"))
+		_, err := session.Prompt(t.Context(), acp2.TextBlock("bad"))
 		firstErr <- err
 	}()
 	<-agent.firstArrived // the first prompt has started the turn
 
-	turn, messageID, err := session.Prompt(t.Context(), acp2.TextBlock("good"))
+	messageID, err := session.Prompt(t.Context(), acp2.TextBlock("good"))
 	if err != nil || messageID != "user_2" {
 		t.Fatalf("joining prompt: %q %v", messageID, err)
 	}
 	if err := <-firstErr; !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
 		t.Fatalf("starter: %v", err)
 	}
-	text, reason, err := turn.Text()
+	text, reason, err := session.UntilIdle(t.Context()).Text()
 	if err != nil || text != "done" {
-		t.Fatalf("turn ended early: %q %v", text, err)
+		t.Fatalf("read ended early: %q %v", text, err)
 	}
 	if reason != acp2.StopReasonEndTurn {
 		t.Fatalf("got %v", reason)
@@ -267,23 +338,19 @@ func TestCancelBeforeJoinTurnCancelsTheTurn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prompted := make(chan *acp2.Turn, 1)
+	prompted := make(chan error, 1)
 	go func() {
-		turn, _, err := session.Prompt(t.Context(), acp2.TextBlock("work"))
-		if err != nil {
-			t.Error(err)
-		}
-		prompted <- turn
+		_, err := session.Prompt(t.Context(), acp2.TextBlock("work"))
+		prompted <- err
 	}()
 	<-agent.received
 	if err := session.Cancel(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	turn := <-prompted
-	if turn == nil {
-		t.FailNow()
+	if err := <-prompted; err != nil {
+		t.Fatal(err)
 	}
-	if reason, err := turn.Wait(); err != nil || reason != acp2.StopReasonCancelled {
+	if reason, err := session.UntilIdle(t.Context()).Wait(); err != nil || reason != acp2.StopReasonCancelled {
 		t.Fatalf("got %v %v, want cancelled", reason, err)
 	}
 }
@@ -336,11 +403,10 @@ func TestFailingTurnWorkEndsTheTurn(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		turn, _, err := session.Prompt(t.Context(), acp2.TextBlock("work"))
-		if err != nil {
+		if _, err := session.Prompt(t.Context(), acp2.TextBlock("work")); err != nil {
 			t.Fatal(err)
 		}
-		reason, err := turn.Wait()
+		reason, err := session.UntilIdle(t.Context()).Wait()
 		if reason != acp2.StopReasonError || !acp.IsCode(err, tc.code) || !strings.Contains(err.Error(), tc.text) {
 			t.Errorf("turn ended with %q %v, want code %d about %q", reason, err, tc.code, tc.text)
 		}
@@ -368,11 +434,14 @@ func TestTurnEndsWithTheConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := session.Prompt(t.Context(), acp2.TextBlock("work")); err != nil {
+	if _, err := session.Prompt(t.Context(), acp2.TextBlock("work")); err != nil {
 		t.Fatal(err)
 	}
 	<-agent.started
 	conn.Close()
+	if _, err := session.UntilIdle(t.Context()).Wait(); err == nil {
+		t.Error("reading past the closed connection reported no error")
+	}
 	select {
 	case cause := <-ended:
 		if cause == nil || errors.Is(cause, acp.ErrTurnCancelled) {

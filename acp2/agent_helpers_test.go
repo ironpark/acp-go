@@ -110,15 +110,14 @@ func TestWithAutoSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turn, _, err := session.Prompt(ctx, acp2.TextBlock("hi"))
-	if err != nil {
+	if _, err := session.Prompt(ctx, acp2.TextBlock("hi")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := turn.Wait(); err != nil {
+	if _, err := session.UntilIdle(ctx).Wait(); err != nil {
 		t.Fatal(err)
 	}
-	// The idle report that ends the client's turn goes out before the
-	// agent's turn ends and saves, so wait for the save itself.
+	// The idle report the client reads up to goes out before the agent's
+	// turn ends and saves, so wait for the save itself.
 	for store.sets.Load() < 2 {
 		select {
 		case <-ctx.Done():
