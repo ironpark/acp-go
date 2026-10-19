@@ -241,25 +241,6 @@ type MCPRequestID string
 // Non-breaking changes should be introduced via capabilities.
 type ProtocolVersion uint16
 
-// How the agent wants document changes delivered.
-type TextDocumentSyncKind string
-
-const (
-	TextDocumentSyncKindFull        TextDocumentSyncKind = "full"
-	TextDocumentSyncKindIncremental TextDocumentSyncKind = "incremental"
-)
-
-// PositionEncodingKind is the encoding used for character offsets in positions.
-//
-// Follows the same conventions as LSP 3.17. The default is UTF-16.
-type PositionEncodingKind string
-
-const (
-	PositionEncodingKindUTF16 PositionEncodingKind = "utf-16"
-	PositionEncodingKindUTF32 PositionEncodingKind = "utf-32"
-	PositionEncodingKindUTF8  PositionEncodingKind = "utf-8"
-)
-
 // Typed identifier used for auth method values on the wire.
 type AuthMethodID string
 
@@ -344,11 +325,6 @@ type SessionListCursor string
 // has its own ID space: messages of different types may share an ID and remain
 // distinct messages.
 type MessageID string
-
-// NesSuggestionID is a unique identifier for an NES suggestion.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type NesSuggestionID string
 
 // ErrorCode also accepts values outside the listed constants; use [ErrorCode.Known] to check.
 //
@@ -477,63 +453,26 @@ func (v CompactionStatus) Known() bool {
 	return false
 }
 
-// NesTriggerKind also accepts values outside the listed constants; use [NesTriggerKind.Known] to check.
+// SystemPromptMode also accepts values outside the listed constants; use [SystemPromptMode.Known] to check.
 //
-// What triggered the suggestion request.
-type NesTriggerKind string
+// How the Agent combines a client-provided system prompt with its own instructions.
+//
+// Unknown modes parse as SystemPromptMode.Other so they can be stored,
+// proxied, or forwarded. An Agent MUST return an error for a mode it does not
+// support rather than treating it as `append` or `override`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SystemPromptMode string
 
 const (
-	NesTriggerKindAutomatic  NesTriggerKind = "automatic"
-	NesTriggerKindDiagnostic NesTriggerKind = "diagnostic"
-	NesTriggerKindManual     NesTriggerKind = "manual"
+	SystemPromptModeAppend   SystemPromptMode = "append"
+	SystemPromptModeOverride SystemPromptMode = "override"
 )
 
 // Known reports whether v is one of the protocol-defined constants.
-func (v NesTriggerKind) Known() bool {
+func (v SystemPromptMode) Known() bool {
 	switch v {
-	case NesTriggerKindAutomatic, NesTriggerKindDiagnostic, NesTriggerKindManual:
-		return true
-	}
-	return false
-}
-
-// NesDiagnosticSeverity also accepts values outside the listed constants; use [NesDiagnosticSeverity.Known] to check.
-//
-// Severity of a diagnostic.
-type NesDiagnosticSeverity string
-
-const (
-	NesDiagnosticSeverityError       NesDiagnosticSeverity = "error"
-	NesDiagnosticSeverityWarning     NesDiagnosticSeverity = "warning"
-	NesDiagnosticSeverityInformation NesDiagnosticSeverity = "information"
-	NesDiagnosticSeverityHint        NesDiagnosticSeverity = "hint"
-)
-
-// Known reports whether v is one of the protocol-defined constants.
-func (v NesDiagnosticSeverity) Known() bool {
-	switch v {
-	case NesDiagnosticSeverityError, NesDiagnosticSeverityWarning, NesDiagnosticSeverityInformation, NesDiagnosticSeverityHint:
-		return true
-	}
-	return false
-}
-
-// NesRejectReason also accepts values outside the listed constants; use [NesRejectReason.Known] to check.
-//
-// The reason a suggestion was rejected.
-type NesRejectReason string
-
-const (
-	NesRejectReasonRejected  NesRejectReason = "rejected"
-	NesRejectReasonIgnored   NesRejectReason = "ignored"
-	NesRejectReasonReplaced  NesRejectReason = "replaced"
-	NesRejectReasonCancelled NesRejectReason = "cancelled"
-)
-
-// Known reports whether v is one of the protocol-defined constants.
-func (v NesRejectReason) Known() bool {
-	switch v {
-	case NesRejectReasonRejected, NesRejectReasonIgnored, NesRejectReasonReplaced, NesRejectReasonCancelled:
+	case SystemPromptModeAppend, SystemPromptModeOverride:
 		return true
 	}
 	return false

@@ -17,7 +17,7 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | 파일·셸 접근 | `fs/*`, `terminal/*` | MCP 경유 |
 | 프롬프트 응답 | 턴의 결과 반환 | 메시지 접수 확인 |
 | 턴 완료 | 프롬프트 응답 시점 | 에이전트의 idle 상태 보고 |
-| 진행 중 추가 프롬프트 | `acp.ErrTurnInProgress`로 거절 | 진행 중인 턴에 합류 |
+| 진행 중 추가 프롬프트 | `acp.ErrTurnInProgress`로 거절 | 진행 중인 작업에 합류 |
 
 다음 두 표는 **ACP v1** 기준입니다.
 
@@ -37,8 +37,6 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
 | `logout` | `LogoutHandler` |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
 | `mcp/message` (알림) | `MCPMessageHandler` (unstable) |
 
 ## 클라이언트 메서드 (에이전트 → 클라이언트)
@@ -66,8 +64,6 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `session/fork` | `SessionForker` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/*` | `ProviderManager` (unstable) |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
 | `mcp/message` (알림) | `MCPMessageHandler` (unstable) |
 
 ### 클라이언트 메서드 (에이전트 → 클라이언트)
@@ -81,18 +77,21 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 ### 턴 처리
 
 v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MCP 경유) `TerminalHandle`은 v1 패키지에만
-있습니다. v2에서 prompt 응답은 메시지 접수만 뜻하며, `Turn`은 에이전트가 idle 상태를 보고할 때 끝납니다.
+있습니다. v2에서 prompt 응답은 메시지 접수만 뜻하며, `Turn`은 에이전트가 idle 상태를 보고할 때까지 세션의 업데이트를 읽습니다.
 
 턴이 겹치는 프롬프트는 버전별 규칙을 양쪽이 똑같이 따릅니다. v1 세션은 한 번에 한 턴만 돌리므로
 `ClientSession.Prompt`와 `SessionManager.RunTurn`(또는 `BeginTurn`) 모두 두 번째 프롬프트를
-`acp.ErrTurnInProgress`(`-32600`)로 거절합니다. v2에서는 프롬프트가 진행 중인 작업에 합류할 수 있습니다.
-`Prompt`는 메시지가 접수되면 `(*Turn, MessageID, error)`를 돌려주며 진행 중인 턴에 합류하고,
+`acp.ErrTurnInProgress`(`-32600`)로 거절합니다. v2에서는 프롬프트가 진행 중인 작업에 합류할 수 있으며,
 `SessionManager.StartTurn`(또는 `JoinTurn`)은 에이전트에게 진행 중인 턴의 context를 넘겨주며 작업 앞뒤로
-running과 idle을 보고합니다.
+running과 idle을 보고합니다. 클라이언트의 `ClientSession.Prompt`는 메시지가 삽입되면 `(MessageID, error)`를
+돌려주고, 거절은 이 반환값으로만 알립니다. idle 업데이트는 특정 프롬프트의 처리가 아니라 세션의 foreground 작업이
+멈췄음을 뜻하므로, 세션의 업데이트는 `ClientSession`이 만들어진 시점부터 프롬프트와 무관하게 큐에 쌓입니다.
+`ClientSession.UntilIdle`은 다음 idle 업데이트까지, `NextUpdate`는 하나씩 읽습니다.
+`ClientSession.Close`는 세션을 닫고 큐를 해제합니다.
 
 v2 프롬프트는 접수된 뒤에는 응답으로 이후의 실패를 알릴 수 없습니다. 실패한 작업은 `error` stop reason과
 JSON-RPC 오류 객체를 담은 idle로 턴을 끝냅니다. `SessionStream.IdleError`가 이를 보내고, `StartTurn`은
-작업이 오류를 반환하거나 panic하면 이를 보냅니다. 클라이언트의 `Turn.Wait`는 v1 프롬프트의 오류 응답처럼
+작업이 오류를 반환하거나 panic하면 이를 보냅니다. 클라이언트의 `Turn.Wait`(`UntilIdle`이 돌려줌)는 v1 프롬프트의 오류 응답처럼
 `acp2.StopReasonError`와 그 오류를 `*acp.RequestError`로 돌려줍니다.
 
 ### 취소 순서

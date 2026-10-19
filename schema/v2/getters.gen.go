@@ -26,23 +26,6 @@ func (x *AgentCapabilities) GetProviders() *ProvidersCapabilities {
 	return x.Providers
 }
 
-// GetNes returns Nes, or nil if x is nil.
-func (x *AgentCapabilities) GetNes() *NesCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.Nes
-}
-
-// GetPositionEncoding returns the value of PositionEncoding, or the zero value if x or PositionEncoding is nil.
-func (x *AgentCapabilities) GetPositionEncoding() PositionEncodingKind {
-	if x != nil && x.PositionEncoding != nil {
-		return *x.PositionEncoding
-	}
-	var zero PositionEncodingKind
-	return zero
-}
-
 // GetLastModified returns the value of LastModified, or the zero value if x or LastModified is nil.
 func (x *Annotations) GetLastModified() string {
 	if x != nil && x.LastModified != nil {
@@ -119,38 +102,6 @@ func (x *ClientCapabilities) GetElicitation() *ElicitationCapabilities {
 		return nil
 	}
 	return x.Elicitation
-}
-
-// GetNes returns Nes, or nil if x is nil.
-func (x *ClientCapabilities) GetNes() *ClientNesCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.Nes
-}
-
-// GetJump returns Jump, or nil if x is nil.
-func (x *ClientNesCapabilities) GetJump() *NesJumpCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.Jump
-}
-
-// GetRename returns Rename, or nil if x is nil.
-func (x *ClientNesCapabilities) GetRename() *NesRenameCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.Rename
-}
-
-// GetSearchAndReplace returns SearchAndReplace, or nil if x is nil.
-func (x *ClientNesCapabilities) GetSearchAndReplace() *NesSearchAndReplaceCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.SearchAndReplace
 }
 
 // GetAnnotations returns Annotations, or nil if x is nil.
@@ -676,6 +627,14 @@ func (x *ErrorStopReason) GetError() *Error {
 	return x.Error
 }
 
+// GetSystemPrompt returns SystemPrompt, or nil if x is nil.
+func (x *ForkSessionRequest) GetSystemPrompt() *SystemPrompt {
+	if x == nil {
+		return nil
+	}
+	return x.SystemPrompt
+}
+
 // GetMIMEType returns the value of MIMEType, or the zero value if x or MIMEType is nil.
 func (x *Icon) GetMIMEType() MediaType {
 	if x != nil && x.MIMEType != nil {
@@ -842,177 +801,12 @@ func (x *MCPCapabilities) GetACP() *MCPACPCapabilities {
 	return x.ACP
 }
 
-// GetEvents returns Events, or nil if x is nil.
-func (x *NesCapabilities) GetEvents() *NesEventCapabilities {
+// GetSystemPrompt returns SystemPrompt, or nil if x is nil.
+func (x *NewSessionRequest) GetSystemPrompt() *SystemPrompt {
 	if x == nil {
 		return nil
 	}
-	return x.Events
-}
-
-// GetContext returns Context, or nil if x is nil.
-func (x *NesCapabilities) GetContext() *NesContextCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.Context
-}
-
-// GetRecentFiles returns RecentFiles, or nil if x is nil.
-func (x *NesContextCapabilities) GetRecentFiles() *NesRecentFilesCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.RecentFiles
-}
-
-// GetRelatedSnippets returns RelatedSnippets, or nil if x is nil.
-func (x *NesContextCapabilities) GetRelatedSnippets() *NesRelatedSnippetsCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.RelatedSnippets
-}
-
-// GetEditHistory returns EditHistory, or nil if x is nil.
-func (x *NesContextCapabilities) GetEditHistory() *NesEditHistoryCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.EditHistory
-}
-
-// GetUserActions returns UserActions, or nil if x is nil.
-func (x *NesContextCapabilities) GetUserActions() *NesUserActionsCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.UserActions
-}
-
-// GetOpenFiles returns OpenFiles, or nil if x is nil.
-func (x *NesContextCapabilities) GetOpenFiles() *NesOpenFilesCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.OpenFiles
-}
-
-// GetDiagnostics returns Diagnostics, or nil if x is nil.
-func (x *NesContextCapabilities) GetDiagnostics() *NesDiagnosticsCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.Diagnostics
-}
-
-// GetDidOpen returns DidOpen, or nil if x is nil.
-func (x *NesDocumentEventCapabilities) GetDidOpen() *NesDocumentDidOpenCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.DidOpen
-}
-
-// GetDidChange returns DidChange, or nil if x is nil.
-func (x *NesDocumentEventCapabilities) GetDidChange() *NesDocumentDidChangeCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.DidChange
-}
-
-// GetDidClose returns DidClose, or nil if x is nil.
-func (x *NesDocumentEventCapabilities) GetDidClose() *NesDocumentDidCloseCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.DidClose
-}
-
-// GetDidSave returns DidSave, or nil if x is nil.
-func (x *NesDocumentEventCapabilities) GetDidSave() *NesDocumentDidSaveCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.DidSave
-}
-
-// GetDidFocus returns DidFocus, or nil if x is nil.
-func (x *NesDocumentEventCapabilities) GetDidFocus() *NesDocumentDidFocusCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.DidFocus
-}
-
-// GetMaxCount returns the value of MaxCount, or the zero value if x or MaxCount is nil.
-func (x *NesEditHistoryCapabilities) GetMaxCount() uint32 {
-	if x != nil && x.MaxCount != nil {
-		return *x.MaxCount
-	}
-	var zero uint32
-	return zero
-}
-
-// GetDocument returns Document, or nil if x is nil.
-func (x *NesEventCapabilities) GetDocument() *NesDocumentEventCapabilities {
-	if x == nil {
-		return nil
-	}
-	return x.Document
-}
-
-// GetVisibleRange returns VisibleRange, or nil if x is nil.
-func (x *NesOpenFile) GetVisibleRange() *Range {
-	if x == nil {
-		return nil
-	}
-	return x.VisibleRange
-}
-
-// GetLastFocusedMs returns the value of LastFocusedMs, or the zero value if x or LastFocusedMs is nil.
-func (x *NesOpenFile) GetLastFocusedMs() uint64 {
-	if x != nil && x.LastFocusedMs != nil {
-		return *x.LastFocusedMs
-	}
-	var zero uint64
-	return zero
-}
-
-// GetMaxCount returns the value of MaxCount, or the zero value if x or MaxCount is nil.
-func (x *NesRecentFilesCapabilities) GetMaxCount() uint32 {
-	if x != nil && x.MaxCount != nil {
-		return *x.MaxCount
-	}
-	var zero uint32
-	return zero
-}
-
-// GetCursorPosition returns CursorPosition, or nil if x is nil.
-func (x *NesSuggestionEdit) GetCursorPosition() *Position {
-	if x == nil {
-		return nil
-	}
-	return x.CursorPosition
-}
-
-// GetIsRegex returns the value of IsRegex, or the zero value if x or IsRegex is nil.
-func (x *NesSuggestionSearchAndReplace) GetIsRegex() bool {
-	if x != nil && x.IsRegex != nil {
-		return *x.IsRegex
-	}
-	var zero bool
-	return zero
-}
-
-// GetMaxCount returns the value of MaxCount, or the zero value if x or MaxCount is nil.
-func (x *NesUserActionsCapabilities) GetMaxCount() uint32 {
-	if x != nil && x.MaxCount != nil {
-		return *x.MaxCount
-	}
-	var zero uint32
-	return zero
+	return x.SystemPrompt
 }
 
 // GetImage returns Image, or nil if x is nil.
@@ -1047,15 +841,6 @@ func (x *ProviderInfo) GetCurrent() *ProviderCurrentConfig {
 	return x.Current
 }
 
-// GetReason returns the value of Reason, or the zero value if x or Reason is nil.
-func (x *RejectNesNotification) GetReason() NesRejectReason {
-	if x != nil && x.Reason != nil {
-		return *x.Reason
-	}
-	var zero NesRejectReason
-	return zero
-}
-
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *RequestPermissionRequest) GetDescription() string {
 	if x != nil && x.Description != nil {
@@ -1081,6 +866,14 @@ func (x *RequestPermissionSubjectCommand) GetTerminalID() TerminalID {
 	}
 	var zero TerminalID
 	return zero
+}
+
+// GetSystemPrompt returns SystemPrompt, or nil if x is nil.
+func (x *ResumeSessionRequest) GetSystemPrompt() *SystemPrompt {
+	if x == nil {
+		return nil
+	}
+	return x.SystemPrompt
 }
 
 // GetPrompt returns Prompt, or nil if x is nil.
@@ -1113,6 +906,14 @@ func (x *SessionCapabilities) GetAdditionalDirectories() *SessionAdditionalDirec
 		return nil
 	}
 	return x.AdditionalDirectories
+}
+
+// GetSystemPrompt returns SystemPrompt, or nil if x is nil.
+func (x *SessionCapabilities) GetSystemPrompt() *SessionSystemPromptCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.SystemPrompt
 }
 
 // GetFork returns Fork, or nil if x is nil.
@@ -1202,6 +1003,22 @@ func (x *SessionInfo) GetUpdatedAt() string {
 	}
 	var zero string
 	return zero
+}
+
+// GetMode returns Mode, or nil if x is nil.
+func (x *SessionSystemPromptCapabilities) GetMode() *SessionSystemPromptModeCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Mode
+}
+
+// GetOverride returns Override, or nil if x is nil.
+func (x *SessionSystemPromptModeCapabilities) GetOverride() *SessionSystemPromptOverrideCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Override
 }
 
 // GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
@@ -1567,45 +1384,12 @@ func (x *SessionUpdateUserMessage) GetMeta() Meta {
 	return v
 }
 
-// GetWorkspaceURI returns the value of WorkspaceURI, or the zero value if x or WorkspaceURI is nil.
-func (x *StartNesRequest) GetWorkspaceURI() string {
-	if x != nil && x.WorkspaceURI != nil {
-		return *x.WorkspaceURI
-	}
-	var zero string
-	return zero
-}
-
-// GetRepository returns Repository, or nil if x is nil.
-func (x *StartNesRequest) GetRepository() *NesRepository {
-	if x == nil {
-		return nil
-	}
-	return x.Repository
-}
-
 // GetCancel returns Cancel, or nil if x is nil.
 func (x *SubagentSessionCapabilities) GetCancel() *SessionCancelCapabilities {
 	if x == nil {
 		return nil
 	}
 	return x.Cancel
-}
-
-// GetSelection returns Selection, or nil if x is nil.
-func (x *SuggestNesRequest) GetSelection() *Range {
-	if x == nil {
-		return nil
-	}
-	return x.Selection
-}
-
-// GetContext returns Context, or nil if x is nil.
-func (x *SuggestNesRequest) GetContext() *NesSuggestContext {
-	if x == nil {
-		return nil
-	}
-	return x.Context
 }
 
 // GetExitCode returns the value of ExitCode, or the zero value if x or ExitCode is nil.
@@ -1624,14 +1408,6 @@ func (x *TerminalExitStatus) GetSignal() string {
 	}
 	var zero string
 	return zero
-}
-
-// GetRange returns Range, or nil if x is nil.
-func (x *TextDocumentContentChangeEvent) GetRange() *Range {
-	if x == nil {
-		return nil
-	}
-	return x.Range
 }
 
 // GetMIMEType returns the value of MIMEType, or the zero value if x or MIMEType is nil.

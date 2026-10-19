@@ -195,8 +195,7 @@ resolution, alternative rules, import detection), plus both pinned SDK versions.
 Method constants use Go-style names such as `AgentMethodsSessionNew` and
 `ClientMethodsSessionUpdate`, grouped in one `const` block per SDK table. `CurrentProtocolVersion`
 is the numeric version constant; `ProtocolVersion` is the wire type. Names keep Go's
-initialisms in one case, such as `RequestID`, `MCPServerHTTP`, `LLMProtocol` and
-`PositionEncodingKindUTF16`; the list lives in `initialisms` in `internal/cmd/schema/tsgen`, and
+initialisms in one case, such as `RequestID`, `MCPServerHTTP` and `LLMProtocol`; the list lives in `initialisms` in `internal/cmd/schema/tsgen`, and
 `spellings` fixes words like `OpenAI`; `literalNames` names constants whose value says nothing
 about their meaning (`ErrorCodeParseError` for `-32700`).
 Tagged-union variants are named `<Union><TagValue>`; when an unrelated schema type already has

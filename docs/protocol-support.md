@@ -17,7 +17,7 @@ Interfaces belong to the corresponding `acp1` or `acp2` package.
 | File and shell access | `fs/*`, `terminal/*` | Through MCP |
 | Prompt response | Returns the turn result | Acknowledges message acceptance |
 | Turn completion | Prompt response | Agent reports idle state |
-| Prompt during a running turn | Rejected with `acp.ErrTurnInProgress` | Joins the running turn |
+| Prompt during a running turn | Rejected with `acp.ErrTurnInProgress` | Joins the running work |
 
 The next two tables describe **ACP v1**.
 
@@ -37,8 +37,6 @@ The next two tables describe **ACP v1**.
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
 | `logout` | `LogoutHandler` |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
 | `mcp/message` (notifications) | `MCPMessageHandler` (unstable) |
 
 ## Client methods (agent → client)
@@ -66,8 +64,6 @@ The next two tables describe **ACP v1**.
 | `session/fork` | `SessionForker` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/*` | `ProviderManager` (unstable) |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
 | `mcp/message` (notifications) | `MCPMessageHandler` (unstable) |
 
 ### Client methods (agent → client)
@@ -82,19 +78,23 @@ The next two tables describe **ACP v1**.
 
 v2 has no `fs/*` or `terminal/*` methods — file and shell access go through MCP — so
 `TerminalHandle` exists only in the v1 package. In v2 the prompt response only accepts the message;
-a `Turn` ends when the agent reports the idle state.
+a `Turn` reads the session's updates until the agent reports the idle state.
 
 Overlapping prompts follow each version's rules on both sides. A v1 session runs one turn at a
 time: `ClientSession.Prompt` and `SessionManager.RunTurn` (or `BeginTurn`) both refuse a second
-prompt with `acp.ErrTurnInProgress` (`-32600`). In v2 a prompt may contribute to running work:
-`Prompt` returns `(*Turn, MessageID, error)` once the message is accepted and joins the running
-turn, and `SessionManager.StartTurn` (or `JoinTurn`) hands the agent the running turn's context,
-reporting running and idle around its work.
+prompt with `acp.ErrTurnInProgress` (`-32600`). In v2 a prompt may contribute to running work, and
+`SessionManager.StartTurn` (or `JoinTurn`) hands the agent the running turn's context, reporting
+running and idle around its work. On the client, `ClientSession.Prompt` returns `(MessageID, error)`
+once the message is inserted, and a rejection is reported there only. An idle update reports that
+the session's foreground work stopped, not that a given prompt was processed, so the session's
+updates are queued apart from its prompts from the moment the `ClientSession` is created:
+`ClientSession.UntilIdle` reads them up to the next idle update and `NextUpdate` one at a time.
+`ClientSession.Close` closes the session and releases its queue.
 
 Once a v2 prompt is accepted, its response cannot report a later failure. Work that fails ends the
 turn idle with the `error` stop reason and a JSON-RPC error object: `SessionStream.IdleError`
 sends it, `StartTurn` does so when its work returns an error or panics, and the client's
-`Turn.Wait` returns `acp2.StopReasonError` with that error as an `*acp.RequestError`, as a v1
+`Turn.Wait` (from `UntilIdle`) returns `acp2.StopReasonError` with that error as an `*acp.RequestError`, as a v1
 prompt's error response would.
 
 ### Cancellation ordering

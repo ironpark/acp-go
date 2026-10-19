@@ -2,6 +2,7 @@ package acp2
 
 import (
 	"context"
+	"sync"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
@@ -15,7 +16,9 @@ import (
 type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
-	turns  acpconn.Turns[SessionID, SessionUpdate, StopReason]
+
+	mu       sync.Mutex
+	sessions map[SessionID]*acpconn.Queue[SessionUpdate] // one per ClientSession
 }
 
 var _ Agent = (*ClientSideConnection)(nil)
@@ -32,25 +35,24 @@ func NewClientSideConnection(newClient func(*ClientSideConnection) Client, trans
 	return c
 }
 
-// sessionUpdate copies each session update to the session's [Turn] in
-// progress and ends the turn when the agent reports idle, then hands the
-// update to the client. The generated dispatch routes session/update here.
+// sessionUpdate queues each session update for the session's [ClientSession],
+// if one was created, then hands the update to the client. The generated
+// dispatch routes session/update here.
 func (c *ClientSideConnection) sessionUpdate(ctx context.Context, n *UpdateSessionNotification) error {
-	if t := c.turns.Deliver(n.SessionID, n.Update); t != nil {
-		if state, ok := n.Update.As[schema.SessionUpdateStateUpdate](); ok {
-			if idle, ok := state.Value.As[schema.StateUpdateIdle](); ok {
-				reason, failure := stopOf(idle.Value)
-				c.turns.End(n.SessionID, t, reason, failure)
-			}
-		}
+	c.mu.Lock()
+	q := c.sessions[n.SessionID]
+	c.mu.Unlock()
+	if q != nil {
+		q.Push(n.Update)
 	}
 	return c.client.SessionUpdate(ctx, n)
 }
 
 // UnimplementedClient provides the methods every [Client] needs for a client
-// that only reads its turns: it drops session updates, which each [Turn] still
-// collects, and answers permission requests with "method not found". Embed it
-// and declare either method to override it:
+// that only reads its sessions' updates through [ClientSession]: it drops
+// session updates, which each ClientSession still queues, and answers
+// permission requests with "method not found". Embed it and declare either
+// method to override it:
 //
 //	type myClient struct{ acp2.UnimplementedClient }
 //

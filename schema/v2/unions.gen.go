@@ -1110,10 +1110,24 @@ func (v DiffChangeCustom) Tag() string { return v.Operation }
 // either via a form or by directing them to a URL.
 // Elicitations are tied to a session (optionally a tool call) or a request.
 //
+// A session-scoped request follows the aggregate foreground-state contract:
+// agents SHOULD report `requires_action` when the whole foreground workflow is
+// blocked on user action. Once reported, they MUST report `running` when progress
+// resumes, or `idle` if work ends without resuming. Independent background requests
+// and request-scoped elicitations do not themselves change session state.
+// Accepting a URL does not mean the external interaction completed.
+//
+// Agents SHOULD cancel pending elicitations no longer needed by cancelled work.
+// The request's scope alone does not establish that dependency.
+//
+// See protocol docs: [Elicitation]
+//
 // CreateElicitationRequest preserves the complete JSON payload, including future variants.
 // Use [CreateElicitationRequest.As] to read one alternative and [NewCreateElicitationRequest] to build one.
 // The zero value holds no payload: an omitzero field omits it, and encoding it
 // anywhere else fails.
+//
+// [Elicitation]: https://agentclientprotocol.com/protocol/v2/draft/elicitation
 type CreateElicitationRequest struct{ raw jsontext.Value }
 
 // CreateElicitationRequestAlternative is the set of Go types CreateElicitationRequest can hold.
@@ -2403,266 +2417,6 @@ func (AvailableCommandInputCustom) availableCommandInputVariant() {}
 // Tag returns the "type" member.
 func (v AvailableCommandInputCustom) Tag() string { return v.Type }
 
-// NesSuggestion is a suggestion returned by the agent.
-//
-// NesSuggestion is a tagged union discriminated by the "kind" member. Use [NewNesSuggestion]
-// or a type switch on [NesSuggestion.Variant] to work with it. The zero value holds no
-// variant: an omitzero field omits it, and encoding it anywhere else fails.
-type NesSuggestion struct{ value NesSuggestionVariant }
-
-// NesSuggestionVariant is implemented by [NesSuggestionEdit], [NesSuggestionJump], [NesSuggestionRename], [NesSuggestionSearchAndReplace], [NesSuggestionCustom].
-type NesSuggestionVariant interface {
-	nesSuggestionVariant()
-	Tag() string
-}
-
-// NesSuggestionVariants is the set of NesSuggestion variant types. It lists the types
-// themselves: a pointer to a variant also has the NesSuggestionVariant
-// methods, but is not one.
-type NesSuggestionVariants interface {
-	NesSuggestionEdit |
-		NesSuggestionJump |
-		NesSuggestionRename |
-		NesSuggestionSearchAndReplace |
-		NesSuggestionCustom
-	NesSuggestionVariant
-}
-
-// NewNesSuggestion wraps a variant.
-func NewNesSuggestion[T NesSuggestionVariants](v T) NesSuggestion { return NesSuggestion{value: v} }
-
-// Variant returns the wrapped variant, or nil for the zero value.
-func (u NesSuggestion) Variant() NesSuggestionVariant { return u.value }
-
-// As returns the variant if it is a T, like a type assertion on Variant
-// with T checked against the union's variants at compile time.
-func (u NesSuggestion) As[T NesSuggestionVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
-
-// Tag returns the "kind" discriminator, or "" for the zero value.
-func (u NesSuggestion) Tag() string {
-	if u.value == nil {
-		return ""
-	}
-	return u.value.Tag()
-}
-
-// IsZero reports whether no variant is set, so omitzero omits the field.
-func (u NesSuggestion) IsZero() bool { return u.value == nil }
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (u NesSuggestion) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if u.value == nil {
-		return errors.New("NesSuggestion: no variant set; use NewNesSuggestion")
-	}
-	return json.MarshalEncode(enc, u.value)
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (u *NesSuggestion) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalNesSuggestionVariant(dec, &u.value)
-}
-
-// unmarshalNesSuggestionVariant decodes a NesSuggestionVariant by its "kind" member; it backs Unmarshalers.
-func unmarshalNesSuggestionVariant(dec *jsontext.Decoder, out *NesSuggestionVariant) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if raw.Kind() == 'n' {
-		*out = nil
-		return nil
-	}
-	if raw.Kind() != '{' {
-		return fmt.Errorf("NesSuggestion: expected object, got %s", raw.Kind())
-	}
-	tag, present, err := union.ReadTag(raw, "kind", dec.Options())
-	if err != nil {
-		return fmt.Errorf("NesSuggestion: %w", err)
-	}
-	if !present {
-		return errors.New("NesSuggestion: missing \"kind\" member")
-	}
-	switch tag {
-	case "edit":
-		var v NesSuggestionEdit
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "jump":
-		var v NesSuggestionJump
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "rename":
-		var v NesSuggestionRename
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "searchAndReplace":
-		var v NesSuggestionSearchAndReplace
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	default:
-		var v NesSuggestionCustom
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	}
-	return nil
-}
-
-// NesSuggestionEdit is a text edit suggestion.
-//
-// NesSuggestionEdit is the NesSuggestion variant with kind "edit".
-type NesSuggestionEdit struct {
-	// Unique identifier for accept/reject tracking.
-	SuggestionID NesSuggestionID `json:"suggestionId"`
-	// The URI of the file to edit.
-	URI string `json:"uri"`
-	// The text edits to apply. Must contain at least one edit.
-	Edits []NesTextEdit `json:"edits"`
-	// Optional suggested cursor position after applying edits.
-	CursorPosition *Position `json:"cursorPosition,omitzero"`
-	Meta           Meta      `json:"_meta,omitzero"`
-}
-
-func (NesSuggestionEdit) nesSuggestionVariant() {}
-
-// Tag returns "edit".
-func (NesSuggestionEdit) Tag() string { return "edit" }
-
-type nesSuggestionEditFields NesSuggestionEdit
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v NesSuggestionEdit) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, kindTagged[nesSuggestionEditFields]{"edit", nesSuggestionEditFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *NesSuggestionEdit) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalKindTagged(dec, "NesSuggestionEdit", "edit", (*nesSuggestionEditFields)(v))
-}
-
-// NesSuggestionJump is a jump-to-location suggestion.
-//
-// NesSuggestionJump is the NesSuggestion variant with kind "jump".
-type NesSuggestionJump struct {
-	// Unique identifier for accept/reject tracking.
-	SuggestionID NesSuggestionID `json:"suggestionId"`
-	// The file to navigate to.
-	URI string `json:"uri"`
-	// The target position within the file.
-	Position Position `json:"position"`
-	Meta     Meta     `json:"_meta,omitzero"`
-}
-
-func (NesSuggestionJump) nesSuggestionVariant() {}
-
-// Tag returns "jump".
-func (NesSuggestionJump) Tag() string { return "jump" }
-
-type nesSuggestionJumpFields NesSuggestionJump
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v NesSuggestionJump) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, kindTagged[nesSuggestionJumpFields]{"jump", nesSuggestionJumpFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *NesSuggestionJump) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalKindTagged(dec, "NesSuggestionJump", "jump", (*nesSuggestionJumpFields)(v))
-}
-
-// NesSuggestionRename is a rename symbol suggestion.
-//
-// NesSuggestionRename is the NesSuggestion variant with kind "rename".
-type NesSuggestionRename struct {
-	// Unique identifier for accept/reject tracking.
-	SuggestionID NesSuggestionID `json:"suggestionId"`
-	// The file URI containing the symbol.
-	URI string `json:"uri"`
-	// The position of the symbol to rename.
-	Position Position `json:"position"`
-	// The new name for the symbol.
-	NewName string `json:"newName"`
-	Meta    Meta   `json:"_meta,omitzero"`
-}
-
-func (NesSuggestionRename) nesSuggestionVariant() {}
-
-// Tag returns "rename".
-func (NesSuggestionRename) Tag() string { return "rename" }
-
-type nesSuggestionRenameFields NesSuggestionRename
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v NesSuggestionRename) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, kindTagged[nesSuggestionRenameFields]{"rename", nesSuggestionRenameFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *NesSuggestionRename) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalKindTagged(dec, "NesSuggestionRename", "rename", (*nesSuggestionRenameFields)(v))
-}
-
-// NesSuggestionSearchAndReplace is a search-and-replace suggestion.
-//
-// NesSuggestionSearchAndReplace is the NesSuggestion variant with kind "searchAndReplace".
-type NesSuggestionSearchAndReplace struct {
-	// Unique identifier for accept/reject tracking.
-	SuggestionID NesSuggestionID `json:"suggestionId"`
-	// The file URI to search within.
-	URI string `json:"uri"`
-	// The text or pattern to find.
-	Search string `json:"search"`
-	// The replacement text.
-	Replace string `json:"replace"`
-	// Whether `search` is a regular expression. Defaults to `false`.
-	IsRegex *bool `json:"isRegex,omitzero"`
-	Meta    Meta  `json:"_meta,omitzero"`
-}
-
-func (NesSuggestionSearchAndReplace) nesSuggestionVariant() {}
-
-// Tag returns "searchAndReplace".
-func (NesSuggestionSearchAndReplace) Tag() string { return "searchAndReplace" }
-
-type nesSuggestionSearchAndReplaceFields NesSuggestionSearchAndReplace
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v NesSuggestionSearchAndReplace) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, kindTagged[nesSuggestionSearchAndReplaceFields]{"searchAndReplace", nesSuggestionSearchAndReplaceFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *NesSuggestionSearchAndReplace) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalKindTagged(dec, "NesSuggestionSearchAndReplace", "searchAndReplace", (*nesSuggestionSearchAndReplaceFields)(v))
-}
-
-// NesSuggestionCustom holds NesSuggestion values with an unrecognized "kind", keeping every member.
-type NesSuggestionCustom struct {
-	// Custom or future NES suggestion kind.
-	//
-	// Values beginning with `_` are reserved for implementation-specific
-	// extensions. Unknown values that do not begin with `_` are reserved for
-	// future ACP variants.
-	Kind string `json:"kind"`
-	// Unique identifier for accept/reject tracking.
-	SuggestionID         NesSuggestionID           `json:"suggestionId"`
-	AdditionalProperties map[string]jsontext.Value `json:",embed"`
-}
-
-func (NesSuggestionCustom) nesSuggestionVariant() {}
-
-// Tag returns the "kind" member.
-func (v NesSuggestionCustom) Tag() string { return v.Kind }
-
 // SessionUpdate is a tagged union discriminated by the "sessionUpdate" member. Use [NewSessionUpdate]
 // or a type switch on [SessionUpdate.Variant] to work with it. The zero value holds no
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
@@ -2966,7 +2720,9 @@ type SessionUpdateUserMessage struct {
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this message.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted means no metadata update; `null` is an explicit clear signal.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3037,7 +2793,9 @@ type SessionUpdateAgentMessage struct {
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this message.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted means no metadata update; `null` is an explicit clear signal.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3108,7 +2866,9 @@ type SessionUpdateAgentThought struct {
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this thought message.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted means no metadata update; `null` is an explicit clear signal.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3209,7 +2969,9 @@ type SessionUpdateToolCallUpdate struct {
 	RawInput jsontext.Value `json:"rawInput,omitzero"`
 	// Raw output returned by the tool.
 	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
-	// Omitted means no metadata update; `null` is an explicit clear signal.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3234,8 +2996,9 @@ func (v *SessionUpdateToolCallUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 //
 // Only [SessionUpdateTerminalUpdate.TerminalID] is required. Other fields have patch
 // semantics: omitted fields leave the stored value unchanged, `null` clears
-// it, and concrete values replace it. When the terminal ID is new, omitted
-// fields start unknown.
+// it, and concrete values replace it. A concrete `_meta` object instead
+// patches the stored metadata by top-level key. When the terminal ID is new,
+// omitted fields start unknown.
 //
 // SessionUpdateTerminalUpdate is the SessionUpdate variant with sessionUpdate "terminal_update".
 type SessionUpdateTerminalUpdate struct {
@@ -3249,7 +3012,9 @@ type SessionUpdateTerminalUpdate struct {
 	Output optional.Value[TerminalOutput] `json:"output,omitzero"`
 	// Exit information. A concrete object marks the terminal as exited.
 	ExitStatus optional.Value[TerminalExitStatus] `json:"exitStatus,omitzero"`
-	// Omitted means no metadata update; `null` is an explicit clear signal.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3413,13 +3178,16 @@ func (v *SessionUpdateConfigOptionUpdate) UnmarshalJSONFrom(dec *jsontext.Decode
 // This allows clients to display dynamic session names and track session state changes.
 //
 // Omitted fields leave the existing session info unchanged. `null` clears the
-// corresponding value.
+// corresponding value. A concrete `_meta` object patches the stored metadata by
+// top-level key.
 type SessionUpdateSessionInfoUpdate struct {
 	// Human-readable title for the session. Set to null to clear.
 	Title optional.Value[string] `json:"title,omitzero"`
 	// RFC 3339 timestamp of last activity. Set to null to clear.
 	UpdatedAt optional.Value[string] `json:"updatedAt,omitzero"`
-	// Omitted means no metadata update; `null` is an explicit clear signal.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3518,7 +3286,8 @@ func (v *SessionUpdateNotice) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 //
 // `summary`, `error`, and `_meta` have patch semantics: omission leaves the
 // stored value unchanged, `null` clears it, and a concrete value replaces it.
-// `summary: []` also clears the summary.
+// `summary: []` also clears the summary. A concrete `_meta` object patches the
+// stored metadata by top-level key instead of replacing it.
 //
 // SessionUpdateCompactionUpdate is the SessionUpdate variant with sessionUpdate "compaction_update".
 type SessionUpdateCompactionUpdate struct {
@@ -3530,7 +3299,9 @@ type SessionUpdateCompactionUpdate struct {
 	Summary optional.Value[[]ContentBlock] `json:"summary,omitzero"`
 	// Human-readable error details for the compaction.
 	Error optional.Value[string] `json:"error,omitzero"`
-	// Extensible metadata patch for this compaction.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3596,9 +3367,10 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 //
 // Only [SessionUpdateSubagentUpdate.SessionID] is required. Other fields have
 // patch semantics: omitted fields leave the stored value unchanged, `null`
-// clears or unsets the value, and concrete values replace it. For `state`,
-// `null` removes the current state report and leaves activity unconfirmed;
-// it does not report idle or cancellation. A child whose capabilities are
+// clears or unsets the value, and concrete values replace it. A concrete
+// `_meta` object instead patches the stored metadata by top-level key. For
+// `state`, `null` removes the current state report and leaves activity
+// unconfirmed; it does not report idle or cancellation. A child whose capabilities are
 // unset permits no Client-initiated session mutations.
 //
 // The title and description provide the parent's display metadata for the
@@ -3638,7 +3410,9 @@ type SessionUpdateSubagentUpdate struct {
 	// current report and leaves activity unconfirmed (not idle or cancelled).
 	// A concrete [StateUpdate] replaces the entire previous snapshot.
 	State optional.Value[StateUpdate] `json:"state,omitzero"`
-	// Omitted means no metadata update; `null` is an explicit clear signal.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3674,7 +3448,9 @@ type SessionUpdateSessionMessage struct {
 	// Omitted leaves content unchanged; `null` clears it; a concrete array
 	// replaces the whole content collection.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted leaves metadata unchanged; `null` clears it.
+	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	//
+	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -3750,11 +3526,14 @@ func (v SessionUpdateCustom) Tag() string { return v.SessionUpdate }
 // or a type switch on [IdleStateUpdate.Variant] to work with it. The zero value holds no
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
-// The agent is ready to process a new prompt.
+// No foreground work is active. Background activity may continue.
 //
 // Agents SHOULD include a `stopReason` when the idle transition ends foreground
-// work. An omitted, `null`, or malformed `stopReason` means the agent is not
+// work. An idle update that does not end foreground work need not include one.
+// Receivers treat an omitted, `null`, or malformed `stopReason` as the agent not
 // reporting one.
+// Repeated or resume snapshots may carry the last stop reason for context.
+// They MUST NOT be counted as new completions, cancellations, or additional usage.
 type IdleStateUpdate struct{ value IdleStateUpdateVariant }
 
 // IdleStateUpdateVariant is implemented by [IdleStateUpdateEndTurn], [IdleStateUpdateMaxTokens], [IdleStateUpdateMaxTurnRequests], [IdleStateUpdateRefusal], [IdleStateUpdateCancelled], [IdleStateUpdateError], [IdleStateUpdateCustom], [IdleStateUpdateUntagged].
@@ -4109,14 +3888,52 @@ func (IdleStateUpdateUntagged) idleStateUpdateVariant() {}
 // Tag returns "": IdleStateUpdateUntagged is the IdleStateUpdate variant without a "stopReason" member.
 func (IdleStateUpdateUntagged) Tag() string { return "" }
 
+// StateUpdate is a snapshot of the session's aggregate foreground activity.
+//
+// Foreground work is the agent's active response or workflow in the session,
+// including model processing, tool execution, and waiting for user action needed
+// to continue that work. It can start with a prompt or be agent-initiated, for
+// example to pursue an ongoing goal or follow up on a completed background task.
+// Either way, the agent MUST report `running` when foreground work starts,
+// or `requires_action` if it starts blocked on user action, and `idle` when it
+// ends. The agent SHOULD include a stop reason on that idle update.
+// Agent-initiated work does not require a prompt request or a synthetic user
+// message.
+//
+// `running` may precede user-message insertion, for example during a foreground
+// hook. It is not acknowledgment of insertion, and rejecting a prompt does not
+// itself end foreground work.
+//
+// Background activity can continue and emit other `session/update` notifications
+// while `idle`. Those notifications, including a detached task's progress or
+// completion, do not by themselves change this state. A permission request only
+// warrants `requires_action` when foreground work is blocked on user action.
+//
+// The agent SHOULD report `requires_action` when the foreground workflow as a
+// whole cannot progress without user action, including permissions or elicitations.
+// Once reported, it MUST report `running` when progress resumes, or `idle` when
+// work ends without resuming.
+// If other foreground work can progress, the state remains `running`. Resolving
+// one of several requests does not itself change the state. Agents SHOULD ignore
+// responses for work that has already ended rather than use them to resume it.
+//
+// A new session defaults to idle until a state update reports otherwise.
+// Resume MUST send a current-state snapshot after any replay and before its
+// response. The snapshot reports foreground state after resuming.
+// The response alone does not imply idle.
+// Repeated snapshots are idempotent, not additional work, completions, or usage.
+// A repeated state may carry updated information without another state transition.
+// The agent MUST report `idle` when no foreground activity remains. Completing
+// an individual activity while other foreground work continues does not require
+// an idle boundary. Local commands use the same lifecycle even without model work.
+//
+// See protocol docs: [Session States]
+//
 // StateUpdate is a tagged union discriminated by the "state" member. Use [NewStateUpdate]
 // or a type switch on [StateUpdate.Variant] to work with it. The zero value holds no
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
-// The state of the agent's foreground work has changed.
-//
-// Background activity can continue and emit other `session/update` notifications
-// while `idle`. Those notifications do not change this state.
+// [Session States]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#session-states
 type StateUpdate struct{ value StateUpdateVariant }
 
 // StateUpdateVariant is implemented by [StateUpdateRunning], [StateUpdateIdle], [StateUpdateRequiresAction], [StateUpdateUnknown], [StateUpdateCustom].
@@ -4271,7 +4088,14 @@ func (v *StateUpdateIdle) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 // StateUpdateRequiresAction is the StateUpdate variant with state "requires_action".
 //
-// Foreground work is blocked on user action.
+// The foreground workflow as a whole is blocked on user action.
+//
+// Agents SHOULD report this state when foreground work cannot progress without
+// user action. Pending permissions or elicitations alone do not imply this
+// state if other foreground work can progress, or if the requests belong only
+// to independent background activity. Once reported, agents MUST report
+// `running` when progress resumes, or `idle` if the work ends without resuming.
+// Responding to one request does not itself imply `running`.
 type StateUpdateRequiresAction struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
@@ -5624,7 +5448,6 @@ var unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalAuthMethodVariant),
 	json.UnmarshalFromFunc(unmarshalSessionConfigOptionVariant),
 	json.UnmarshalFromFunc(unmarshalAvailableCommandInputVariant),
-	json.UnmarshalFromFunc(unmarshalNesSuggestionVariant),
 	json.UnmarshalFromFunc(unmarshalSessionUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalIdleStateUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalStateUpdateVariant),
@@ -5651,26 +5474,6 @@ func unmarshalActionTagged[F any](dec *jsontext.Decoder, name, want string, out 
 	}
 	if w.Tag != want {
 		return fmt.Errorf("%s: expected action %q, got %q", name, want, w.Tag)
-	}
-	*out = w.Fields
-	return nil
-}
-
-// kindTagged is the wire form of a variant tagged by its "kind" member.
-type kindTagged[F any] struct {
-	Tag    string `json:"kind"`
-	Fields F      `json:",embed"`
-}
-
-// unmarshalKindTagged decodes a variant tagged by its "kind" member into out, failing
-// unless the tag is want; name is the variant's Go type, for the error.
-func unmarshalKindTagged[F any](dec *jsontext.Decoder, name, want string, out *F) error {
-	var w kindTagged[F]
-	if err := json.UnmarshalDecode(dec, &w); err != nil {
-		return err
-	}
-	if w.Tag != want {
-		return fmt.Errorf("%s: expected kind %q, got %q", name, want, w.Tag)
 	}
 	*out = w.Fields
 	return nil

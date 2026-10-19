@@ -20,16 +20,6 @@ const (
 	AgentMethodsSessionResume          = "session/resume"
 	AgentMethodsSessionClose           = "session/close"
 	AgentMethodsAuthLogout             = "auth/logout"
-	AgentMethodsNesStart               = "nes/start"
-	AgentMethodsNesSuggest             = "nes/suggest"
-	AgentMethodsNesAccept              = "nes/accept"
-	AgentMethodsNesReject              = "nes/reject"
-	AgentMethodsNesClose               = "nes/close"
-	AgentMethodsDocumentDidOpen        = "document/didOpen"
-	AgentMethodsDocumentDidChange      = "document/didChange"
-	AgentMethodsDocumentDidClose       = "document/didClose"
-	AgentMethodsDocumentDidSave        = "document/didSave"
-	AgentMethodsDocumentDidFocus       = "document/didFocus"
 )
 
 // The ClientMethods constants mirror the SDK's CLIENT_METHODS table.

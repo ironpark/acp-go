@@ -2,9 +2,48 @@
 
 All notable changes to this module are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Unstable areas
-(`acpmcp`, MCP-over-ACP, subagents, NES, providers) may change in any release.
+(`acpmcp`, MCP-over-ACP, subagents, providers) may change in any release.
 
 ## [Unreleased]
+
+## [0.3.0] - 2026-10-19
+
+### Schema
+
+- Pinned the TypeScript SDK at `1db4d43` (1.9.0). The ACP schema moves to **v1.26.0**, and the v2
+  draft to **2.0.0-alpha.9**.
+- **Client system prompt (unstable):** `session/new`, `session/load` (v1), `session/fork` and
+  `session/resume` take an optional `systemPrompt` (`SystemPrompt`, with an open `SystemPromptMode`
+  of `append` or `override`). Agents advertise it as `SessionCapabilities.SystemPrompt`.
+- **Next Edit Suggestions are removed** from the protocol, with the `nes/*` and `document/did*`
+  methods and the client's `positionEncodings` / agent's `positionEncoding`.
+- v2 documents a concrete `_meta` in an update as a patch of the stored metadata by top-level key.
+  The members already decode as `optional.Value[Meta]`, so absent, `null` and an object stay
+  distinct.
+
+### Breaking changes
+
+- **NES is gone:** `NesHandler`, `DocumentHandler`, their `nes/*` and `document/did*` calls on
+  `ClientSideConnection`, and the `Nes*`, `*DocumentNotification`, `Position`, `Range`,
+  `PositionEncodingKind`, `TextDocument*` and `WorkspaceFolder` types are removed from `acp1`,
+  `acp2` and both schema packages. `AgentCapabilities.Nes` / `PositionEncoding` and
+  `ClientCapabilities.Nes` / `PositionEncodings` are removed as well.
+- **The v2 client reads session updates apart from prompts** (TypeScript SDK #280). An idle update
+  reports that the session's foreground work stopped, not that a prompt was processed, so a turn
+  tied to a prompt could end on the idle of earlier work and drop the updates that followed.
+  - `acp2.ClientSession.Prompt` returns `(MessageID, error)`: the insertion receipt. A rejection is
+    reported there only and no longer ends a turn.
+  - Each `ClientSession` queues its session's updates from the moment `Session` or `StartSession`
+    creates it. `ClientSession.UntilIdle(ctx)` returns a `Turn` that reads them up to and including
+    the next idle update; `Turn.Updates`, `Wait` and `Text` keep their meaning, and `Turn.Done` is
+    removed. `ClientSession.NextUpdate(ctx)` reads one update.
+  - `ClientSession.Close(ctx)` sends `session/close` and releases the queue.
+
+### Fixed
+
+- Requests with `"params": null` decode as an empty object, as omitted params already did, so
+  all-optional requests such as `session/list` and `logout` are accepted. Requests with required
+  fields still fail with `-32602`.
 
 ## [0.2.0] - 2026-10-12
 
@@ -208,7 +247,8 @@ below cover the changes made since `c7b0f78`.
 - **Request contexts carry their connection's context** (`jsonrpc.ConnectionContext`)
   ([0c86c9f], [e204a53]).
 
-[Unreleased]: https://github.com/ironpark/acp-go/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ironpark/acp-go/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ironpark/acp-go/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ironpark/acp-go/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ironpark/acp-go/releases/tag/v0.1.0
 [ce46ac9]: https://github.com/ironpark/acp-go/commit/ce46ac9

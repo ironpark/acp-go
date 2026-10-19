@@ -31,7 +31,7 @@ func (c *v2Client) SessionUpdate(_ context.Context, params *acp2.UpdateSessionNo
 }
 
 // promptV2 runs one turn in a new session: the prompt response only accepts
-// the message, and the turn ends with the idle update's stop reason. It then
+// the message, and the session's updates are read until the idle update. It then
 // closes the session and resumes it with a replay of its history, the v2
 // replacement for session/load, and prompts again.
 func promptV2(ctx context.Context, agent *acp2.RemoteAgent, client *v2Client, cwd, prompt string) error {
@@ -43,8 +43,9 @@ func promptV2(ctx context.Context, agent *acp2.RemoteAgent, client *v2Client, cw
 		return err
 	}
 
-	// Closing ends the work on the session; the agent keeps it to resume.
-	if _, err := agent.CloseSession(ctx, &acp2.CloseSessionRequest{SessionID: session.ID}); err != nil {
+	// Closing ends the work on the session and stops queueing its updates;
+	// the agent keeps it to resume.
+	if err := session.Close(ctx); err != nil {
 		return fmt.Errorf("close session: %w", err)
 	}
 	fmt.Println("closed the session; resuming it")
@@ -59,15 +60,15 @@ func promptV2(ctx context.Context, agent *acp2.RemoteAgent, client *v2Client, cw
 	if err != nil {
 		return fmt.Errorf("resume session: %w", err)
 	}
-	return turnV2(ctx, session, prompt+" again")
+	// A new handle queues the updates that follow the replay.
+	return turnV2(ctx, agent.Session(session.ID), prompt+" again")
 }
 
 func turnV2(ctx context.Context, session *acp2.ClientSession, prompt string) error {
-	turn, _, err := session.Prompt(ctx, acp2.TextBlock(prompt))
-	if err != nil {
+	if _, err := session.Prompt(ctx, acp2.TextBlock(prompt)); err != nil {
 		return err
 	}
-	text, reason, err := turn.Text()
+	text, reason, err := session.UntilIdle(ctx).Text()
 	if err != nil {
 		return err
 	}

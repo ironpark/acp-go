@@ -49,7 +49,7 @@ if err := conn.Start(context.Background()); err != nil {
 
 `Agent` 인터페이스에 반드시 필요한 메서드는 `Initialize`, `NewSession`, `Prompt`, `CancelSession`
 네 개뿐입니다. 나머지는 선택적 인터페이스(`acp1.Authenticator`, `acp1.SessionLoader`,
-`acp1.SessionLister`, `acp1.SessionModeSetter`, `acp1.NesHandler` 등)로 구현합니다.
+`acp1.SessionLister`, `acp1.SessionModeSetter`, `acp1.LogoutHandler` 등)로 구현합니다.
 `acp1.CapabilitiesOf(agent)`가 구현된 인터페이스에서 capability를 유도해 주므로, `Initialize`
 응답이 연결이 거부할 메서드를 광고하는 일이 없습니다:
 

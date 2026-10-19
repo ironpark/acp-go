@@ -29,9 +29,6 @@ type (
 	CloseSessionResponse            = schema.CloseSessionResponse
 	SetSessionConfigOptionResponse  = schema.SetSessionConfigOptionResponse
 	PromptResponse                  = schema.PromptResponse
-	StartNesResponse                = schema.StartNesResponse
-	SuggestNesResponse              = schema.SuggestNesResponse
-	CloseNesResponse                = schema.CloseNesResponse
 	ExtResponse                     = schema.ExtResponse
 	UpdateSessionNotification       = schema.UpdateSessionNotification
 	CompleteElicitationNotification = schema.CompleteElicitationNotification
@@ -50,20 +47,10 @@ type (
 	CloseSessionRequest             = schema.CloseSessionRequest
 	SetSessionConfigOptionRequest   = schema.SetSessionConfigOptionRequest
 	PromptRequest                   = schema.PromptRequest
-	StartNesRequest                 = schema.StartNesRequest
-	SuggestNesRequest               = schema.SuggestNesRequest
-	CloseNesRequest                 = schema.CloseNesRequest
 	RequestPermissionResponse       = schema.RequestPermissionResponse
 	CreateElicitationResponse       = schema.CreateElicitationResponse
 	MessageMCPResponse              = schema.MessageMCPResponse
 	CancelSessionNotification       = schema.CancelSessionNotification
-	DidOpenDocumentNotification     = schema.DidOpenDocumentNotification
-	DidChangeDocumentNotification   = schema.DidChangeDocumentNotification
-	DidCloseDocumentNotification    = schema.DidCloseDocumentNotification
-	DidSaveDocumentNotification     = schema.DidSaveDocumentNotification
-	DidFocusDocumentNotification    = schema.DidFocusDocumentNotification
-	AcceptNesNotification           = schema.AcceptNesNotification
-	RejectNesNotification           = schema.RejectNesNotification
 	MessageMCPNotification          = schema.MessageMCPNotification
 	CancelRequestNotification       = schema.CancelRequestNotification
 )
@@ -92,7 +79,6 @@ type (
 	AvailableCommandInputVariants            = schema.AvailableCommandInputVariants
 	BlobResourceContents                     = schema.BlobResourceContents
 	ClientCapabilities                       = schema.ClientCapabilities
-	ClientNesCapabilities                    = schema.ClientNesCapabilities
 	CompactionID                             = schema.CompactionID
 	CompactionStatus                         = schema.CompactionStatus
 	ContentBlock                             = schema.ContentBlock
@@ -194,46 +180,6 @@ type (
 	MultiSelectItemsString                   = schema.MultiSelectItemsString
 	MultiSelectItemsVariant                  = schema.MultiSelectItemsVariant
 	MultiSelectItemsVariants                 = schema.MultiSelectItemsVariants
-	NesCapabilities                          = schema.NesCapabilities
-	NesContextCapabilities                   = schema.NesContextCapabilities
-	NesDiagnostic                            = schema.NesDiagnostic
-	NesDiagnosticSeverity                    = schema.NesDiagnosticSeverity
-	NesDiagnosticsCapabilities               = schema.NesDiagnosticsCapabilities
-	NesDocumentDidChangeCapabilities         = schema.NesDocumentDidChangeCapabilities
-	NesDocumentDidCloseCapabilities          = schema.NesDocumentDidCloseCapabilities
-	NesDocumentDidFocusCapabilities          = schema.NesDocumentDidFocusCapabilities
-	NesDocumentDidOpenCapabilities           = schema.NesDocumentDidOpenCapabilities
-	NesDocumentDidSaveCapabilities           = schema.NesDocumentDidSaveCapabilities
-	NesDocumentEventCapabilities             = schema.NesDocumentEventCapabilities
-	NesEditHistoryCapabilities               = schema.NesEditHistoryCapabilities
-	NesEditHistoryEntry                      = schema.NesEditHistoryEntry
-	NesEventCapabilities                     = schema.NesEventCapabilities
-	NesExcerpt                               = schema.NesExcerpt
-	NesJumpCapabilities                      = schema.NesJumpCapabilities
-	NesOpenFile                              = schema.NesOpenFile
-	NesOpenFilesCapabilities                 = schema.NesOpenFilesCapabilities
-	NesRecentFile                            = schema.NesRecentFile
-	NesRecentFilesCapabilities               = schema.NesRecentFilesCapabilities
-	NesRejectReason                          = schema.NesRejectReason
-	NesRelatedSnippet                        = schema.NesRelatedSnippet
-	NesRelatedSnippetsCapabilities           = schema.NesRelatedSnippetsCapabilities
-	NesRenameCapabilities                    = schema.NesRenameCapabilities
-	NesRepository                            = schema.NesRepository
-	NesSearchAndReplaceCapabilities          = schema.NesSearchAndReplaceCapabilities
-	NesSuggestContext                        = schema.NesSuggestContext
-	NesSuggestion                            = schema.NesSuggestion
-	NesSuggestionCustom                      = schema.NesSuggestionCustom
-	NesSuggestionEdit                        = schema.NesSuggestionEdit
-	NesSuggestionID                          = schema.NesSuggestionID
-	NesSuggestionJump                        = schema.NesSuggestionJump
-	NesSuggestionRename                      = schema.NesSuggestionRename
-	NesSuggestionSearchAndReplace            = schema.NesSuggestionSearchAndReplace
-	NesSuggestionVariant                     = schema.NesSuggestionVariant
-	NesSuggestionVariants                    = schema.NesSuggestionVariants
-	NesTextEdit                              = schema.NesTextEdit
-	NesTriggerKind                           = schema.NesTriggerKind
-	NesUserAction                            = schema.NesUserAction
-	NesUserActionsCapabilities               = schema.NesUserActionsCapabilities
 	NoticeSeverity                           = schema.NoticeSeverity
 	PermissionOption                         = schema.PermissionOption
 	PermissionOptionID                       = schema.PermissionOptionID
@@ -249,8 +195,6 @@ type (
 	PlanUpdateContentMarkdown                = schema.PlanUpdateContentMarkdown
 	PlanUpdateContentVariant                 = schema.PlanUpdateContentVariant
 	PlanUpdateContentVariants                = schema.PlanUpdateContentVariants
-	Position                                 = schema.Position
-	PositionEncodingKind                     = schema.PositionEncodingKind
 	PromptAudioCapabilities                  = schema.PromptAudioCapabilities
 	PromptCapabilities                       = schema.PromptCapabilities
 	PromptEmbeddedContextCapabilities        = schema.PromptEmbeddedContextCapabilities
@@ -259,7 +203,6 @@ type (
 	ProviderID                               = schema.ProviderID
 	ProviderInfo                             = schema.ProviderInfo
 	ProvidersCapabilities                    = schema.ProvidersCapabilities
-	Range                                    = schema.Range
 	ReplayFrom                               = schema.ReplayFrom
 	ReplayFromCustom                         = schema.ReplayFromCustom
 	ReplayFromStart                          = schema.ReplayFromStart
@@ -302,6 +245,9 @@ type (
 	SessionID                                = schema.SessionID
 	SessionInfo                              = schema.SessionInfo
 	SessionListCursor                        = schema.SessionListCursor
+	SessionSystemPromptCapabilities          = schema.SessionSystemPromptCapabilities
+	SessionSystemPromptModeCapabilities      = schema.SessionSystemPromptModeCapabilities
+	SessionSystemPromptOverrideCapabilities  = schema.SessionSystemPromptOverrideCapabilities
 	SessionUpdate                            = schema.SessionUpdate
 	SessionUpdateAgentMessage                = schema.SessionUpdateAgentMessage
 	SessionUpdateAgentMessageChunk           = schema.SessionUpdateAgentMessageChunk
@@ -344,12 +290,12 @@ type (
 	StateUpdateVariants                      = schema.StateUpdateVariants
 	StringFormat                             = schema.StringFormat
 	SubagentSessionCapabilities              = schema.SubagentSessionCapabilities
+	SystemPrompt                             = schema.SystemPrompt
+	SystemPromptMode                         = schema.SystemPromptMode
 	TerminalAuthCapabilities                 = schema.TerminalAuthCapabilities
 	TerminalExitStatus                       = schema.TerminalExitStatus
 	TerminalID                               = schema.TerminalID
 	TerminalOutput                           = schema.TerminalOutput
-	TextDocumentContentChangeEvent           = schema.TextDocumentContentChangeEvent
-	TextDocumentSyncKind                     = schema.TextDocumentSyncKind
 	TextResourceContents                     = schema.TextResourceContents
 	TitledMultiSelectItems                   = schema.TitledMultiSelectItems
 	ToolCallContent                          = schema.ToolCallContent
@@ -365,7 +311,6 @@ type (
 	ToolCallUpdate                           = schema.ToolCallUpdate
 	ToolKind                                 = schema.ToolKind
 	Usage                                    = schema.Usage
-	WorkspaceFolder                          = schema.WorkspaceFolder
 )
 
 const (
@@ -394,17 +339,6 @@ const (
 	LLMProtocolAzure                        = schema.LLMProtocolAzure
 	LLMProtocolVertex                       = schema.LLMProtocolVertex
 	LLMProtocolBedrock                      = schema.LLMProtocolBedrock
-	NesDiagnosticSeverityError              = schema.NesDiagnosticSeverityError
-	NesDiagnosticSeverityWarning            = schema.NesDiagnosticSeverityWarning
-	NesDiagnosticSeverityInformation        = schema.NesDiagnosticSeverityInformation
-	NesDiagnosticSeverityHint               = schema.NesDiagnosticSeverityHint
-	NesRejectReasonRejected                 = schema.NesRejectReasonRejected
-	NesRejectReasonIgnored                  = schema.NesRejectReasonIgnored
-	NesRejectReasonReplaced                 = schema.NesRejectReasonReplaced
-	NesRejectReasonCancelled                = schema.NesRejectReasonCancelled
-	NesTriggerKindAutomatic                 = schema.NesTriggerKindAutomatic
-	NesTriggerKindDiagnostic                = schema.NesTriggerKindDiagnostic
-	NesTriggerKindManual                    = schema.NesTriggerKindManual
 	NoticeSeverityInfo                      = schema.NoticeSeverityInfo
 	NoticeSeverityWarning                   = schema.NoticeSeverityWarning
 	NoticeSeverityError                     = schema.NoticeSeverityError
@@ -419,9 +353,6 @@ const (
 	PlanEntryStatusInProgress               = schema.PlanEntryStatusInProgress
 	PlanEntryStatusCompleted                = schema.PlanEntryStatusCompleted
 	PlanEntryStatusCancelled                = schema.PlanEntryStatusCancelled
-	PositionEncodingKindUTF16               = schema.PositionEncodingKindUTF16
-	PositionEncodingKindUTF32               = schema.PositionEncodingKindUTF32
-	PositionEncodingKindUTF8                = schema.PositionEncodingKindUTF8
 	RoleAssistant                           = schema.RoleAssistant
 	RoleUser                                = schema.RoleUser
 	SessionConfigOptionCategoryMode         = schema.SessionConfigOptionCategoryMode
@@ -432,8 +363,8 @@ const (
 	StringFormatURI                         = schema.StringFormatURI
 	StringFormatDate                        = schema.StringFormatDate
 	StringFormatDateTime                    = schema.StringFormatDateTime
-	TextDocumentSyncKindFull                = schema.TextDocumentSyncKindFull
-	TextDocumentSyncKindIncremental         = schema.TextDocumentSyncKindIncremental
+	SystemPromptModeAppend                  = schema.SystemPromptModeAppend
+	SystemPromptModeOverride                = schema.SystemPromptModeOverride
 	ToolCallStatusPending                   = schema.ToolCallStatusPending
 	ToolCallStatusInProgress                = schema.ToolCallStatusInProgress
 	ToolCallStatusCompleted                 = schema.ToolCallStatusCompleted
@@ -507,9 +438,6 @@ func NewMessageMCPResponse[T MessageMCPResponseAlternative](value T) (MessageMCP
 func NewMultiSelectItems[T MultiSelectItemsVariants](v T) MultiSelectItems {
 	return schema.NewMultiSelectItems(v)
 }
-
-// NewNesSuggestion wraps a variant.
-func NewNesSuggestion[T NesSuggestionVariants](v T) NesSuggestion { return schema.NewNesSuggestion(v) }
 
 // NewPlanUpdateContent wraps a variant.
 func NewPlanUpdateContent[T PlanUpdateContentVariants](v T) PlanUpdateContent {

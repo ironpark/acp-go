@@ -139,40 +139,6 @@ type LogoutHandler interface {
 	Logout(ctx context.Context, params *LogoutRequest) (*LogoutResponse, error)
 }
 
-// NesHandler handles the nes/* methods for Next Edit Suggestions. AcceptNes
-// and RejectNes are notifications.
-//
-// [CapabilitiesOf] advertises it with the `nes` agent capability.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type NesHandler interface {
-	StartNes(ctx context.Context, params *StartNesRequest) (*StartNesResponse, error)
-
-	SuggestNes(ctx context.Context, params *SuggestNesRequest) (*SuggestNesResponse, error)
-
-	CloseNes(ctx context.Context, params *CloseNesRequest) (*CloseNesResponse, error)
-
-	AcceptNes(ctx context.Context, params *AcceptNesNotification) error
-
-	RejectNes(ctx context.Context, params *RejectNesNotification) error
-}
-
-// DocumentHandler receives the document/did* notifications that mirror the
-// client's open editors.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type DocumentHandler interface {
-	DidOpenDocument(ctx context.Context, params *DidOpenDocumentNotification) error
-
-	DidChangeDocument(ctx context.Context, params *DidChangeDocumentNotification) error
-
-	DidCloseDocument(ctx context.Context, params *DidCloseDocumentNotification) error
-
-	DidSaveDocument(ctx context.Context, params *DidSaveDocumentNotification) error
-
-	DidFocusDocument(ctx context.Context, params *DidFocusDocumentNotification) error
-}
-
 // MCPMessageHandler receives the request-scoped MCP notifications, such as
 // progress, that an MCP server the client provides sends over mcp/message
 // while it works on a request the agent made.
@@ -420,76 +386,6 @@ func (c *ClientSideConnection) Logout(ctx context.Context, params *LogoutRequest
 	return acpconn.Call[LogoutResponse](ctx, c.conn, schema.AgentMethodsLogout, params)
 }
 
-// StartNes starts a Next Edit Suggestions stream.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) StartNes(ctx context.Context, params *StartNesRequest) (*StartNesResponse, error) {
-	return acpconn.Call[StartNesResponse](ctx, c.conn, schema.AgentMethodsNesStart, params)
-}
-
-// SuggestNes asks for the next edit suggestion.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) SuggestNes(ctx context.Context, params *SuggestNesRequest) (*SuggestNesResponse, error) {
-	return acpconn.Call[SuggestNesResponse](ctx, c.conn, schema.AgentMethodsNesSuggest, params)
-}
-
-// CloseNes ends a Next Edit Suggestions stream.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) CloseNes(ctx context.Context, params *CloseNesRequest) (*CloseNesResponse, error) {
-	return acpconn.Call[CloseNesResponse](ctx, c.conn, schema.AgentMethodsNesClose, params)
-}
-
-// AcceptNes reports that the user accepted a suggestion.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) AcceptNes(ctx context.Context, params *AcceptNesNotification) error {
-	return c.conn.SendNotification(ctx, schema.AgentMethodsNesAccept, params)
-}
-
-// RejectNes reports that the user rejected a suggestion.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) RejectNes(ctx context.Context, params *RejectNesNotification) error {
-	return c.conn.SendNotification(ctx, schema.AgentMethodsNesReject, params)
-}
-
-// DidOpenDocument tells the agent a document was opened.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) DidOpenDocument(ctx context.Context, params *DidOpenDocumentNotification) error {
-	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidOpen, params)
-}
-
-// DidChangeDocument tells the agent a document changed.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) DidChangeDocument(ctx context.Context, params *DidChangeDocumentNotification) error {
-	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidChange, params)
-}
-
-// DidCloseDocument tells the agent a document was closed.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) DidCloseDocument(ctx context.Context, params *DidCloseDocumentNotification) error {
-	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidClose, params)
-}
-
-// DidSaveDocument tells the agent a document was saved.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) DidSaveDocument(ctx context.Context, params *DidSaveDocumentNotification) error {
-	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidSave, params)
-}
-
-// DidFocusDocument tells the agent a document was focused.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-func (c *ClientSideConnection) DidFocusDocument(ctx context.Context, params *DidFocusDocumentNotification) error {
-	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidFocus, params)
-}
-
 // NotifyMCP sends the agent a notification belonging to one of its MCP requests.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
@@ -627,18 +523,6 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 		if h, ok := c.agent.(LogoutHandler); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.Logout)
 		}
-	case schema.AgentMethodsNesStart:
-		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.StartNes)
-		}
-	case schema.AgentMethodsNesSuggest:
-		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.SuggestNes)
-		}
-	case schema.AgentMethodsNesClose:
-		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Request(ctx, schema.Validated(), params, h.CloseNes)
-		}
 	default:
 		if h, ok := c.agent.(ExtMethodHandler); ok {
 			return h.ServeExtMethod(ctx, method, params)
@@ -651,34 +535,6 @@ func (c *AgentSideConnection) handleNotification(ctx context.Context, method str
 	switch method {
 	case schema.AgentMethodsSessionCancel:
 		return acpconn.Notify(ctx, schema.Validated(), params, c.agent.CancelSession)
-	case schema.AgentMethodsNesAccept:
-		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated(), params, h.AcceptNes)
-		}
-	case schema.AgentMethodsNesReject:
-		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated(), params, h.RejectNes)
-		}
-	case schema.AgentMethodsDocumentDidOpen:
-		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated(), params, h.DidOpenDocument)
-		}
-	case schema.AgentMethodsDocumentDidChange:
-		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated(), params, h.DidChangeDocument)
-		}
-	case schema.AgentMethodsDocumentDidClose:
-		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated(), params, h.DidCloseDocument)
-		}
-	case schema.AgentMethodsDocumentDidSave:
-		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated(), params, h.DidSaveDocument)
-		}
-	case schema.AgentMethodsDocumentDidFocus:
-		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated(), params, h.DidFocusDocument)
-		}
 	case schema.AgentMethodsMCPMessage:
 		if h, ok := c.agent.(MCPMessageHandler); ok {
 			return acpconn.Notify(ctx, schema.Validated(), params, h.NotifyMCP)
@@ -799,9 +655,6 @@ func capabilitiesOf(agent Agent, caps *schema.AgentCapabilities) {
 			caps.Auth = &schema.AgentAuthCapabilities{}
 		}
 		caps.Auth.Logout = &schema.LogoutCapabilities{}
-	}
-	if _, ok := agent.(NesHandler); ok {
-		caps.Nes = &schema.NesCapabilities{}
 	}
 	if _, ok := agent.(MCPMessageHandler); ok {
 		if caps.MCPCapabilities == nil {

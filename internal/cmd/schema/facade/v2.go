@@ -130,22 +130,6 @@ every option, since one change may affect the others.`,
 			},
 		},
 		{
-			Interface:    "NesHandler",
-			Capability:   "nes",
-			Experimental: true,
-			Doc: `NesHandler handles the nes/* methods for Next Edit Suggestions. AcceptNes
-and RejectNes are notifications.`,
-			Methods: nesMethods,
-		},
-		{
-			Interface:    "DocumentHandler",
-			NoCapability: true,
-			Experimental: true,
-			Doc: `DocumentHandler receives the document/did* notifications that mirror the
-client's open editors.`,
-			Methods: documentMethods,
-		},
-		{
 			Interface:    "MCPMessageHandler",
 			Capability:   "session.mcp.acp",
 			Experimental: true,

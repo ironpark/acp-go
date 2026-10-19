@@ -57,21 +57,24 @@ func TestFinishIsIdempotent(t *testing.T) {
 
 func TestDeliverOnlyReachesAnActiveSession(t *testing.T) {
 	var turns Turns[string, int, string]
-	if got := turns.Deliver("s", 1); got != nil {
-		t.Fatalf("Deliver on an idle session = %v, want nil", got)
+	turns.Deliver("s", 1) // no turn: dropped
+	turn, err := turns.Begin("s")
+	if err != nil {
+		t.Fatal(err)
 	}
-	turn, created := turns.Join("s")
-	if !created {
-		t.Fatal("Join should create the first turn")
+	if _, err := turns.Begin("s"); err != ErrTurnInProgress {
+		t.Fatalf("second Begin = %v, want ErrTurnInProgress", err)
 	}
-	if got := turns.Deliver("s", 5); got != turn {
-		t.Fatalf("Deliver = %p, want the joined turn %p", got, turn)
-	}
+	turns.Deliver("s", 5)
 	turns.End("s", turn, "stop", nil)
-	if got := turns.Deliver("s", 6); got != nil {
-		t.Fatal("Deliver after End should not reach the finished turn")
+	turns.Deliver("s", 6) // after End: dropped
+	var got []int
+	for u := range turn.Updates() {
+		got = append(got, u)
 	}
-	turn.Push(9) // no-op on a finished turn
+	if len(got) != 1 || got[0] != 5 {
+		t.Fatalf("updates = %v, want [5]", got)
+	}
 	if result, err := turn.Wait(); result != "stop" || err != nil {
 		t.Fatalf("Wait = %q, %v", result, err)
 	}
