@@ -182,7 +182,7 @@ func TestHTTPServerRejects(t *testing.T) {
 		{"prompt without session header", "POST", `{"jsonrpc":"2.0","id":9,"method":"session/prompt","params":{"sessionId":"s1"}}`, map[string]string{"Content-Type": "application/json", ConnectionIDHeader: conn}, http.StatusBadRequest},
 		{"unknown session", "POST", `{"jsonrpc":"2.0","id":9,"method":"session/prompt","params":{"sessionId":"zz"}}`, map[string]string{"Content-Type": "application/json", ConnectionIDHeader: conn, SessionIDHeader: "zz"}, http.StatusNotFound},
 		{"stream without Accept", "GET", ``, map[string]string{ConnectionIDHeader: conn}, http.StatusNotAcceptable},
-		{"stream of unknown session", "GET", ``, map[string]string{"Accept": "text/event-stream", ConnectionIDHeader: conn, SessionIDHeader: "zz"}, http.StatusNotFound},
+		{"stream of unknown session", "GET", ``, map[string]string{"Accept": "text/event-stream", ConnectionIDHeader: conn, SessionIDHeader: "zz"}, http.StatusOK},
 		{"delete without connection", "DELETE", ``, nil, http.StatusBadRequest},
 		{"put", "PUT", ``, nil, http.StatusMethodNotAllowed},
 	}
@@ -314,5 +314,72 @@ func TestClientCloseAbortsAPost(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close left a POST in flight")
+	}
+}
+
+
+// TestSessionSSEBeforeLoad matches the TypeScript SDK createHttpStream order:
+// open session SSE for a remembered id, then POST session/load with Acp-Session-Id.
+func TestSessionSSEBeforeLoad(t *testing.T) {
+	server, client, ts := newHTTPPair(t)
+	call(t, client, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
+	expect(t, client, `"result"`)
+	waitAttached(t, server)
+	client.mu.Lock()
+	conn := client.connectionID
+	client.mu.Unlock()
+
+	sessionID := "retained-session"
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set(ConnectionIDHeader, conn)
+	req.Header.Set(SessionIDHeader, sessionID)
+	sse, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sse.Body.Close()
+	if sse.StatusCode != http.StatusOK {
+		t.Fatalf("session SSE before load: status %d, want 200", sse.StatusCode)
+	}
+
+	load := `{"jsonrpc":"2.0","id":2,"method":"session/load","params":{"sessionId":"retained-session"}}`
+	req, err = http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL, strings.NewReader(load))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(ConnectionIDHeader, conn)
+	req.Header.Set(SessionIDHeader, sessionID)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("session/load with session header: status %d body %q, want 202", resp.StatusCode, body)
+	}
+
+	// session-scoped methods still require an established (non-provisional) session
+	prompt := `{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"retained-session","prompt":[]}}`
+	req, err = http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL, strings.NewReader(prompt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(ConnectionIDHeader, conn)
+	req.Header.Set(SessionIDHeader, sessionID)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("prompt on provisional session: status %d body %q, want 404", resp.StatusCode, body)
 	}
 }

@@ -278,7 +278,11 @@ func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing "+SessionIDHeader, http.StatusBadRequest)
 		return
 	}
-	if session != "" && !c.hasSession(session) {
+	// session/load may carry Acp-Session-Id before the session exists on this
+	// connection (TypeScript SDK order: session SSE, then load). Other methods
+	// still require an established session; a provisional stream from SSE alone
+	// is not enough for prompt/cancel/close.
+	if session != "" && e.Method != loadSessionMethod && !c.hasEstablishedSession(session) {
 		http.Error(w, "unknown session", http.StatusNotFound)
 		return
 	}
@@ -342,10 +346,11 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out := c.stream(r.Header.Get(SessionIDHeader))
+	session := r.Header.Get(SessionIDHeader)
+	out := c.stream(session)
 	if out == nil {
-		http.Error(w, "unknown session", http.StatusNotFound)
-		return
+		// Session SSE may open before session/load attaches state (SDK createHttpStream).
+		out = c.ensureProvisionalSession(session)
 	}
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -501,6 +506,29 @@ func (c *httpServerConn) hasSession(id string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.sessions[id] != nil
+}
+
+// hasEstablishedSession reports a session that is ready for session-scoped
+// methods. A provisional stream opened only for session SSE / an in-flight
+// load is not established until session/load succeeds.
+func (c *httpServerConn) hasEstablishedSession(id string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.sessions[id] != nil && !c.provisional[id]
+}
+
+// ensureProvisionalSession returns the session stream, creating a provisional
+// one when the client opens session SSE before session/load.
+func (c *httpServerConn) ensureProvisionalSession(id string) *outbound {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if out := c.sessions[id]; out != nil {
+		return out
+	}
+	out := newOutbound()
+	c.sessions[id] = out
+	c.provisional[id] = true
+	return out
 }
 
 // stream returns the connection stream for "", or the session's stream.

@@ -6,6 +6,13 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Streamable HTTP: allow session-scoped SSE (and `session/load` with `Acp-Session-Id`)
+  before the session exists on the connection, matching the TypeScript ACP SDK
+  `createHttpStream` order. Session-scoped methods such as `session/prompt` still
+  require an established session after a successful load.
+
 ## [0.4.0] - 2026-11-09
 
 ### Schema
