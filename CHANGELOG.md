@@ -6,6 +6,8 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-09
+
 ### Schema
 
 - Pinned the TypeScript SDK at `8d95327` (2.4.0). The ACP schema moves to **v1.29.1**, and the v2
