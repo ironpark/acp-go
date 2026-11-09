@@ -59,3 +59,16 @@ func ToolDiff(changes ...DiffChange) ToolCallContent {
 func ToolTerminal(id TerminalID) ToolCallContent {
 	return schema.NewToolCallContent(schema.ToolCallContentTerminal{TerminalID: id})
 }
+
+// SlashCommand is an available command the client offers as /name, the
+// common case of [AvailableCommand]; set its Input with
+// [AvailableCommandCommand] and [NewAvailableCommand] when it takes one.
+func SlashCommand(name, description string) AvailableCommand {
+	return schema.NewAvailableCommand(schema.AvailableCommandCommand{Name: name, Description: description})
+}
+
+// CommandOf returns the command an available command holds, or false for a
+// custom command type.
+func CommandOf(command AvailableCommand) (AvailableCommandCommand, bool) {
+	return command.As[schema.AvailableCommandCommand]()
+}

@@ -34,8 +34,14 @@ func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, transport
 }
 
 // initialize serves the client's initialize request, and records the
-// capabilities it advertised once the agent has answered.
+// capabilities it advertised once the agent has answered. A request for a
+// version below v2 is refused with an unsupported-protocol-version error
+// before the agent sees it: this connection speaks no lower version.
+// [github.com/ironpark/acp-go/router] serves v1 beside it.
 func (c *AgentSideConnection) initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error) {
+	if params.ProtocolVersion < ProtocolVersion {
+		return nil, acp.UnsupportedProtocolVersion(uint16(params.ProtocolVersion), uint16(ProtocolVersion))
+	}
 	response, err := c.agent.Initialize(ctx, params)
 	if err == nil {
 		c.clientCaps.Store(cmp.Or(params.Capabilities, &ClientCapabilities{}))

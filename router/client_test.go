@@ -28,6 +28,11 @@ func TestMain(m *testing.M) {
 		// request as is.
 		_ = acp1.NewAgentSideConnection(newV1, acp.NewStdioTransport(os.Stdin, os.Stdout)).Start(ctx)
 		os.Exit(0)
+	case "v3":
+		// An agent that only speaks a future version refuses v2 with -32022.
+		_ = acp2.NewAgentSideConnection(func(*acp2.AgentSideConnection) acp2.Agent { return futureAgent{} },
+			acp.NewStdioTransport(os.Stdin, os.Stdout)).Start(ctx)
+		os.Exit(0)
 	case "both":
 		_ = router.New().WithV1(newV1).WithV2(newV2).Serve(ctx, acp.NewStdioTransport(os.Stdin, os.Stdout))
 		os.Exit(0)
@@ -103,5 +108,19 @@ func TestClientWithoutV1RejectsV1Agent(t *testing.T) {
 		Spawn(t.Context(), agentCommand("v1"))
 	if !errors.Is(err, router.ErrNoCommonVersion) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// futureAgent refuses every initialize as a v3-only agent would.
+type futureAgent struct{ acp2.Agent }
+
+func (futureAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
+	return nil, acp.UnsupportedProtocolVersion(2, 3)
+}
+
+func TestClientReportsUnsupportedVersion(t *testing.T) {
+	_, err := connector().Spawn(t.Context(), agentCommand("v3"))
+	if !errors.Is(err, router.ErrNoCommonVersion) {
+		t.Fatalf("got %v, want ErrNoCommonVersion", err)
 	}
 }

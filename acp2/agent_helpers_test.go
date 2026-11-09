@@ -17,7 +17,7 @@ type commandSession struct{}
 func (commandSession) SessionInfo() acp2.SessionInfo { return acp2.SessionInfo{Cwd: "/tmp"} }
 
 func (commandSession) AvailableCommands() []acp2.AvailableCommand {
-	return []acp2.AvailableCommand{{Name: "compact", Description: "Summarize the conversation"}}
+	return []acp2.AvailableCommand{acp2.SlashCommand("compact", "Summarize the conversation")}
 }
 
 // helperAgent serves sessions from an embedded manager and ends each turn
@@ -62,14 +62,14 @@ func TestSessionManagerAdvertisesCommands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(created.AvailableCommands) != 1 || created.AvailableCommands[0].Name != "compact" {
+	if len(created.AvailableCommands) != 1 || commandName(created.AvailableCommands[0]) != "compact" {
 		t.Errorf("session/new commands = %+v", created.AvailableCommands)
 	}
 	resumed, err := conn.ResumeSession(ctx, &acp2.ResumeSessionRequest{SessionID: created.SessionID, Cwd: "/tmp"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(resumed.AvailableCommands) != 1 || resumed.AvailableCommands[0].Name != "compact" {
+	if len(resumed.AvailableCommands) != 1 || commandName(resumed.AvailableCommands[0]) != "compact" {
 		t.Errorf("session/resume commands = %+v", resumed.AvailableCommands)
 	}
 }
@@ -159,4 +159,9 @@ func TestConfigHelpers(t *testing.T) {
 	if _, ok := acp2.ConfigChangeOf(&acp2.SetSessionConfigOptionRequest{}); ok {
 		t.Fatal("a zero request reads as a change")
 	}
+}
+
+func commandName(c acp2.AvailableCommand) string {
+	command, _ := acp2.CommandOf(c)
+	return command.Name
 }

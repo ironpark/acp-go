@@ -33,7 +33,8 @@ var zodKinds = map[string]string{
 	"unknown": "Unknown", "any": "Any", "never": "Never",
 	"union": "Union", "intersection": "Intersection",
 	"excludeTags": "ExcludeTags", "preserve": "Preserve", "openTags": "OpenTags", "dropMalformedTag": "DropMalformedTag",
-	"min": "Min", "max": "Max", "gte": "Gte", "lte": "Lte", "regex": "Regex", "int": "Int",
+	"min": "Min", "max": "Max", "gte": "Gte", "lte": "Lte", "regex": "Regex", "int": "Int", "wideInt": "WideInt",
+	"nullDefault": "NullDefault", "exactlyOne": "ExactlyOne",
 	"null": "Null", "string": "String", "boolean": "Boolean", "number": "Number", "literal": "Literal",
 	"url": "URL", "datetime": "DateTime",
 	"array": "Array", "skipArray": "SkipArray", "object": "Object", "record": "Record",
@@ -291,11 +292,7 @@ func renderZod(z *tsdef.Zod, child func(*tsdef.Zod) string, multiline bool) stri
 		parts = append(parts, "Tag: "+strconv.Quote(z.Tag))
 	}
 	if len(z.Tags) > 0 {
-		var tags []string
-		for _, t := range z.Tags {
-			tags = append(tags, strconv.Quote(t))
-		}
-		parts = append(parts, "Tags: []string{"+strings.Join(tags, ", ")+"}")
+		parts = append(parts, "Tags: []string{"+quoteStrings(z.Tags)+"}")
 	}
 	if z.Pattern != "" {
 		parts = append(parts, "Regexp: regexp.MustCompile("+goString(z.Pattern)+")")
@@ -306,7 +303,23 @@ func renderZod(z *tsdef.Zod, child func(*tsdef.Zod) string, multiline bool) stri
 	if z.Loose {
 		parts = append(parts, "Loose: true")
 	}
+	if len(z.Keys) > 0 {
+		var sets []string
+		for _, keys := range z.Keys {
+			sets = append(sets, "{"+quoteStrings(keys)+"}")
+		}
+		parts = append(parts, "Keys: [][]string{"+strings.Join(sets, ", ")+"}")
+	}
 	return "&zod.Rule{" + strings.Join(parts, ", ") + "}"
+}
+
+// quoteStrings renders strings as the elements of a Go string slice literal.
+func quoteStrings(values []string) string {
+	quoted := make([]string, len(values))
+	for i, v := range values {
+		quoted[i] = strconv.Quote(v)
+	}
+	return strings.Join(quoted, ", ")
 }
 
 // goString prefers raw string literals for readability when the value allows it.

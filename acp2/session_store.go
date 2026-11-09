@@ -96,16 +96,26 @@ type SessionInfoReporter interface {
 // [SessionCommandsReporter], its commands.
 // [WithAutoSave] saves a session whenever its turn ends.
 //
+// It also satisfies [ToolCallCanceller] and [TerminalCanceller]:
+// [SessionManager.TrackToolCall] and [SessionManager.TrackTerminal] give the
+// work a context that tool_call/cancel or terminal/cancel cancels, and a
+// request naming anything not tracked is refused with invalid params, as the
+// protocol asks. Clients send these requests only for tool calls and
+// terminals that advertise capabilities.cancel, so an agent that tracks
+// nothing is unaffected.
+//
 // v2 has no session/load: session/resume replays the history the agent
 // retains when the request's ReplayFrom asks for it. The manager retains no
 // history, so its ResumeSession replays nothing; an agent that keeps history
 // overrides it.
 type SessionManager[T SessionInfoReporter] struct {
-	store    SessionStore[T]
-	factory  SessionFactory[T]
-	turns    acp.TurnTracker[SessionID]
-	pageSize int
-	onSave   func(SessionID, error) // set by WithAutoSave
+	store     SessionStore[T]
+	factory   SessionFactory[T]
+	turns     acp.TurnTracker[SessionID]
+	toolCalls acp.WorkTracker[toolCallKey]
+	terminals acp.WorkTracker[terminalKey]
+	pageSize  int
+	onSave    func(SessionID, error) // set by WithAutoSave
 }
 
 // defaultSessionListPageSize is how many sessions [SessionManager.ListSessions]
@@ -162,7 +172,7 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 		return session, err
 	}
 	if !ok {
-		return session, acp.ResourceNotFound(fmt.Sprintf("session %s", id))
+		return session, acp.SessionNotFound(id)
 	}
 	return session, nil
 }
@@ -343,9 +353,11 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 
 // ListSessions answers session/list from the store, describing each session
 // with its state's [SessionInfoReporter]. It applies the request's cwd filter
-// and lists the most recently updated sessions first. It paginates with the
-// request's cursor, returning at most [WithSessionListPageSize] sessions per
-// page and a next cursor while more remain. A store that implements
+// and its archived filter, which by default leaves out the sessions whose
+// SessionInfo reports Archived, and lists the most recently updated sessions
+// first. It paginates with the request's cursor, returning at most
+// [WithSessionListPageSize] sessions per page and a next cursor while more
+// remain. A store that implements
 // [SessionInfoLister] answers each page with one query; any other store has
 // every session read and described per page.
 func (m *SessionManager[T]) ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error) {
@@ -353,8 +365,12 @@ func (m *SessionManager[T]) ListSessions(ctx context.Context, params *ListSessio
 	if err != nil {
 		return nil, err
 	}
+	archived, err := acpconn.ArchiveFilter(params.GetArchived())
+	if err != nil {
+		return nil, err
+	}
 	add := func(info SessionInfo) {
-		if params.Cwd == nil || info.Cwd == *params.Cwd {
+		if (params.Cwd == nil || info.Cwd == *params.Cwd) && archived(info.GetArchived()) {
 			pager.Add(info)
 		}
 	}
@@ -363,9 +379,10 @@ func (m *SessionManager[T]) ListSessions(ctx context.Context, params *ListSessio
 	// contract from breaking the page order.
 	if lister, ok := m.store.(SessionInfoLister); ok {
 		sessions, err := lister.ListSessionInfo(ctx, acp.SessionListQuery{
-			Cwd:   string(params.GetCwd()),
-			After: (*acp.SessionListPosition)(pager.After()),
-			Limit: pager.Limit(),
+			Cwd:      string(params.GetCwd()),
+			Archived: string(params.GetArchived()),
+			After:    (*acp.SessionListPosition)(pager.After()),
+			Limit:    pager.Limit(),
 		})
 		if err != nil {
 			return nil, err
@@ -441,6 +458,69 @@ func (m *SessionManager[T]) CloseSession(ctx context.Context, params *CloseSessi
 	}
 	m.turns.Cancel(params.SessionID)
 	return &CloseSessionResponse{}, nil
+}
+
+// toolCallKey and terminalKey name tracked work within its session: ids are
+// unique only per session.
+type toolCallKey struct {
+	session SessionID
+	call    ToolCallID
+}
+
+type terminalKey struct {
+	session  SessionID
+	terminal TerminalID
+}
+
+// TrackToolCall makes a tool call cancellable with tool_call/cancel: it
+// returns a context derived from ctx, the turn's, that
+// [SessionManager.CancelToolCall] cancels with [acp.ErrWorkCancelled], and a
+// done func to call once the tool call reached a final status. Advertise it
+// to the client with [WithCancellable] on the tool call's update:
+//
+//	ctx, done := a.TrackToolCall(turnCtx, sessionID, id)
+//	defer done()
+//	stream.StartToolCall(ctx, id, "Run tests", acp2.ToolKindExecute, acp2.WithCancellable(true))
+//	err := run(ctx)
+//	if acp.WorkCancelled(ctx) {
+//		// ctx is done, so report the outcome with one that is not.
+//		return stream.UpdateToolCallStatus(context.WithoutCancel(ctx), id, acp2.ToolCallStatusCancelled)
+//	}
+//
+// Cancelling the turn cancels the tool call's context too.
+func (m *SessionManager[T]) TrackToolCall(ctx context.Context, sessionID SessionID, id ToolCallID) (context.Context, func()) {
+	return m.toolCalls.Track(ctx, toolCallKey{sessionID, id})
+}
+
+// CancelToolCall serves tool_call/cancel. It cancels the context
+// [SessionManager.TrackToolCall] returned and answers at once, which only
+// accepts the cancellation; the agent confirms it with the tool call's final
+// status. A tool call that is not tracked, being unknown, finished or not
+// cancellable, is refused with invalid params.
+func (m *SessionManager[T]) CancelToolCall(_ context.Context, params *CancelToolCallRequest) (*CancelToolCallResponse, error) {
+	if !m.toolCalls.Cancel(toolCallKey{params.SessionID, params.ToolCallID}) {
+		return nil, acp.InvalidParams(fmt.Sprintf("tool call %s is not running or not cancellable", params.ToolCallID))
+	}
+	return &CancelToolCallResponse{}, nil
+}
+
+// TrackTerminal makes a terminal cancellable with terminal/cancel, as
+// [SessionManager.TrackToolCall] does a tool call. Stop the process when the
+// returned context is done and report its exit status in a terminal_update,
+// which confirms the cancellation; the terminal stays valid. Advertise it with
+// a terminal_update whose capabilities set cancel.
+func (m *SessionManager[T]) TrackTerminal(ctx context.Context, sessionID SessionID, id TerminalID) (context.Context, func()) {
+	return m.terminals.Track(ctx, terminalKey{sessionID, id})
+}
+
+// CancelTerminal serves terminal/cancel, cancelling the context
+// [SessionManager.TrackTerminal] returned. A terminal that is not tracked,
+// being unknown, exited or not cancellable, is refused with invalid params.
+func (m *SessionManager[T]) CancelTerminal(_ context.Context, params *CancelTerminalRequest) (*CancelTerminalResponse, error) {
+	if !m.terminals.Cancel(terminalKey{params.SessionID, params.TerminalID}) {
+		return nil, acp.InvalidParams(fmt.Sprintf("terminal %s is not running or not cancellable", params.TerminalID))
+	}
+	return &CancelTerminalResponse{}, nil
 }
 
 // configOptions returns the config options session reports, if any.

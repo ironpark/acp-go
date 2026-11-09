@@ -124,7 +124,13 @@ func unmarshalRequestPermissionSubjectVariant(dec *jsontext.Decoder, out *Reques
 // Permission request details for a tool call.
 type RequestPermissionSubjectToolCall struct {
 	// Details about the tool call requiring permission.
+	//
+	// Clients apply this to their stored tool call exactly like a `tool_call_update`
+	// notification, in the order it was received, before showing the prompt. A first-seen
+	// `toolCallId` creates the tool call.
 	ToolCall ToolCallUpdate `json:"toolCall"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (RequestPermissionSubjectToolCall) requestPermissionSubjectVariant() {}
@@ -156,7 +162,7 @@ type RequestPermissionSubjectCommand struct {
 	ToolCallID *ToolCallID `json:"toolCallId,omitzero"`
 	// The associated terminal, when already known. Omitted and `null` are equivalent.
 	TerminalID *TerminalID `json:"terminalId,omitzero"`
-	// Omitted and `null` are equivalent and mean no subject metadata was provided.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -318,7 +324,8 @@ func unmarshalToolCallContentVariant(dec *jsontext.Decoder, out *ToolCallContent
 type ToolCallContentContent struct {
 	// The actual content block.
 	Content ContentBlock `json:"content"`
-	Meta    Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ToolCallContentContent) toolCallContentVariant() {}
@@ -357,10 +364,11 @@ type ToolCallContentDiff struct {
 	Changes []DiffChange `json:"changes"`
 	// Renderable patch text for some or all of the structured changes.
 	//
-	// Agents SHOULD provide patch text whenever feasible. Omitted or `null`
-	// means no renderable patch text was provided.
+	// Agents SHOULD provide patch text whenever feasible. Omitted and `null` are
+	// equivalent and mean no renderable patch text was provided.
 	Patch *DiffPatch `json:"patch,omitzero"`
-	Meta  Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ToolCallContentDiff) toolCallContentVariant() {}
@@ -383,13 +391,13 @@ func (v *ToolCallContentDiff) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // ToolCallContentTerminal is a display-only reference to an agent-owned terminal.
 //
 // Terminal state and output are delivered separately through
-// [SessionUpdateTerminalUpdate] and [SessionUpdateTerminalOutputChunk].
+// `terminal_update` and `terminal_output_chunk` session updates.
 //
 // ToolCallContentTerminal is the ToolCallContent variant with type "terminal".
 type ToolCallContentTerminal struct {
 	// The ID of the terminal to display.
 	TerminalID TerminalID `json:"terminalId"`
-	// This metadata is scoped to the content reference. Omitted and `null` are equivalent and mean no item metadata was provided.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -432,17 +440,14 @@ func (v ToolCallContentCustom) Tag() string { return v.Type }
 //
 // Content blocks represent displayable information in the Agent Client Protocol.
 //
-// They provide a structured way to handle various types of user-facing content—whether
-// it's text from language models, images for analysis, or embedded resources for context.
-//
 // Content blocks appear in:
 //   - User prompts sent via `session/prompt`
 //   - Language model output reported through `session/update` notifications as
 //     message updates or streamed chunks
 //   - Progress updates and results from tool calls
 //
-// This structure is compatible with the Model Context Protocol (MCP), enabling
-// agents to seamlessly forward content from MCP tool outputs without transformation.
+// This structure is compatible with the Model Context Protocol (MCP), so agents can
+// forward content from MCP tool outputs without transformation.
 //
 // See protocol docs: [Content]
 //
@@ -570,8 +575,11 @@ type ContentBlockText struct {
 	// Text payload carried by this content block.
 	Text string `json:"text"`
 	// Optional annotations that help clients decide how to display or route this content.
+	//
+	// Omitted and `null` are equivalent and mean no annotations are provided.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	Meta        Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockText) contentBlockVariant() {}
@@ -600,10 +608,15 @@ type ContentBlockImage struct {
 	// MIME type describing the encoded media payload.
 	MIMEType MediaType `json:"mimeType"`
 	// URI associated with this resource or media payload.
+	//
+	// Omitted and `null` are equivalent and mean no URI is associated with the image.
 	URI *string `json:"uri,omitzero"`
 	// Optional annotations that help clients decide how to display or route this content.
+	//
+	// Omitted and `null` are equivalent and mean no annotations are provided.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	Meta        Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockImage) contentBlockVariant() {}
@@ -632,8 +645,11 @@ type ContentBlockAudio struct {
 	// MIME type describing the encoded media payload.
 	MIMEType MediaType `json:"mimeType"`
 	// Optional annotations that help clients decide how to display or route this content.
+	//
+	// Omitted and `null` are equivalent and mean no annotations are provided.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	Meta        Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockAudio) contentBlockVariant() {}
@@ -655,25 +671,38 @@ func (v *ContentBlockAudio) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 // ContentBlockResourceLink is the ContentBlock variant with type "resource_link".
 //
-// A resource that the server is capable of reading, included in a prompt or tool call result.
+// A link to a resource that the receiver may be able to read, included in a prompt or tool call result.
 type ContentBlockResourceLink struct {
 	// Human-readable name shown for this protocol object.
 	Name string `json:"name"`
 	// URI associated with this resource or media payload.
 	URI string `json:"uri"`
 	// Optional display title for end-user UI.
+	//
+	// Omitted and `null` are equivalent and mean no title is provided.
 	Title *string `json:"title,omitzero"`
 	// Optional human-readable details shown with this protocol object.
+	//
+	// Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
 	// Optional set of sized icons that the client can display in a user interface.
+	//
+	// Omitted and `null` are equivalent and mean no icons are provided.
 	Icons []Icon `json:"icons,omitzero"`
 	// MIME type describing the encoded media payload.
+	//
+	// Omitted and `null` are equivalent and mean the MIME type is not specified.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
 	// Optional size of the linked resource in bytes, if known.
-	Size *int64 `json:"size,omitzero"`
+	//
+	// Omitted and `null` are equivalent and mean the size is not known.
+	Size *uint64 `json:"size,omitzero"`
 	// Optional annotations that help clients decide how to display or route this content.
+	//
+	// Omitted and `null` are equivalent and mean no annotations are provided.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	Meta        Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockResourceLink) contentBlockVariant() {}
@@ -700,8 +729,11 @@ type ContentBlockResource struct {
 	// Embedded resource payload, either text or binary data.
 	Resource EmbeddedResourceResource `json:"resource"`
 	// Optional annotations that help clients decide how to display or route this content.
+	//
+	// Omitted and `null` are equivalent and mean no annotations are provided.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	Meta        Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockResource) contentBlockVariant() {}
@@ -795,7 +827,7 @@ func (v *EmbeddedResourceResource) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 // or a type switch on [DiffChange.Variant] to work with it. The zero value holds no
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
-// One file-level change described by a [ToolCallContentDiff].
+// One file-level change described by a `Diff`.
 //
 // Structured change metadata lets clients identify affected files and
 // operations without parsing the text patch.
@@ -919,15 +951,16 @@ func unmarshalDiffChangeVariant(dec *jsontext.Decoder, out *DiffChangeVariant) e
 type DiffChangeAdd struct {
 	// Absolute path for the operation.
 	Path AbsolutePath `json:"path"`
-	// File content kind.
+	// File content kind after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the content kind is unknown.
+	// Omitted and `null` are equivalent and mean the content kind is unknown.
 	FileType *DiffFileType `json:"fileType,omitzero"`
-	// MIME type of the file contents.
+	// MIME type of the file contents after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the MIME type is unknown.
+	// Omitted and `null` are equivalent and mean the MIME type is unknown.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
-	Meta     Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (DiffChangeAdd) diffChangeVariant() {}
@@ -951,15 +984,16 @@ func (v *DiffChangeAdd) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 type DiffChangeDelete struct {
 	// Absolute path for the operation.
 	Path AbsolutePath `json:"path"`
-	// File content kind.
+	// File content kind after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the content kind is unknown.
+	// Omitted and `null` are equivalent and mean the content kind is unknown.
 	FileType *DiffFileType `json:"fileType,omitzero"`
-	// MIME type of the file contents.
+	// MIME type of the file contents after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the MIME type is unknown.
+	// Omitted and `null` are equivalent and mean the MIME type is unknown.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
-	Meta     Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (DiffChangeDelete) diffChangeVariant() {}
@@ -983,15 +1017,16 @@ func (v *DiffChangeDelete) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 type DiffChangeModify struct {
 	// Absolute path for the operation.
 	Path AbsolutePath `json:"path"`
-	// File content kind.
+	// File content kind after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the content kind is unknown.
+	// Omitted and `null` are equivalent and mean the content kind is unknown.
 	FileType *DiffFileType `json:"fileType,omitzero"`
-	// MIME type of the file contents.
+	// MIME type of the file contents after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the MIME type is unknown.
+	// Omitted and `null` are equivalent and mean the MIME type is unknown.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
-	Meta     Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (DiffChangeModify) diffChangeVariant() {}
@@ -1017,15 +1052,16 @@ type DiffChangeMove struct {
 	OldPath AbsolutePath `json:"oldPath"`
 	// Absolute path after the operation.
 	Path AbsolutePath `json:"path"`
-	// File content kind.
+	// File content kind after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the content kind is unknown.
+	// Omitted and `null` are equivalent and mean the content kind is unknown.
 	FileType *DiffFileType `json:"fileType,omitzero"`
-	// MIME type of the file contents.
+	// MIME type of the file contents after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the MIME type is unknown.
+	// Omitted and `null` are equivalent and mean the MIME type is unknown.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
-	Meta     Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (DiffChangeMove) diffChangeVariant() {}
@@ -1051,15 +1087,16 @@ type DiffChangeCopy struct {
 	OldPath AbsolutePath `json:"oldPath"`
 	// Absolute path after the operation.
 	Path AbsolutePath `json:"path"`
-	// File content kind.
+	// File content kind after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the content kind is unknown.
+	// Omitted and `null` are equivalent and mean the content kind is unknown.
 	FileType *DiffFileType `json:"fileType,omitzero"`
-	// MIME type of the file contents.
+	// MIME type of the file contents after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the MIME type is unknown.
+	// Omitted and `null` are equivalent and mean the MIME type is unknown.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
-	Meta     Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (DiffChangeCopy) diffChangeVariant() {}
@@ -1087,14 +1124,15 @@ type DiffChangeCustom struct {
 	// extensions. Unknown values that do not begin with `_` are reserved for
 	// future ACP variants.
 	Operation string `json:"operation"`
-	// File content kind.
+	// File content kind after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the content kind is unknown.
+	// Omitted and `null` are equivalent and mean the content kind is unknown.
 	FileType *DiffFileType `json:"fileType,omitzero"`
-	// MIME type of the file contents.
+	// MIME type of the file contents after the operation (for `delete`, of the deleted file).
 	//
-	// Omitted or `null` means the MIME type is unknown.
-	MIMEType             *MediaType                `json:"mimeType,omitzero"`
+	// Omitted and `null` are equivalent and mean the MIME type is unknown.
+	MIMEType *MediaType `json:"mimeType,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
@@ -1137,11 +1175,11 @@ type CreateElicitationRequestAlternative interface {
 
 var createElicitationRequestAlternatives = union.Table(
 	union.Alt[CreateElicitationRequestFormSession](union.Rule{NonNull: true, Required: []string{"sessionId", "requestedSchema", "mode", "message"}, NotNull: []string{"sessionId", "requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
-	union.Alt[CreateElicitationRequestFormRequest](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema", "mode", "message"}, NotNull: []string{"requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
+	union.Alt[CreateElicitationRequestFormRequest](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema", "mode", "message"}, NotNull: []string{"requestId", "requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
 	union.Alt[CreateElicitationRequestURLSession](union.Rule{NonNull: true, Required: []string{"sessionId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"sessionId", "elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
-	union.Alt[CreateElicitationRequestURLRequest](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
+	union.Alt[CreateElicitationRequestURLRequest](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"requestId", "elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
 	union.Alt[CreateElicitationRequestCustomSession](union.Rule{NonNull: true, Required: []string{"sessionId", "mode", "message"}, NotNull: []string{"sessionId", "mode", "message"}}),
-	union.Alt[CreateElicitationRequestCustomRequest](union.Rule{NonNull: true, Required: []string{"requestId", "mode", "message"}, NotNull: []string{"mode", "message"}}),
+	union.Alt[CreateElicitationRequestCustomRequest](union.Rule{NonNull: true, Required: []string{"requestId", "mode", "message"}, NotNull: []string{"requestId", "mode", "message"}}),
 )
 
 // NewCreateElicitationRequest encodes value, one of the CreateElicitationRequestAlternative types, adding any literal members
@@ -1187,8 +1225,8 @@ func (v *CreateElicitationRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 // Property schema for elicitation form fields.
 //
 // Each variant corresponds to a JSON Schema `"type"` value.
-// Single-select enums use the `String` variant with `enum` or `oneOf` set.
-// Multi-select enums use the `Array` variant.
+// Single-select enums use `type: "string"` with `enum` or `oneOf` set.
+// Multi-select enums use `type: "array"`.
 type ElicitationPropertySchema struct {
 	value ElicitationPropertySchemaVariant
 }
@@ -1335,7 +1373,7 @@ type ElicitationPropertySchemaString struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean there is no maximum length constraint.
 	MaxLength *uint32 `json:"maxLength,omitzero"`
-	// Pattern the string must match.
+	// Pattern the string must match, in ECMA-262 regular expression syntax.
 	//
 	// Optional. Omitted and `null` are equivalent and mean there is no pattern constraint.
 	Pattern *string `json:"pattern,omitzero"`
@@ -1357,7 +1395,7 @@ type ElicitationPropertySchemaString struct {
 	// Optional. Omitted and `null` are equivalent and mean no titled single-select choices are
 	// declared by `oneOf`.
 	OneOf []EnumOption `json:"oneOf,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1402,7 +1440,7 @@ type ElicitationPropertySchemaNumber struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
 	Default *float64 `json:"default,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1447,7 +1485,7 @@ type ElicitationPropertySchemaInteger struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
 	Default *int64 `json:"default,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1484,7 +1522,7 @@ type ElicitationPropertySchemaBoolean struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
 	Default *bool `json:"default,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1531,7 +1569,7 @@ type ElicitationPropertySchemaArray struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default selections are provided.
 	Default []string `json:"default,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1678,7 +1716,7 @@ func unmarshalMultiSelectItemsVariant(dec *jsontext.Decoder, out *MultiSelectIte
 type MultiSelectItemsString struct {
 	// Allowed enum values. Must contain at least one value.
 	Enum []string `json:"enum"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1735,7 +1773,7 @@ type ElicitationFormModeAlternative interface {
 
 var elicitationFormModeAlternatives = union.Table(
 	union.Alt[ElicitationFormModeSession](union.Rule{NonNull: true, Required: []string{"sessionId", "requestedSchema"}, NotNull: []string{"sessionId", "requestedSchema"}}),
-	union.Alt[ElicitationFormModeRequest](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema"}, NotNull: []string{"requestedSchema"}}),
+	union.Alt[ElicitationFormModeRequest](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema"}, NotNull: []string{"requestId", "requestedSchema"}}),
 )
 
 // NewElicitationFormMode encodes value, one of the ElicitationFormModeAlternative types, adding any literal members
@@ -1789,7 +1827,7 @@ type ElicitationURLModeAlternative interface {
 
 var elicitationURLModeAlternatives = union.Table(
 	union.Alt[ElicitationURLModeSession](union.Rule{NonNull: true, Required: []string{"sessionId", "elicitationId", "url"}, NotNull: []string{"sessionId", "elicitationId", "url"}}),
-	union.Alt[ElicitationURLModeRequest](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url"}, NotNull: []string{"elicitationId", "url"}}),
+	union.Alt[ElicitationURLModeRequest](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url"}, NotNull: []string{"requestId", "elicitationId", "url"}}),
 )
 
 // NewElicitationURLMode encodes value, one of the ElicitationURLModeAlternative types, adding any literal members
@@ -1937,22 +1975,25 @@ func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) e
 // The client runs the configured agent program as a separate interactive
 // process for the user to authenticate via a TUI. Agents MUST advertise this
 // method only when the client enabled its terminal authentication capability.
-// A zero exit status signals success; any other termination signals failure.
+// A zero exit status signals success. Any other termination signals failure.
 // The client MUST NOT pass this method to `auth/login`.
 type AuthMethodTerminal struct {
 	// Unique identifier for this authentication method.
 	MethodID AuthMethodID `json:"methodId"`
 	// Human-readable name of the authentication method.
 	Name string `json:"name"`
-	// Optional description providing more details about this authentication method.
+	// Optional human-readable description of this authentication method.
+	//
+	// Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
 	// Additional arguments to append to the configured agent invocation for terminal auth.
 	Args []string `json:"args,omitzero"`
 	// Additional environment variables to set on the configured agent invocation for terminal auth.
 	// Names MUST be unique. These values override same-named variables in the
 	// base launch configuration.
-	Env  []EnvVariable `json:"env,omitzero"`
-	Meta Meta          `json:"_meta,omitzero"`
+	Env []EnvVariable `json:"env,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (AuthMethodTerminal) authMethodVariant() {}
@@ -1982,9 +2023,12 @@ type AuthMethodAgent struct {
 	MethodID AuthMethodID `json:"methodId"`
 	// Human-readable name of the authentication method.
 	Name string `json:"name"`
-	// Optional description providing more details about this authentication method.
+	// Optional human-readable description of this authentication method.
+	//
+	// Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
-	Meta        Meta    `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (AuthMethodAgent) authMethodVariant() {}
@@ -2015,10 +2059,7 @@ type AuthMethodCustom struct {
 	// Unique identifier for this authentication method.
 	MethodID AuthMethodID `json:"methodId"`
 	// Human-readable name of the authentication method.
-	Name string `json:"name"`
-	// Optional description providing more details about this authentication method.
-	Description          *string                   `json:"description,omitzero"`
-	Meta                 Meta                      `json:"_meta,omitzero"`
+	Name                 string                    `json:"name"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
@@ -2134,19 +2175,25 @@ func unmarshalSessionConfigOptionVariant(dec *jsontext.Decoder, out *SessionConf
 
 // SessionConfigOptionSelect is the SessionConfigOption variant with type "select".
 type SessionConfigOptionSelect struct {
-	// The currently selected value.
+	// The currently selected value. MUST be one of the `value`s in `options`.
 	CurrentValue SessionConfigValueID `json:"currentValue"`
-	// The set of selectable options.
+	// The set of selectable options. MUST contain at least one value, and each `value` MUST be
+	// unique within the option, including across groups.
 	Options SessionConfigSelectOptions `json:"options"`
 	// Unique identifier for the configuration option.
 	ConfigID SessionConfigID `json:"configId"`
 	// Human-readable label for the option.
 	Name string `json:"name"`
 	// Optional description for the Client to display to the user.
+	//
+	// Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
 	// Optional semantic category for this option (UX only).
+	//
+	// Omitted and `null` are equivalent and mean no category is provided.
 	Category *SessionConfigOptionCategory `json:"category,omitzero"`
-	Meta     Meta                         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionConfigOptionSelect) sessionConfigOptionVariant() {}
@@ -2175,10 +2222,15 @@ type SessionConfigOptionBoolean struct {
 	// Human-readable label for the option.
 	Name string `json:"name"`
 	// Optional description for the Client to display to the user.
+	//
+	// Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
 	// Optional semantic category for this option (UX only).
+	//
+	// Omitted and `null` are equivalent and mean no category is provided.
 	Category *SessionConfigOptionCategory `json:"category,omitzero"`
-	Meta     Meta                         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionConfigOptionBoolean) sessionConfigOptionVariant() {}
@@ -2211,11 +2263,16 @@ type SessionConfigOptionCustom struct {
 	// Human-readable label for the option.
 	Name string `json:"name"`
 	// Optional description for the Client to display to the user.
+	//
+	// Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
 	// Optional semantic category for this option (UX only).
-	Category             *SessionConfigOptionCategory `json:"category,omitzero"`
-	Meta                 Meta                         `json:"_meta,omitzero"`
-	AdditionalProperties map[string]jsontext.Value    `json:",embed"`
+	//
+	// Omitted and `null` are equivalent and mean no category is provided.
+	Category *SessionConfigOptionCategory `json:"category,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta                 Meta                      `json:"_meta,omitzero"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 func (SessionConfigOptionCustom) sessionConfigOptionVariant() {}
@@ -2276,6 +2333,164 @@ func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 	v.raw = raw.Clone()
 	return nil
 }
+
+// AvailableCommand is a command the agent advertises to the client.
+//
+// The `type` field acts as the discriminator in the serialized JSON form.
+//
+// AvailableCommand is a tagged union discriminated by the "type" member. Use [NewAvailableCommand]
+// or a type switch on [AvailableCommand.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
+type AvailableCommand struct{ value AvailableCommandVariant }
+
+// AvailableCommandVariant is implemented by [AvailableCommandCommand], [AvailableCommandCustom].
+type AvailableCommandVariant interface {
+	availableCommandVariant()
+	Tag() string
+}
+
+// AvailableCommandVariants is the set of AvailableCommand variant types. It lists the types
+// themselves: a pointer to a variant also has the AvailableCommandVariant
+// methods, but is not one.
+type AvailableCommandVariants interface {
+	AvailableCommandCommand |
+		AvailableCommandCustom
+	AvailableCommandVariant
+}
+
+// NewAvailableCommand wraps a variant.
+func NewAvailableCommand[T AvailableCommandVariants](v T) AvailableCommand {
+	return AvailableCommand{value: v}
+}
+
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u AvailableCommand) Variant() AvailableCommandVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u AvailableCommand) As[T AvailableCommandVariants]() (T, bool) {
+	v, ok := u.value.(T)
+	return v, ok
+}
+
+// Tag returns the "type" discriminator, or "" for the zero value.
+func (u AvailableCommand) Tag() string {
+	if u.value == nil {
+		return ""
+	}
+	return u.value.Tag()
+}
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u AvailableCommand) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u AvailableCommand) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return errors.New("AvailableCommand: no variant set; use NewAvailableCommand")
+	}
+	return json.MarshalEncode(enc, u.value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *AvailableCommand) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalAvailableCommandVariant(dec, &u.value)
+}
+
+// unmarshalAvailableCommandVariant decodes a AvailableCommandVariant by its "type" member; it backs Unmarshalers.
+func unmarshalAvailableCommandVariant(dec *jsontext.Decoder, out *AvailableCommandVariant) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("AvailableCommand: expected object, got %s", raw.Kind())
+	}
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
+		return fmt.Errorf("AvailableCommand: %w", err)
+	}
+	if !present {
+		return errors.New("AvailableCommand: missing \"type\" member")
+	}
+	switch tag {
+	case "command":
+		var v AvailableCommandCommand
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v AvailableCommandCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
+	return nil
+}
+
+// AvailableCommandCommand is the AvailableCommand variant with type "command".
+//
+// A slash command the user can invoke by including it in a prompt.
+//
+// The `type` discriminator value is `command`.
+type AvailableCommandCommand struct {
+	// Command name without the leading `/` (e.g., `create_plan`, `research_codebase`).
+	//
+	// MUST NOT contain whitespace and MUST be unique within the command list.
+	Name string `json:"name"`
+	// Human-readable description of what the command does.
+	Description string `json:"description"`
+	// Input for the command if required
+	//
+	// Omitted and `null` are equivalent and mean the command takes no input.
+	Input AvailableCommandInput `json:"input,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (AvailableCommandCommand) availableCommandVariant() {}
+
+// Tag returns "command".
+func (AvailableCommandCommand) Tag() string { return "command" }
+
+type availableCommandCommandFields AvailableCommandCommand
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v AvailableCommandCommand) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[availableCommandCommandFields]{"command", availableCommandCommandFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *AvailableCommandCommand) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "AvailableCommandCommand", "command", (*availableCommandCommandFields)(v))
+}
+
+// AvailableCommandCustom holds AvailableCommand values with an unrecognized "type", keeping every member.
+type AvailableCommandCustom struct {
+	// Custom or future command type.
+	//
+	// Values beginning with `_` are reserved for implementation-specific
+	// extensions. Unknown values that do not begin with `_` are reserved for
+	// future ACP variants.
+	Type string `json:"type"`
+	// Command name without the leading `/`. MUST NOT contain whitespace and MUST be unique
+	// within the command list.
+	Name string `json:"name"`
+	// Human-readable description of what the command does.
+	Description          string                    `json:"description"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (AvailableCommandCustom) availableCommandVariant() {}
+
+// Tag returns the "type" member.
+func (v AvailableCommandCustom) Tag() string { return v.Type }
 
 // AvailableCommandInput is the input specification for a command.
 //
@@ -2381,7 +2596,8 @@ func unmarshalAvailableCommandInputVariant(dec *jsontext.Decoder, out *Available
 type AvailableCommandInputText struct {
 	// A hint to display when the input hasn't been provided yet
 	Hint string `json:"hint"`
-	Meta Meta   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (AvailableCommandInputText) availableCommandInputVariant() {}
@@ -2416,6 +2632,1030 @@ func (AvailableCommandInputCustom) availableCommandInputVariant() {}
 
 // Tag returns the "type" member.
 func (v AvailableCommandInputCustom) Tag() string { return v.Type }
+
+// StateUpdate is a snapshot of the session's aggregate foreground activity.
+//
+// Foreground work is the agent's active response or workflow in the session,
+// including model processing, tool execution, and waiting for user action needed
+// to continue that work. It can start with a prompt or be agent-initiated, for
+// example to pursue an ongoing goal or follow up on a completed background task.
+// Either way, the agent MUST report `running` when foreground work starts,
+// or `requires_action` if it starts blocked on user action, and `idle` when it
+// ends. The agent SHOULD include a stop reason on that idle update.
+// Agent-initiated work does not require a prompt request or a synthetic user
+// message.
+//
+// `running` may precede user-message insertion, for example during a foreground
+// hook. It is not acknowledgment of insertion, and rejecting a prompt does not
+// itself end foreground work.
+//
+// Background activity can continue and emit other `session/update` notifications
+// while `idle`. Those notifications, including a detached task's progress or
+// completion, do not by themselves change this state. A permission request only
+// warrants `requires_action` when foreground work is blocked on user action.
+//
+// The agent SHOULD report `requires_action` when the foreground workflow as a
+// whole cannot progress without user action, including permissions or elicitations.
+// Once reported, it MUST report `running` when progress resumes, or `idle` when
+// work ends without resuming.
+// If other foreground work can progress, the state remains `running`. Resolving
+// one of several requests does not itself change the state. Agents SHOULD ignore
+// responses for work that has already ended rather than use them to resume it.
+//
+// A new session defaults to idle until a state update reports otherwise.
+// Resume MUST send a current-state snapshot after any replay and before its
+// response. The snapshot reports foreground state after resuming.
+// The response alone does not imply idle.
+// Repeated snapshots are idempotent, not additional work, completions, or usage.
+// A repeated state may carry updated information without another state transition.
+// The agent MUST report `idle` when no foreground activity remains. Completing
+// an individual activity while other foreground work continues does not require
+// an idle boundary. Local commands use the same lifecycle even without model work.
+//
+// See protocol docs: [Session States]
+//
+// StateUpdate is a tagged union discriminated by the "state" member. Use [NewStateUpdate]
+// or a type switch on [StateUpdate.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
+//
+// [Session States]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#session-states
+type StateUpdate struct{ value StateUpdateVariant }
+
+// StateUpdateVariant is implemented by [StateUpdateRunning], [StateUpdateIdle], [StateUpdateRequiresAction], [StateUpdateUnknown], [StateUpdateCustom].
+type StateUpdateVariant interface {
+	stateUpdateVariant()
+	Tag() string
+}
+
+// StateUpdateVariants is the set of StateUpdate variant types. It lists the types
+// themselves: a pointer to a variant also has the StateUpdateVariant
+// methods, but is not one.
+type StateUpdateVariants interface {
+	StateUpdateRunning |
+		StateUpdateIdle |
+		StateUpdateRequiresAction |
+		StateUpdateUnknown |
+		StateUpdateCustom
+	StateUpdateVariant
+}
+
+// NewStateUpdate wraps a variant.
+func NewStateUpdate[T StateUpdateVariants](v T) StateUpdate { return StateUpdate{value: v} }
+
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u StateUpdate) Variant() StateUpdateVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u StateUpdate) As[T StateUpdateVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
+
+// Tag returns the "state" discriminator, or "" for the zero value.
+func (u StateUpdate) Tag() string {
+	if u.value == nil {
+		return ""
+	}
+	return u.value.Tag()
+}
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u StateUpdate) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u StateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return errors.New("StateUpdate: no variant set; use NewStateUpdate")
+	}
+	return json.MarshalEncode(enc, u.value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *StateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStateUpdateVariant(dec, &u.value)
+}
+
+// unmarshalStateUpdateVariant decodes a StateUpdateVariant by its "state" member; it backs Unmarshalers.
+func unmarshalStateUpdateVariant(dec *jsontext.Decoder, out *StateUpdateVariant) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("StateUpdate: expected object, got %s", raw.Kind())
+	}
+	tag, present, err := union.ReadTag(raw, "state", dec.Options())
+	if err != nil {
+		return fmt.Errorf("StateUpdate: %w", err)
+	}
+	if !present {
+		return errors.New("StateUpdate: missing \"state\" member")
+	}
+	switch tag {
+	case "running":
+		var v StateUpdateRunning
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "idle":
+		var v StateUpdateIdle
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "requires_action":
+		var v StateUpdateRequiresAction
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "unknown":
+		var v StateUpdateUnknown
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v StateUpdateCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
+	return nil
+}
+
+// StateUpdateRunning is the StateUpdate variant with state "running".
+//
+// Foreground work is in progress.
+type StateUpdateRunning struct {
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (StateUpdateRunning) stateUpdateVariant() {}
+
+// Tag returns "running".
+func (StateUpdateRunning) Tag() string { return "running" }
+
+type stateUpdateRunningFields StateUpdateRunning
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v StateUpdateRunning) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stateTagged[stateUpdateRunningFields]{"running", stateUpdateRunningFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *StateUpdateRunning) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStateTagged(dec, "StateUpdateRunning", "running", (*stateUpdateRunningFields)(v))
+}
+
+// StateUpdateIdle is the StateUpdate variant with state "idle"; its payload is the IdleStateUpdate union
+// whose members are written alongside the discriminator.
+type StateUpdateIdle struct{ Value IdleStateUpdate }
+
+func (StateUpdateIdle) stateUpdateVariant() {}
+
+// Tag returns "idle".
+func (StateUpdateIdle) Tag() string { return "idle" }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v StateUpdateIdle) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return union.SpliceTag(enc, "state", "idle", v.Value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *StateUpdateIdle) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return union.UnspliceTag(dec, "state", "idle", &v.Value)
+}
+
+// StateUpdateRequiresAction is the StateUpdate variant with state "requires_action".
+//
+// The foreground workflow as a whole is blocked on user action.
+//
+// Agents SHOULD report this state when foreground work cannot progress without
+// user action. Pending permissions or elicitations alone do not imply this
+// state if other foreground work can progress, or if the requests belong only
+// to independent background activity. Once reported, agents MUST report
+// `running` when progress resumes, or `idle` if the work ends without resuming.
+// Responding to one request does not itself imply `running`.
+type StateUpdateRequiresAction struct {
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (StateUpdateRequiresAction) stateUpdateVariant() {}
+
+// Tag returns "requires_action".
+func (StateUpdateRequiresAction) Tag() string { return "requires_action" }
+
+type stateUpdateRequiresActionFields StateUpdateRequiresAction
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v StateUpdateRequiresAction) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stateTagged[stateUpdateRequiresActionFields]{"requires_action", stateUpdateRequiresActionFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStateTagged(dec, "StateUpdateRequiresAction", "requires_action", (*stateUpdateRequiresActionFields)(v))
+}
+
+// StateUpdateUnknown is the Agent cannot currently determine foreground activity.
+//
+// Report this when activity becomes unobservable, not merely because the session
+// has been quiet. The Client MUST stop presenting the previous state as confirmed
+// current activity, but may retain it as last known. A later state replaces this
+// snapshot normally.
+//
+// This is not a task outcome or session closure. It does not cancel work, resolve
+// pending requests, or revoke capabilities. Capabilities are updated separately.
+//
+// StateUpdateUnknown is the StateUpdate variant with state "unknown".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type StateUpdateUnknown struct {
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (StateUpdateUnknown) stateUpdateVariant() {}
+
+// Tag returns "unknown".
+func (StateUpdateUnknown) Tag() string { return "unknown" }
+
+type stateUpdateUnknownFields StateUpdateUnknown
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v StateUpdateUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stateTagged[stateUpdateUnknownFields]{"unknown", stateUpdateUnknownFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *StateUpdateUnknown) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStateTagged(dec, "StateUpdateUnknown", "unknown", (*stateUpdateUnknownFields)(v))
+}
+
+// StateUpdateCustom holds StateUpdate values with an unrecognized "state", keeping every member.
+type StateUpdateCustom struct {
+	// Custom or future session state.
+	//
+	// Values beginning with `_` are reserved for implementation-specific
+	// extensions. Unknown values that do not begin with `_` are reserved for
+	// future ACP variants.
+	State                string                    `json:"state"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (StateUpdateCustom) stateUpdateVariant() {}
+
+// Tag returns the "state" member.
+func (v StateUpdateCustom) Tag() string { return v.State }
+
+// BackgroundWork is a tagged union discriminated by the "type" member. Use [NewBackgroundWork]
+// or a type switch on [BackgroundWork.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
+//
+// One piece of work running independently of the session's foreground work.
+//
+// Items reference entities the Client already tracks. The Agent MUST announce each item
+// before the first snapshot that lists it, and MUST report a terminal's `exitStatus` or a
+// tool call's final status before the snapshot that removes it. Each piece of work is
+// listed once: process-backed work is listed as its terminal, not also as its tool call.
+//
+// See protocol docs: [Background Work]
+//
+// [Background Work]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work
+type BackgroundWork struct{ value BackgroundWorkVariant }
+
+// BackgroundWorkVariant is implemented by [BackgroundWorkTerminal], [BackgroundWorkToolCall], [BackgroundWorkSubagent], [BackgroundWorkCustom].
+type BackgroundWorkVariant interface {
+	backgroundWorkVariant()
+	Tag() string
+}
+
+// BackgroundWorkVariants is the set of BackgroundWork variant types. It lists the types
+// themselves: a pointer to a variant also has the BackgroundWorkVariant
+// methods, but is not one.
+type BackgroundWorkVariants interface {
+	BackgroundWorkTerminal |
+		BackgroundWorkToolCall |
+		BackgroundWorkSubagent |
+		BackgroundWorkCustom
+	BackgroundWorkVariant
+}
+
+// NewBackgroundWork wraps a variant.
+func NewBackgroundWork[T BackgroundWorkVariants](v T) BackgroundWork { return BackgroundWork{value: v} }
+
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u BackgroundWork) Variant() BackgroundWorkVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u BackgroundWork) As[T BackgroundWorkVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
+
+// Tag returns the "type" discriminator, or "" for the zero value.
+func (u BackgroundWork) Tag() string {
+	if u.value == nil {
+		return ""
+	}
+	return u.value.Tag()
+}
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u BackgroundWork) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u BackgroundWork) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return errors.New("BackgroundWork: no variant set; use NewBackgroundWork")
+	}
+	return json.MarshalEncode(enc, u.value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *BackgroundWork) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalBackgroundWorkVariant(dec, &u.value)
+}
+
+// unmarshalBackgroundWorkVariant decodes a BackgroundWorkVariant by its "type" member; it backs Unmarshalers.
+func unmarshalBackgroundWorkVariant(dec *jsontext.Decoder, out *BackgroundWorkVariant) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("BackgroundWork: expected object, got %s", raw.Kind())
+	}
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
+		return fmt.Errorf("BackgroundWork: %w", err)
+	}
+	if !present {
+		return errors.New("BackgroundWork: missing \"type\" member")
+	}
+	switch tag {
+	case "terminal":
+		var v BackgroundWorkTerminal
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "tool_call":
+		var v BackgroundWorkToolCall
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "subagent":
+		var v BackgroundWorkSubagent
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v BackgroundWorkCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
+	return nil
+}
+
+// BackgroundWorkTerminal is a listed terminal running in the background.
+//
+// BackgroundWorkTerminal is the BackgroundWork variant with type "terminal".
+type BackgroundWorkTerminal struct {
+	// The ID of the listed terminal.
+	TerminalID TerminalID `json:"terminalId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (BackgroundWorkTerminal) backgroundWorkVariant() {}
+
+// Tag returns "terminal".
+func (BackgroundWorkTerminal) Tag() string { return "terminal" }
+
+type backgroundWorkTerminalFields BackgroundWorkTerminal
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v BackgroundWorkTerminal) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[backgroundWorkTerminalFields]{"terminal", backgroundWorkTerminalFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *BackgroundWorkTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "BackgroundWorkTerminal", "terminal", (*backgroundWorkTerminalFields)(v))
+}
+
+// BackgroundWorkToolCall is a listed tool call whose work continues in the background.
+//
+// BackgroundWorkToolCall is the BackgroundWork variant with type "tool_call".
+type BackgroundWorkToolCall struct {
+	// The ID of the listed tool call.
+	ToolCallID ToolCallID `json:"toolCallId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (BackgroundWorkToolCall) backgroundWorkVariant() {}
+
+// Tag returns "tool_call".
+func (BackgroundWorkToolCall) Tag() string { return "tool_call" }
+
+type backgroundWorkToolCallFields BackgroundWorkToolCall
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v BackgroundWorkToolCall) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[backgroundWorkToolCallFields]{"tool_call", backgroundWorkToolCallFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *BackgroundWorkToolCall) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "BackgroundWorkToolCall", "tool_call", (*backgroundWorkToolCallFields)(v))
+}
+
+// BackgroundWorkSubagent is a listed subagent session associated with this session through `subagent_update`.
+//
+// BackgroundWorkSubagent is the BackgroundWork variant with type "subagent".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type BackgroundWorkSubagent struct {
+	// The ID of the listed session.
+	SessionID SessionID `json:"sessionId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (BackgroundWorkSubagent) backgroundWorkVariant() {}
+
+// Tag returns "subagent".
+func (BackgroundWorkSubagent) Tag() string { return "subagent" }
+
+type backgroundWorkSubagentFields BackgroundWorkSubagent
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v BackgroundWorkSubagent) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[backgroundWorkSubagentFields]{"subagent", backgroundWorkSubagentFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *BackgroundWorkSubagent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "BackgroundWorkSubagent", "subagent", (*backgroundWorkSubagentFields)(v))
+}
+
+// BackgroundWorkCustom holds BackgroundWork values with an unrecognized "type", keeping every member.
+type BackgroundWorkCustom struct {
+	// Custom or future background work type.
+	//
+	// Values beginning with `_` are reserved for implementation-specific
+	// extensions. Unknown values that do not begin with `_` are reserved for
+	// future ACP variants.
+	Type                 string                    `json:"type"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (BackgroundWorkCustom) backgroundWorkVariant() {}
+
+// Tag returns the "type" member.
+func (v BackgroundWorkCustom) Tag() string { return v.Type }
+
+// ErrorData preserves the complete JSON payload, including future variants.
+// Use [ErrorData.As] to read one alternative and [NewErrorData] to build one.
+// The zero value holds no payload and encodes as null.
+//
+// Schema for [ErrorData]: the shapes ACP defines, or any other value.
+type ErrorData struct{ raw jsontext.Value }
+
+// ErrorDataAlternative is the set of Go types ErrorData can hold.
+type ErrorDataAlternative interface {
+	UnsupportedProtocolVersionErrorData | SessionNotFoundErrorData | jsontext.Value
+}
+
+var errorDataAlternatives = union.Table(
+	union.Alt[UnsupportedProtocolVersionErrorData](union.Rule{NonNull: true, Required: []string{"requested", "supported"}, NotNull: []string{"requested", "supported"}}),
+	union.Alt[SessionNotFoundErrorData](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
+
+// NewErrorData encodes value, one of the ErrorDataAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewErrorData[T ErrorDataAlternative](value T) (ErrorData, error) {
+	raw, err := union.New("ErrorData", errorDataAlternatives, value)
+	return ErrorData{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ErrorData) As[T ErrorDataAlternative]() (T, error) {
+	return union.As[T]("ErrorData", errorDataAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ErrorData) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ErrorData) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ErrorData) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return enc.WriteToken(jsontext.Null)
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ErrorData) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// IdleStateUpdate is a tagged union discriminated by the "stopReason" member. Use [NewIdleStateUpdate]
+// or a type switch on [IdleStateUpdate.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
+//
+// No foreground work is active. Background activity may continue.
+//
+// Agents SHOULD include a `stopReason` when the idle transition ends foreground
+// work. An idle update that does not end foreground work need not include one.
+// Receivers treat an omitted, `null`, or malformed `stopReason` as the agent not
+// reporting one.
+// Repeated or resume snapshots may carry the last stop reason for context.
+// They MUST NOT be counted as new completions, cancellations, or additional usage.
+type IdleStateUpdate struct{ value IdleStateUpdateVariant }
+
+// IdleStateUpdateVariant is implemented by [IdleStateUpdateEndTurn], [IdleStateUpdateMaxTokens], [IdleStateUpdateMaxTurnRequests], [IdleStateUpdateRefusal], [IdleStateUpdateCancelled], [IdleStateUpdateError], [IdleStateUpdateCustom], [IdleStateUpdateUntagged].
+type IdleStateUpdateVariant interface {
+	idleStateUpdateVariant()
+	Tag() string
+}
+
+// IdleStateUpdateVariants is the set of IdleStateUpdate variant types. It lists the types
+// themselves: a pointer to a variant also has the IdleStateUpdateVariant
+// methods, but is not one.
+type IdleStateUpdateVariants interface {
+	IdleStateUpdateEndTurn |
+		IdleStateUpdateMaxTokens |
+		IdleStateUpdateMaxTurnRequests |
+		IdleStateUpdateRefusal |
+		IdleStateUpdateCancelled |
+		IdleStateUpdateError |
+		IdleStateUpdateCustom |
+		IdleStateUpdateUntagged
+	IdleStateUpdateVariant
+}
+
+// NewIdleStateUpdate wraps a variant.
+func NewIdleStateUpdate[T IdleStateUpdateVariants](v T) IdleStateUpdate {
+	return IdleStateUpdate{value: v}
+}
+
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u IdleStateUpdate) Variant() IdleStateUpdateVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u IdleStateUpdate) As[T IdleStateUpdateVariants]() (T, bool) {
+	v, ok := u.value.(T)
+	return v, ok
+}
+
+// Tag returns the "stopReason" discriminator, or "" for the zero value.
+func (u IdleStateUpdate) Tag() string {
+	if u.value == nil {
+		return ""
+	}
+	return u.value.Tag()
+}
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u IdleStateUpdate) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u IdleStateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return errors.New("IdleStateUpdate: no variant set; use NewIdleStateUpdate")
+	}
+	return json.MarshalEncode(enc, u.value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *IdleStateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalIdleStateUpdateVariant(dec, &u.value)
+}
+
+// unmarshalIdleStateUpdateVariant decodes a IdleStateUpdateVariant by its "stopReason" member; it backs Unmarshalers.
+func unmarshalIdleStateUpdateVariant(dec *jsontext.Decoder, out *IdleStateUpdateVariant) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("IdleStateUpdate: expected object, got %s", raw.Kind())
+	}
+	tag, present, err := union.ReadTag(raw, "stopReason", dec.Options())
+	if err != nil {
+		return fmt.Errorf("IdleStateUpdate: %w", err)
+	}
+	if !present {
+		var v IdleStateUpdateUntagged
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+		return nil
+	}
+	switch tag {
+	case "end_turn":
+		var v IdleStateUpdateEndTurn
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "max_tokens":
+		var v IdleStateUpdateMaxTokens
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "max_turn_requests":
+		var v IdleStateUpdateMaxTurnRequests
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "refusal":
+		var v IdleStateUpdateRefusal
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "cancelled":
+		var v IdleStateUpdateCancelled
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "error":
+		var v IdleStateUpdateError
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v IdleStateUpdateCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
+	return nil
+}
+
+// IdleStateUpdateEndTurn is the IdleStateUpdate variant with stopReason "end_turn".
+type IdleStateUpdateEndTurn struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateEndTurn) idleStateUpdateVariant() {}
+
+// Tag returns "end_turn".
+func (IdleStateUpdateEndTurn) Tag() string { return "end_turn" }
+
+type idleStateUpdateEndTurnFields IdleStateUpdateEndTurn
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateEndTurn) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateEndTurnFields]{"end_turn", idleStateUpdateEndTurnFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateEndTurn) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateEndTurn", "end_turn", (*idleStateUpdateEndTurnFields)(v))
+}
+
+// IdleStateUpdateMaxTokens is the IdleStateUpdate variant with stopReason "max_tokens".
+type IdleStateUpdateMaxTokens struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateMaxTokens) idleStateUpdateVariant() {}
+
+// Tag returns "max_tokens".
+func (IdleStateUpdateMaxTokens) Tag() string { return "max_tokens" }
+
+type idleStateUpdateMaxTokensFields IdleStateUpdateMaxTokens
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateMaxTokens) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateMaxTokensFields]{"max_tokens", idleStateUpdateMaxTokensFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateMaxTokens) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateMaxTokens", "max_tokens", (*idleStateUpdateMaxTokensFields)(v))
+}
+
+// IdleStateUpdateMaxTurnRequests is the IdleStateUpdate variant with stopReason "max_turn_requests".
+type IdleStateUpdateMaxTurnRequests struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateMaxTurnRequests) idleStateUpdateVariant() {}
+
+// Tag returns "max_turn_requests".
+func (IdleStateUpdateMaxTurnRequests) Tag() string { return "max_turn_requests" }
+
+type idleStateUpdateMaxTurnRequestsFields IdleStateUpdateMaxTurnRequests
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateMaxTurnRequests) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateMaxTurnRequestsFields]{"max_turn_requests", idleStateUpdateMaxTurnRequestsFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateMaxTurnRequests) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateMaxTurnRequests", "max_turn_requests", (*idleStateUpdateMaxTurnRequestsFields)(v))
+}
+
+// IdleStateUpdateRefusal is the IdleStateUpdate variant with stopReason "refusal".
+type IdleStateUpdateRefusal struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateRefusal) idleStateUpdateVariant() {}
+
+// Tag returns "refusal".
+func (IdleStateUpdateRefusal) Tag() string { return "refusal" }
+
+type idleStateUpdateRefusalFields IdleStateUpdateRefusal
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateRefusal) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateRefusalFields]{"refusal", idleStateUpdateRefusalFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateRefusal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateRefusal", "refusal", (*idleStateUpdateRefusalFields)(v))
+}
+
+// IdleStateUpdateCancelled is the IdleStateUpdate variant with stopReason "cancelled".
+type IdleStateUpdateCancelled struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateCancelled) idleStateUpdateVariant() {}
+
+// Tag returns "cancelled".
+func (IdleStateUpdateCancelled) Tag() string { return "cancelled" }
+
+type idleStateUpdateCancelledFields IdleStateUpdateCancelled
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateCancelled) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateCancelledFields]{"cancelled", idleStateUpdateCancelledFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateCancelled) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateCancelled", "cancelled", (*idleStateUpdateCancelledFields)(v))
+}
+
+// IdleStateUpdateError is the IdleStateUpdate variant with stopReason "error".
+type IdleStateUpdateError struct {
+	// The failure, as a JSON-RPC error object.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting failure details.
+	// Agents SHOULD include it.
+	Error *Error `json:"error,omitzero"`
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateError) idleStateUpdateVariant() {}
+
+// Tag returns "error".
+func (IdleStateUpdateError) Tag() string { return "error" }
+
+type idleStateUpdateErrorFields IdleStateUpdateError
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v IdleStateUpdateError) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateErrorFields]{"error", idleStateUpdateErrorFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *IdleStateUpdateError) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStopReasonTagged(dec, "IdleStateUpdateError", "error", (*idleStateUpdateErrorFields)(v))
+}
+
+// IdleStateUpdateCustom holds IdleStateUpdate values with an unrecognized "stopReason", keeping every member.
+type IdleStateUpdateCustom struct {
+	// Why foreground work stopped. The value selects one of this type's variants, which may add fields of their own.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting a stop reason; a malformed value is treated the same way.
+	//
+	// See protocol docs: [Stop Reasons](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#stop-reasons)
+	StopReason string `json:"stopReason"`
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta                 Meta                      `json:"_meta,omitzero"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (IdleStateUpdateCustom) idleStateUpdateVariant() {}
+
+// Tag returns the "stopReason" member.
+func (v IdleStateUpdateCustom) Tag() string { return v.StopReason }
+
+// IdleStateUpdateUntagged is the IdleStateUpdate variant without a "stopReason" member.
+type IdleStateUpdateUntagged struct {
+	// Token usage for completed foreground work.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting token
+	// usage for this state update.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Usage *Usage `json:"usage,omitzero"`
+	// Work running independently of foreground work, as a complete snapshot.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the Agent is not reporting
+	// background work, not that nothing is running. `[]` means no background work is
+	// running. An Agent that reports background work MUST include it on every state
+	// update for the session. A malformed list is treated as not reported.
+	//
+	// See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+	Background []BackgroundWork `json:"background,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (IdleStateUpdateUntagged) idleStateUpdateVariant() {}
+
+// Tag returns "": IdleStateUpdateUntagged is the IdleStateUpdate variant without a "stopReason" member.
+func (IdleStateUpdateUntagged) Tag() string { return "" }
 
 // SessionUpdate is a tagged union discriminated by the "sessionUpdate" member. Use [NewSessionUpdate]
 // or a type switch on [SessionUpdate.Variant] to work with it. The zero value holds no
@@ -2675,11 +3915,11 @@ type SessionUpdateUserMessageChunk struct {
 	// A unique identifier for the message this chunk belongs to.
 	//
 	// All chunks belonging to the same message share the same `messageId`.
-	// A change in `messageId` indicates a new message has started.
+	// Chunks for different messages can interleave.
 	MessageID MessageID `json:"messageId"`
 	// A single item of content
 	Content ContentBlock `json:"content"`
-	// This field is chunk-scoped.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This metadata is scoped to the chunk and does not patch stored metadata.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2702,11 +3942,11 @@ func (v *SessionUpdateUserMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder)
 
 // SessionUpdateUserMessage is a user message upsert.
 //
-// Only [SessionUpdateUserMessage.MessageID] is required. `content` has patch semantics:
+// Only `messageId` is required. `content` has patch semantics:
 // an omitted field leaves existing message content unchanged, `null` clears the
 // value, and a concrete array replaces the previous value. For a new
-// `messageId`, omitted fields use client defaults. `content` is replaced as a
-// whole array; send `[]` or `null` to clear it.
+// `messageId`, omitted `content` starts empty. `content` is replaced as a
+// whole array. Send `[]` or `null` to clear it.
 //
 // Message updates and chunks are applied in the order they are received. When
 // a `user_message` update includes `content`, that array replaces any content
@@ -2720,7 +3960,7 @@ type SessionUpdateUserMessage struct {
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this message.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -2748,11 +3988,11 @@ type SessionUpdateAgentMessageChunk struct {
 	// A unique identifier for the message this chunk belongs to.
 	//
 	// All chunks belonging to the same message share the same `messageId`.
-	// A change in `messageId` indicates a new message has started.
+	// Chunks for different messages can interleave.
 	MessageID MessageID `json:"messageId"`
 	// A single item of content
 	Content ContentBlock `json:"content"`
-	// This field is chunk-scoped.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This metadata is scoped to the chunk and does not patch stored metadata.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2775,11 +4015,11 @@ func (v *SessionUpdateAgentMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder
 
 // SessionUpdateAgentMessage is an agent message upsert.
 //
-// Only [SessionUpdateAgentMessage.MessageID] is required. `content` has patch semantics:
+// Only `messageId` is required. `content` has patch semantics:
 // an omitted field leaves existing message content unchanged, `null` clears the
 // value, and a concrete array replaces the previous value. For a new
-// `messageId`, omitted fields use client defaults. `content` is replaced as a
-// whole array; send `[]` or `null` to clear it.
+// `messageId`, omitted `content` starts empty. `content` is replaced as a
+// whole array. Send `[]` or `null` to clear it.
 //
 // Message updates and chunks are applied in the order they are received. When
 // an `agent_message` update includes `content`, that array replaces any
@@ -2793,7 +4033,7 @@ type SessionUpdateAgentMessage struct {
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this message.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -2821,11 +4061,11 @@ type SessionUpdateAgentThoughtChunk struct {
 	// A unique identifier for the message this chunk belongs to.
 	//
 	// All chunks belonging to the same message share the same `messageId`.
-	// A change in `messageId` indicates a new message has started.
+	// Chunks for different messages can interleave.
 	MessageID MessageID `json:"messageId"`
 	// A single item of content
 	Content ContentBlock `json:"content"`
-	// This field is chunk-scoped.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This metadata is scoped to the chunk and does not patch stored metadata.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2848,11 +4088,11 @@ func (v *SessionUpdateAgentThoughtChunk) UnmarshalJSONFrom(dec *jsontext.Decoder
 
 // SessionUpdateAgentThought is an agent thought or reasoning message upsert.
 //
-// Only [SessionUpdateAgentThought.MessageID] is required. `content` has patch semantics:
+// Only `messageId` is required. `content` has patch semantics:
 // an omitted field leaves existing thought content unchanged, `null` clears the
 // value, and a concrete array replaces the previous value. For a new
-// `messageId`, omitted fields use client defaults. `content` is replaced as a
-// whole array; send `[]` or `null` to clear it.
+// `messageId`, omitted `content` starts empty. `content` is replaced as a
+// whole array. Send `[]` or `null` to clear it.
 //
 // Message updates and chunks are applied in the order they are received. When
 // an `agent_thought` update includes `content`, that array replaces any
@@ -2866,7 +4106,7 @@ type SessionUpdateAgentThought struct {
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this thought message.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -2910,10 +4150,10 @@ func (v *SessionUpdateStateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 
 // SessionUpdateToolCallContentChunk is a streamed item of tool-call content.
 //
-// Tool-call content chunks append one [ToolCallContent] item to the current
-// content for the matching [ToolCallID]. Agents can use
-// [ToolCallUpdate.Content] when they need to replace the whole content
-// collection instead.
+// Tool-call content chunks append one `ToolCallContent` item to the current
+// content for the matching `toolCallId`. Agents can send a `tool_call_update`
+// with `content` when they need to replace the whole content collection
+// instead.
 //
 // SessionUpdateToolCallContentChunk is the SessionUpdate variant with sessionUpdate "tool_call_content_chunk".
 type SessionUpdateToolCallContentChunk struct {
@@ -2921,7 +4161,7 @@ type SessionUpdateToolCallContentChunk struct {
 	ToolCallID ToolCallID `json:"toolCallId"`
 	// A single item of content produced by the tool call.
 	Content ToolCallContent `json:"content"`
-	// This field is chunk-scoped.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This metadata is scoped to the chunk and does not patch stored metadata.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2954,11 +4194,20 @@ type SessionUpdateToolCallUpdate struct {
 	// tool name is available.
 	Name optional.Value[string] `json:"name,omitzero"`
 	// Human-readable title describing what the tool is doing.
+	//
+	// Omission leaves the title unchanged, `null` unsets it, and a string replaces it.
+	// A new tool call starts without a title.
 	Title optional.Value[string] `json:"title,omitzero"`
 	// The category of tool being invoked.
 	// Helps clients choose appropriate icons and UI treatment.
+	//
+	// Omission leaves the kind unchanged, `null` resets it to `other`, and a value replaces it.
+	// A new tool call starts as `other`.
 	Kind optional.Value[ToolKind] `json:"kind,omitzero"`
 	// Current execution status of the tool call.
+	//
+	// Omission leaves the status unchanged, `null` resets it to `pending`, and a value
+	// replaces it. A new tool call starts as `pending`.
 	Status optional.Value[ToolCallStatus] `json:"status,omitzero"`
 	// Content produced by the tool call.
 	Content optional.Value[[]ToolCallContent] `json:"content,omitzero"`
@@ -2969,7 +4218,12 @@ type SessionUpdateToolCallUpdate struct {
 	RawInput jsontext.Value `json:"rawInput,omitzero"`
 	// Raw output returned by the tool.
 	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// Client-initiated controls this tool call currently supports, such as cancellation.
+	//
+	// Omission leaves the capabilities unchanged, `null` clears them, and an object replaces
+	// the whole previous value. A new tool call starts with none.
+	Capabilities optional.Value[ToolCallCapabilities] `json:"capabilities,omitzero"`
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -2994,7 +4248,7 @@ func (v *SessionUpdateToolCallUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 
 // SessionUpdateTerminalUpdate is an upsert for the stored state of an agent-owned terminal.
 //
-// Only [SessionUpdateTerminalUpdate.TerminalID] is required. Other fields have patch
+// Only `terminalId` is required. Other fields have patch
 // semantics: omitted fields leave the stored value unchanged, `null` clears
 // it, and concrete values replace it. A concrete `_meta` object instead
 // patches the stored metadata by top-level key. When the terminal ID is new,
@@ -3012,7 +4266,17 @@ type SessionUpdateTerminalUpdate struct {
 	Output optional.Value[TerminalOutput] `json:"output,omitzero"`
 	// Exit information. A concrete object marks the terminal as exited.
 	ExitStatus optional.Value[TerminalExitStatus] `json:"exitStatus,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// The terminal size the command runs with, when known.
+	//
+	// Clients can render output at this size so that column layouts, progress bars,
+	// and cursor-positioned output display as the program wrote them.
+	Size optional.Value[TerminalSize] `json:"size,omitzero"`
+	// Client-initiated controls this terminal currently supports, such as cancellation.
+	//
+	// Omission leaves the capabilities unchanged, `null` clears them, and an object replaces
+	// the whole previous value. A new terminal starts with none.
+	Capabilities optional.Value[TerminalCapabilities] `json:"capabilities,omitzero"`
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -3043,7 +4307,7 @@ type SessionUpdateTerminalOutputChunk struct {
 	TerminalID TerminalID `json:"terminalId"`
 	// Independently base64-encoded terminal output bytes.
 	Data string `json:"data"`
-	// This field is chunk-scoped. Omitted and `null` are equivalent and mean no chunk metadata was provided.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This metadata is scoped to the chunk and does not patch stored metadata.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3070,7 +4334,8 @@ func (v *SessionUpdateTerminalOutputChunk) UnmarshalJSONFrom(dec *jsontext.Decod
 type SessionUpdatePlanUpdate struct {
 	// The updated plan content.
 	Plan PlanUpdateContent `json:"plan"`
-	Meta Meta              `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdatePlanUpdate) sessionUpdateVariant() {}
@@ -3098,7 +4363,8 @@ func (v *SessionUpdatePlanUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 type SessionUpdatePlanRemoved struct {
 	// The plan ID to remove.
 	PlanID PlanID `json:"planId"`
-	Meta   Meta   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdatePlanRemoved) sessionUpdateVariant() {}
@@ -3124,7 +4390,8 @@ func (v *SessionUpdatePlanRemoved) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 type SessionUpdateAvailableCommandsUpdate struct {
 	// Commands the agent can execute.
 	AvailableCommands []AvailableCommand `json:"availableCommands"`
-	Meta              Meta               `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateAvailableCommandsUpdate) sessionUpdateVariant() {}
@@ -3150,7 +4417,8 @@ func (v *SessionUpdateAvailableCommandsUpdate) UnmarshalJSONFrom(dec *jsontext.D
 type SessionUpdateConfigOptionUpdate struct {
 	// The full set of configuration options and their current values.
 	ConfigOptions []SessionConfigOption `json:"configOptions"`
-	Meta          Meta                  `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateConfigOptionUpdate) sessionUpdateVariant() {}
@@ -3175,7 +4443,7 @@ func (v *SessionUpdateConfigOptionUpdate) UnmarshalJSONFrom(dec *jsontext.Decode
 // Update to session metadata. All fields are optional to support partial updates.
 //
 // Agents send this notification to update session information like title or custom metadata.
-// This allows clients to display dynamic session names and track session state changes.
+// Clients can use it to keep session titles and state current.
 //
 // Omitted fields leave the existing session info unchanged. `null` clears the
 // corresponding value. A concrete `_meta` object patches the stored metadata by
@@ -3185,7 +4453,7 @@ type SessionUpdateSessionInfoUpdate struct {
 	Title optional.Value[string] `json:"title,omitzero"`
 	// RFC 3339 timestamp of last activity. Set to null to clear.
 	UpdatedAt optional.Value[string] `json:"updatedAt,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -3216,9 +4484,12 @@ type SessionUpdateUsageUpdate struct {
 	Used uint64 `json:"used"`
 	// Total context window size in tokens.
 	Size uint64 `json:"size"`
-	// Cumulative session cost (optional).
-	Cost *Cost `json:"cost,omitzero"`
-	Meta Meta  `json:"_meta,omitzero"`
+	// Cumulative session cost.
+	//
+	// Omitted leaves the last reported cost unchanged. `null` clears it. A value replaces it.
+	Cost optional.Value[Cost] `json:"cost,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateUsageUpdate) sessionUpdateVariant() {}
@@ -3246,9 +4517,9 @@ func (v *SessionUpdateUsageUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 // a notice being received, displayed, or seen by the user.
 // No Client capability is required, and unsupported Clients may ignore notices.
 //
-// See RFD: [Session Notices]
+// See protocol docs: [Session Notices]
 //
-// [Session Notices]: https://agentclientprotocol.com/rfds/session-notices
+// [Session Notices]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#session-notices
 type SessionUpdateNotice struct {
 	// Presentation severity hint.
 	Severity NoticeSeverity `json:"severity"`
@@ -3258,9 +4529,7 @@ type SessionUpdateNotice struct {
 	//
 	// Omitted and `null` are equivalent and mean no description was supplied.
 	Description *string `json:"description,omitzero"`
-	// Metadata scoped to this notice.
-	//
-	// Omitted and `null` are equivalent and mean no metadata was supplied.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3299,7 +4568,7 @@ type SessionUpdateCompactionUpdate struct {
 	Summary optional.Value[[]ContentBlock] `json:"summary,omitzero"`
 	// Human-readable error details for the compaction.
 	Error optional.Value[string] `json:"error,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -3331,7 +4600,7 @@ type SessionUpdateCompactionSummaryChunk struct {
 	CompactionID CompactionID `json:"compactionId"`
 	// One content block to append.
 	Content ContentBlock `json:"content"`
-	// Metadata scoped to this chunk. Omission and `null` both mean absent.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This metadata is scoped to the chunk and does not patch stored metadata.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3357,25 +4626,27 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 // Later updates modify the existing association's metadata, not its ownership.
 //
 // Sent on the immediate parent session. The first update for an unknown
-// [SessionUpdateSubagentUpdate.SessionID] announces the child and MUST be sent
+// `sessionId` announces the child and MUST be sent
 // before any live request or notification bearing the child's session ID,
 // including messages naming it as sender or recipient. Child events are
-// delivered automatically; no separate child load, resume, or subscription is needed.
+// delivered automatically. No separate child load, resume, or subscription is needed.
 // Understanding this update, registering child sessions, and applying their
-// operation restrictions are baseline v2 requirements; no Client capability
+// operation restrictions are baseline v2 requirements. No Client capability
 // is required.
 //
-// Only [SessionUpdateSubagentUpdate.SessionID] is required. Other fields have
+// Only `sessionId` is required. Other fields have
 // patch semantics: omitted fields leave the stored value unchanged, `null`
 // clears or unsets the value, and concrete values replace it. A concrete
 // `_meta` object instead patches the stored metadata by top-level key. For
 // `state`, `null` removes the current state report and leaves activity
-// unconfirmed; it does not report idle or cancellation. A child whose capabilities are
+// unconfirmed. It does not report idle or cancellation. A child whose capabilities are
 // unset permits no Client-initiated session mutations.
 //
+// `cwd` and `additionalDirectories` report where the Agent placed the child.
+// While unset, each inherits the immediate parent's effective value.
 // The title and description provide the parent's display metadata for the
 // child. Agents SHOULD mirror known child state changes in the parent's
-// [SessionUpdateSubagentUpdate.State] using the same [StateUpdate] snapshot as the
+// `state` using the same `StateUpdate` snapshot as the
 // ordinary `state_update` notification on the child session. This reports
 // child state, not a separate parent-owned lifecycle. Consumers should
 // treat duplicate reports idempotently.
@@ -3391,12 +4662,12 @@ type SessionUpdateSubagentUpdate struct {
 	SessionID SessionID `json:"sessionId"`
 	// The parent's human-readable display title for this child. It need not be unique.
 	//
-	// Optional and nullable. Omitted means unchanged; `null` clears it. If no
+	// Optional and nullable. Omitted means unchanged. `null` clears it. If no
 	// title is set, the Client chooses a fallback presentation.
 	Title optional.Value[string] `json:"title,omitzero"`
 	// The parent's human-readable description of the child's role or purpose.
 	//
-	// Optional and nullable. Omitted means unchanged; `null` clears it. This is
+	// Optional and nullable. Omitted means unchanged. `null` clears it. This is
 	// current display metadata, not the history of instructions sent to the child.
 	Description optional.Value[string] `json:"description,omitzero"`
 	// Client-initiated session mutations permitted for this subagent session.
@@ -3406,11 +4677,24 @@ type SessionUpdateSubagentUpdate struct {
 	Capabilities optional.Value[SubagentSessionCapabilities] `json:"capabilities,omitzero"`
 	// The child's current foreground state, mirrored onto its parent association.
 	//
-	// Optional and nullable. Omitted means unchanged; `null` removes the
+	// Optional and nullable. Omitted means unchanged. `null` removes the
 	// current report and leaves activity unconfirmed (not idle or cancelled).
-	// A concrete [StateUpdate] replaces the entire previous snapshot.
+	// A concrete `StateUpdate` replaces the entire previous snapshot.
 	State optional.Value[StateUpdate] `json:"state,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// The child's working directory. Must be an absolute path.
+	//
+	// Optional and nullable. Omitted means unchanged. `null` clears the
+	// reported value. While unset, the child inherits its immediate parent's
+	// effective working directory.
+	Cwd optional.Value[AbsolutePath] `json:"cwd,omitzero"`
+	// Additional workspace roots for the child. Each path must be absolute.
+	//
+	// Optional and nullable. Omitted means unchanged. `null` clears the
+	// reported value. While unset, the child inherits its immediate parent's
+	// effective additional directories, independently of `cwd`. A concrete
+	// array replaces the whole list. `[]` reports no additional directories.
+	AdditionalDirectories optional.Value[[]AbsolutePath] `json:"additionalDirectories,omitzero"`
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -3441,14 +4725,30 @@ func (v *SessionUpdateSubagentUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 type SessionUpdateSessionMessage struct {
 	// Identifier of this message within the enclosing session's transcript.
 	MessageID MessageID `json:"messageId"`
-	// Optional sending session identity; omission or `null` retains a known value.
-	SenderSessionID *SessionID `json:"senderSessionId,omitzero"`
-	// Optional receiving session identity; omission or `null` retains a known value.
-	RecipientSessionID *SessionID `json:"recipientSessionId,omitzero"`
-	// Omitted leaves content unchanged; `null` clears it; a concrete array
+	// The sending session.
+	//
+	// Omitted leaves the stored value unchanged. `null` clears it. A value replaces it.
+	SenderSessionID optional.Value[SessionID] `json:"senderSessionId,omitzero"`
+	// The receiving session.
+	//
+	// Omitted leaves the stored value unchanged. `null` clears it. A value replaces it.
+	RecipientSessionID optional.Value[SessionID] `json:"recipientSessionId,omitzero"`
+	// On an incoming view, the `messageId` of the same message's outgoing view in the
+	// sender's transcript.
+	//
+	// Omitted leaves the stored value unchanged. `null` clears it. A value replaces it. It can arrive
+	// after the message starts streaming.
+	SenderMessageID optional.Value[MessageID] `json:"senderMessageId,omitzero"`
+	// On an outgoing view, the `messageId` of the same message's incoming view in the
+	// recipient's transcript.
+	//
+	// Omitted leaves the stored value unchanged. `null` clears it. A value replaces it. It can arrive
+	// after the message starts streaming.
+	RecipientMessageID optional.Value[MessageID] `json:"recipientMessageId,omitzero"`
+	// Omitted leaves content unchanged. `null` clears it. A concrete array
 	// replaces the whole content collection.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -3473,19 +4773,18 @@ func (v *SessionUpdateSessionMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 
 // SessionUpdateSessionMessageChunk is a streamed content block of an inter-session message.
 //
+// A chunk carries only content. The message's participants and references come from
+// `session_message` upserts, which can arrive before, between, or after its chunks.
+//
 // SessionUpdateSessionMessageChunk is the SessionUpdate variant with sessionUpdate "session_message_chunk".
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateSessionMessageChunk struct {
 	// Identifier of this message within the enclosing session's transcript.
 	MessageID MessageID `json:"messageId"`
-	// Optional sending session identity; omission or `null` retains a known value.
-	SenderSessionID *SessionID `json:"senderSessionId,omitzero"`
-	// Optional receiving session identity; omission or `null` retains a known value.
-	RecipientSessionID *SessionID `json:"recipientSessionId,omitzero"`
 	// A single content block appended to the message.
 	Content ContentBlock `json:"content"`
-	// Optional and nullable chunk-scoped metadata; omitted or `null` means none.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This metadata is scoped to the chunk and does not patch stored metadata.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3521,652 +4820,6 @@ func (SessionUpdateCustom) sessionUpdateVariant() {}
 
 // Tag returns the "sessionUpdate" member.
 func (v SessionUpdateCustom) Tag() string { return v.SessionUpdate }
-
-// IdleStateUpdate is a tagged union discriminated by the "stopReason" member. Use [NewIdleStateUpdate]
-// or a type switch on [IdleStateUpdate.Variant] to work with it. The zero value holds no
-// variant: an omitzero field omits it, and encoding it anywhere else fails.
-//
-// No foreground work is active. Background activity may continue.
-//
-// Agents SHOULD include a `stopReason` when the idle transition ends foreground
-// work. An idle update that does not end foreground work need not include one.
-// Receivers treat an omitted, `null`, or malformed `stopReason` as the agent not
-// reporting one.
-// Repeated or resume snapshots may carry the last stop reason for context.
-// They MUST NOT be counted as new completions, cancellations, or additional usage.
-type IdleStateUpdate struct{ value IdleStateUpdateVariant }
-
-// IdleStateUpdateVariant is implemented by [IdleStateUpdateEndTurn], [IdleStateUpdateMaxTokens], [IdleStateUpdateMaxTurnRequests], [IdleStateUpdateRefusal], [IdleStateUpdateCancelled], [IdleStateUpdateError], [IdleStateUpdateCustom], [IdleStateUpdateUntagged].
-type IdleStateUpdateVariant interface {
-	idleStateUpdateVariant()
-	Tag() string
-}
-
-// IdleStateUpdateVariants is the set of IdleStateUpdate variant types. It lists the types
-// themselves: a pointer to a variant also has the IdleStateUpdateVariant
-// methods, but is not one.
-type IdleStateUpdateVariants interface {
-	IdleStateUpdateEndTurn |
-		IdleStateUpdateMaxTokens |
-		IdleStateUpdateMaxTurnRequests |
-		IdleStateUpdateRefusal |
-		IdleStateUpdateCancelled |
-		IdleStateUpdateError |
-		IdleStateUpdateCustom |
-		IdleStateUpdateUntagged
-	IdleStateUpdateVariant
-}
-
-// NewIdleStateUpdate wraps a variant.
-func NewIdleStateUpdate[T IdleStateUpdateVariants](v T) IdleStateUpdate {
-	return IdleStateUpdate{value: v}
-}
-
-// Variant returns the wrapped variant, or nil for the zero value.
-func (u IdleStateUpdate) Variant() IdleStateUpdateVariant { return u.value }
-
-// As returns the variant if it is a T, like a type assertion on Variant
-// with T checked against the union's variants at compile time.
-func (u IdleStateUpdate) As[T IdleStateUpdateVariants]() (T, bool) {
-	v, ok := u.value.(T)
-	return v, ok
-}
-
-// Tag returns the "stopReason" discriminator, or "" for the zero value.
-func (u IdleStateUpdate) Tag() string {
-	if u.value == nil {
-		return ""
-	}
-	return u.value.Tag()
-}
-
-// IsZero reports whether no variant is set, so omitzero omits the field.
-func (u IdleStateUpdate) IsZero() bool { return u.value == nil }
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (u IdleStateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if u.value == nil {
-		return errors.New("IdleStateUpdate: no variant set; use NewIdleStateUpdate")
-	}
-	return json.MarshalEncode(enc, u.value)
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (u *IdleStateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalIdleStateUpdateVariant(dec, &u.value)
-}
-
-// unmarshalIdleStateUpdateVariant decodes a IdleStateUpdateVariant by its "stopReason" member; it backs Unmarshalers.
-func unmarshalIdleStateUpdateVariant(dec *jsontext.Decoder, out *IdleStateUpdateVariant) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if raw.Kind() == 'n' {
-		*out = nil
-		return nil
-	}
-	if raw.Kind() != '{' {
-		return fmt.Errorf("IdleStateUpdate: expected object, got %s", raw.Kind())
-	}
-	tag, present, err := union.ReadTag(raw, "stopReason", dec.Options())
-	if err != nil {
-		return fmt.Errorf("IdleStateUpdate: %w", err)
-	}
-	if !present {
-		var v IdleStateUpdateUntagged
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-		return nil
-	}
-	switch tag {
-	case "end_turn":
-		var v IdleStateUpdateEndTurn
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "max_tokens":
-		var v IdleStateUpdateMaxTokens
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "max_turn_requests":
-		var v IdleStateUpdateMaxTurnRequests
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "refusal":
-		var v IdleStateUpdateRefusal
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "cancelled":
-		var v IdleStateUpdateCancelled
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "error":
-		var v IdleStateUpdateError
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	default:
-		var v IdleStateUpdateCustom
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	}
-	return nil
-}
-
-// IdleStateUpdateEndTurn is the IdleStateUpdate variant with stopReason "end_turn".
-type IdleStateUpdateEndTurn struct {
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage *Usage `json:"usage,omitzero"`
-	Meta  Meta   `json:"_meta,omitzero"`
-}
-
-func (IdleStateUpdateEndTurn) idleStateUpdateVariant() {}
-
-// Tag returns "end_turn".
-func (IdleStateUpdateEndTurn) Tag() string { return "end_turn" }
-
-type idleStateUpdateEndTurnFields IdleStateUpdateEndTurn
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v IdleStateUpdateEndTurn) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateEndTurnFields]{"end_turn", idleStateUpdateEndTurnFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *IdleStateUpdateEndTurn) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStopReasonTagged(dec, "IdleStateUpdateEndTurn", "end_turn", (*idleStateUpdateEndTurnFields)(v))
-}
-
-// IdleStateUpdateMaxTokens is the IdleStateUpdate variant with stopReason "max_tokens".
-type IdleStateUpdateMaxTokens struct {
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage *Usage `json:"usage,omitzero"`
-	Meta  Meta   `json:"_meta,omitzero"`
-}
-
-func (IdleStateUpdateMaxTokens) idleStateUpdateVariant() {}
-
-// Tag returns "max_tokens".
-func (IdleStateUpdateMaxTokens) Tag() string { return "max_tokens" }
-
-type idleStateUpdateMaxTokensFields IdleStateUpdateMaxTokens
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v IdleStateUpdateMaxTokens) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateMaxTokensFields]{"max_tokens", idleStateUpdateMaxTokensFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *IdleStateUpdateMaxTokens) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStopReasonTagged(dec, "IdleStateUpdateMaxTokens", "max_tokens", (*idleStateUpdateMaxTokensFields)(v))
-}
-
-// IdleStateUpdateMaxTurnRequests is the IdleStateUpdate variant with stopReason "max_turn_requests".
-type IdleStateUpdateMaxTurnRequests struct {
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage *Usage `json:"usage,omitzero"`
-	Meta  Meta   `json:"_meta,omitzero"`
-}
-
-func (IdleStateUpdateMaxTurnRequests) idleStateUpdateVariant() {}
-
-// Tag returns "max_turn_requests".
-func (IdleStateUpdateMaxTurnRequests) Tag() string { return "max_turn_requests" }
-
-type idleStateUpdateMaxTurnRequestsFields IdleStateUpdateMaxTurnRequests
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v IdleStateUpdateMaxTurnRequests) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateMaxTurnRequestsFields]{"max_turn_requests", idleStateUpdateMaxTurnRequestsFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *IdleStateUpdateMaxTurnRequests) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStopReasonTagged(dec, "IdleStateUpdateMaxTurnRequests", "max_turn_requests", (*idleStateUpdateMaxTurnRequestsFields)(v))
-}
-
-// IdleStateUpdateRefusal is the IdleStateUpdate variant with stopReason "refusal".
-type IdleStateUpdateRefusal struct {
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage *Usage `json:"usage,omitzero"`
-	Meta  Meta   `json:"_meta,omitzero"`
-}
-
-func (IdleStateUpdateRefusal) idleStateUpdateVariant() {}
-
-// Tag returns "refusal".
-func (IdleStateUpdateRefusal) Tag() string { return "refusal" }
-
-type idleStateUpdateRefusalFields IdleStateUpdateRefusal
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v IdleStateUpdateRefusal) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateRefusalFields]{"refusal", idleStateUpdateRefusalFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *IdleStateUpdateRefusal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStopReasonTagged(dec, "IdleStateUpdateRefusal", "refusal", (*idleStateUpdateRefusalFields)(v))
-}
-
-// IdleStateUpdateCancelled is the IdleStateUpdate variant with stopReason "cancelled".
-type IdleStateUpdateCancelled struct {
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage *Usage `json:"usage,omitzero"`
-	Meta  Meta   `json:"_meta,omitzero"`
-}
-
-func (IdleStateUpdateCancelled) idleStateUpdateVariant() {}
-
-// Tag returns "cancelled".
-func (IdleStateUpdateCancelled) Tag() string { return "cancelled" }
-
-type idleStateUpdateCancelledFields IdleStateUpdateCancelled
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v IdleStateUpdateCancelled) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateCancelledFields]{"cancelled", idleStateUpdateCancelledFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *IdleStateUpdateCancelled) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStopReasonTagged(dec, "IdleStateUpdateCancelled", "cancelled", (*idleStateUpdateCancelledFields)(v))
-}
-
-// IdleStateUpdateError is the IdleStateUpdate variant with stopReason "error".
-type IdleStateUpdateError struct {
-	// The failure, as a JSON-RPC error object.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting failure details.
-	// Agents SHOULD include it.
-	Error *Error `json:"error,omitzero"`
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage *Usage `json:"usage,omitzero"`
-	Meta  Meta   `json:"_meta,omitzero"`
-}
-
-func (IdleStateUpdateError) idleStateUpdateVariant() {}
-
-// Tag returns "error".
-func (IdleStateUpdateError) Tag() string { return "error" }
-
-type idleStateUpdateErrorFields IdleStateUpdateError
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v IdleStateUpdateError) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stopReasonTagged[idleStateUpdateErrorFields]{"error", idleStateUpdateErrorFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *IdleStateUpdateError) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStopReasonTagged(dec, "IdleStateUpdateError", "error", (*idleStateUpdateErrorFields)(v))
-}
-
-// IdleStateUpdateCustom holds IdleStateUpdate values with an unrecognized "stopReason", keeping every member.
-type IdleStateUpdateCustom struct {
-	// Why foreground work stopped. The value selects one of this type's variants, which may add fields of their own.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting a stop reason; a malformed value is treated the same way.
-	//
-	// See protocol docs: [Stop Reasons](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#stop-reasons)
-	StopReason string `json:"stopReason"`
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage                *Usage                    `json:"usage,omitzero"`
-	Meta                 Meta                      `json:"_meta,omitzero"`
-	AdditionalProperties map[string]jsontext.Value `json:",embed"`
-}
-
-func (IdleStateUpdateCustom) idleStateUpdateVariant() {}
-
-// Tag returns the "stopReason" member.
-func (v IdleStateUpdateCustom) Tag() string { return v.StopReason }
-
-// IdleStateUpdateUntagged is the IdleStateUpdate variant without a "stopReason" member.
-type IdleStateUpdateUntagged struct {
-	// Token usage for completed foreground work.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting token
-	// usage for this state update.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
-	Usage *Usage `json:"usage,omitzero"`
-	Meta  Meta   `json:"_meta,omitzero"`
-}
-
-func (IdleStateUpdateUntagged) idleStateUpdateVariant() {}
-
-// Tag returns "": IdleStateUpdateUntagged is the IdleStateUpdate variant without a "stopReason" member.
-func (IdleStateUpdateUntagged) Tag() string { return "" }
-
-// StateUpdate is a snapshot of the session's aggregate foreground activity.
-//
-// Foreground work is the agent's active response or workflow in the session,
-// including model processing, tool execution, and waiting for user action needed
-// to continue that work. It can start with a prompt or be agent-initiated, for
-// example to pursue an ongoing goal or follow up on a completed background task.
-// Either way, the agent MUST report `running` when foreground work starts,
-// or `requires_action` if it starts blocked on user action, and `idle` when it
-// ends. The agent SHOULD include a stop reason on that idle update.
-// Agent-initiated work does not require a prompt request or a synthetic user
-// message.
-//
-// `running` may precede user-message insertion, for example during a foreground
-// hook. It is not acknowledgment of insertion, and rejecting a prompt does not
-// itself end foreground work.
-//
-// Background activity can continue and emit other `session/update` notifications
-// while `idle`. Those notifications, including a detached task's progress or
-// completion, do not by themselves change this state. A permission request only
-// warrants `requires_action` when foreground work is blocked on user action.
-//
-// The agent SHOULD report `requires_action` when the foreground workflow as a
-// whole cannot progress without user action, including permissions or elicitations.
-// Once reported, it MUST report `running` when progress resumes, or `idle` when
-// work ends without resuming.
-// If other foreground work can progress, the state remains `running`. Resolving
-// one of several requests does not itself change the state. Agents SHOULD ignore
-// responses for work that has already ended rather than use them to resume it.
-//
-// A new session defaults to idle until a state update reports otherwise.
-// Resume MUST send a current-state snapshot after any replay and before its
-// response. The snapshot reports foreground state after resuming.
-// The response alone does not imply idle.
-// Repeated snapshots are idempotent, not additional work, completions, or usage.
-// A repeated state may carry updated information without another state transition.
-// The agent MUST report `idle` when no foreground activity remains. Completing
-// an individual activity while other foreground work continues does not require
-// an idle boundary. Local commands use the same lifecycle even without model work.
-//
-// See protocol docs: [Session States]
-//
-// StateUpdate is a tagged union discriminated by the "state" member. Use [NewStateUpdate]
-// or a type switch on [StateUpdate.Variant] to work with it. The zero value holds no
-// variant: an omitzero field omits it, and encoding it anywhere else fails.
-//
-// [Session States]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#session-states
-type StateUpdate struct{ value StateUpdateVariant }
-
-// StateUpdateVariant is implemented by [StateUpdateRunning], [StateUpdateIdle], [StateUpdateRequiresAction], [StateUpdateUnknown], [StateUpdateCustom].
-type StateUpdateVariant interface {
-	stateUpdateVariant()
-	Tag() string
-}
-
-// StateUpdateVariants is the set of StateUpdate variant types. It lists the types
-// themselves: a pointer to a variant also has the StateUpdateVariant
-// methods, but is not one.
-type StateUpdateVariants interface {
-	StateUpdateRunning |
-		StateUpdateIdle |
-		StateUpdateRequiresAction |
-		StateUpdateUnknown |
-		StateUpdateCustom
-	StateUpdateVariant
-}
-
-// NewStateUpdate wraps a variant.
-func NewStateUpdate[T StateUpdateVariants](v T) StateUpdate { return StateUpdate{value: v} }
-
-// Variant returns the wrapped variant, or nil for the zero value.
-func (u StateUpdate) Variant() StateUpdateVariant { return u.value }
-
-// As returns the variant if it is a T, like a type assertion on Variant
-// with T checked against the union's variants at compile time.
-func (u StateUpdate) As[T StateUpdateVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
-
-// Tag returns the "state" discriminator, or "" for the zero value.
-func (u StateUpdate) Tag() string {
-	if u.value == nil {
-		return ""
-	}
-	return u.value.Tag()
-}
-
-// IsZero reports whether no variant is set, so omitzero omits the field.
-func (u StateUpdate) IsZero() bool { return u.value == nil }
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (u StateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if u.value == nil {
-		return errors.New("StateUpdate: no variant set; use NewStateUpdate")
-	}
-	return json.MarshalEncode(enc, u.value)
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (u *StateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStateUpdateVariant(dec, &u.value)
-}
-
-// unmarshalStateUpdateVariant decodes a StateUpdateVariant by its "state" member; it backs Unmarshalers.
-func unmarshalStateUpdateVariant(dec *jsontext.Decoder, out *StateUpdateVariant) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if raw.Kind() == 'n' {
-		*out = nil
-		return nil
-	}
-	if raw.Kind() != '{' {
-		return fmt.Errorf("StateUpdate: expected object, got %s", raw.Kind())
-	}
-	tag, present, err := union.ReadTag(raw, "state", dec.Options())
-	if err != nil {
-		return fmt.Errorf("StateUpdate: %w", err)
-	}
-	if !present {
-		return errors.New("StateUpdate: missing \"state\" member")
-	}
-	switch tag {
-	case "running":
-		var v StateUpdateRunning
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "idle":
-		var v StateUpdateIdle
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "requires_action":
-		var v StateUpdateRequiresAction
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	case "unknown":
-		var v StateUpdateUnknown
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	default:
-		var v StateUpdateCustom
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
-	}
-	return nil
-}
-
-// StateUpdateRunning is the StateUpdate variant with state "running".
-//
-// Foreground work is in progress.
-type StateUpdateRunning struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-func (StateUpdateRunning) stateUpdateVariant() {}
-
-// Tag returns "running".
-func (StateUpdateRunning) Tag() string { return "running" }
-
-type stateUpdateRunningFields StateUpdateRunning
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v StateUpdateRunning) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stateTagged[stateUpdateRunningFields]{"running", stateUpdateRunningFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *StateUpdateRunning) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStateTagged(dec, "StateUpdateRunning", "running", (*stateUpdateRunningFields)(v))
-}
-
-// StateUpdateIdle is the StateUpdate variant with state "idle"; its payload is the IdleStateUpdate union
-// whose members are written alongside the discriminator.
-type StateUpdateIdle struct{ Value IdleStateUpdate }
-
-func (StateUpdateIdle) stateUpdateVariant() {}
-
-// Tag returns "idle".
-func (StateUpdateIdle) Tag() string { return "idle" }
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v StateUpdateIdle) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return union.SpliceTag(enc, "state", "idle", v.Value)
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *StateUpdateIdle) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return union.UnspliceTag(dec, "state", "idle", &v.Value)
-}
-
-// StateUpdateRequiresAction is the StateUpdate variant with state "requires_action".
-//
-// The foreground workflow as a whole is blocked on user action.
-//
-// Agents SHOULD report this state when foreground work cannot progress without
-// user action. Pending permissions or elicitations alone do not imply this
-// state if other foreground work can progress, or if the requests belong only
-// to independent background activity. Once reported, agents MUST report
-// `running` when progress resumes, or `idle` if the work ends without resuming.
-// Responding to one request does not itself imply `running`.
-type StateUpdateRequiresAction struct {
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-func (StateUpdateRequiresAction) stateUpdateVariant() {}
-
-// Tag returns "requires_action".
-func (StateUpdateRequiresAction) Tag() string { return "requires_action" }
-
-type stateUpdateRequiresActionFields StateUpdateRequiresAction
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v StateUpdateRequiresAction) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stateTagged[stateUpdateRequiresActionFields]{"requires_action", stateUpdateRequiresActionFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStateTagged(dec, "StateUpdateRequiresAction", "requires_action", (*stateUpdateRequiresActionFields)(v))
-}
-
-// StateUpdateUnknown is the Agent cannot currently determine foreground activity.
-//
-// Report this when activity becomes unobservable, not merely because the session
-// has been quiet. The Client MUST stop presenting the previous state as confirmed
-// current activity, but may retain it as last known. A later state replaces this
-// snapshot normally.
-//
-// This is not a task outcome or session closure. It does not cancel work, resolve
-// pending requests, or revoke capabilities; capabilities are updated separately.
-//
-// StateUpdateUnknown is the StateUpdate variant with state "unknown".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type StateUpdateUnknown struct {
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-func (StateUpdateUnknown) stateUpdateVariant() {}
-
-// Tag returns "unknown".
-func (StateUpdateUnknown) Tag() string { return "unknown" }
-
-type stateUpdateUnknownFields StateUpdateUnknown
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v StateUpdateUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, stateTagged[stateUpdateUnknownFields]{"unknown", stateUpdateUnknownFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *StateUpdateUnknown) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalStateTagged(dec, "StateUpdateUnknown", "unknown", (*stateUpdateUnknownFields)(v))
-}
-
-// StateUpdateCustom holds StateUpdate values with an unrecognized "state", keeping every member.
-type StateUpdateCustom struct {
-	// Custom or future session state.
-	//
-	// Values beginning with `_` are reserved for implementation-specific
-	// extensions. Unknown values that do not begin with `_` are reserved for
-	// future ACP variants.
-	State                string                    `json:"state"`
-	AdditionalProperties map[string]jsontext.Value `json:",embed"`
-}
-
-func (StateUpdateCustom) stateUpdateVariant() {}
-
-// Tag returns the "state" member.
-func (v StateUpdateCustom) Tag() string { return v.State }
 
 // PlanUpdateContent is a tagged union discriminated by the "type" member. Use [NewPlanUpdateContent]
 // or a type switch on [PlanUpdateContent.Variant] to work with it. The zero value holds no
@@ -4291,7 +4944,8 @@ type PlanUpdateContentItems struct {
 	// When updating an item-based plan, the agent must send a complete list of all entries
 	// with their current status. The client replaces that plan with each update.
 	Entries []PlanEntry `json:"entries"`
-	Meta    Meta        `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentItems) planUpdateContentVariant() {}
@@ -4320,8 +4974,9 @@ type PlanUpdateContentFile struct {
 	// The plan ID to update.
 	PlanID PlanID `json:"planId"`
 	// The URI of the file containing the plan.
-	URI  string `json:"uri"`
-	Meta Meta   `json:"_meta,omitzero"`
+	URI string `json:"uri"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentFile) planUpdateContentVariant() {}
@@ -4351,7 +5006,8 @@ type PlanUpdateContentMarkdown struct {
 	PlanID PlanID `json:"planId"`
 	// Markdown content for the plan.
 	Content string `json:"content"`
-	Meta    Meta   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentMarkdown) planUpdateContentVariant() {}
@@ -4511,9 +5167,11 @@ type MCPServerHTTP struct {
 	Name string `json:"name"`
 	// URL to the MCP server.
 	URL string `json:"url"`
-	// HTTP headers to set when making requests to the MCP server.
+	// HTTP headers to set when making requests to the MCP server. Headers the MCP transport
+	// defines are owned by the transport, and Agents use the transport's values for them.
 	Headers []HTTPHeader `json:"headers,omitzero"`
-	Meta    Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (MCPServerHTTP) mcpServerVariant() {}
@@ -4549,7 +5207,8 @@ type MCPServerACP struct {
 	// Providers MUST NOT reuse an ID for multiple ACP-transport MCP servers that are visible
 	// on the same ACP connection.
 	ServerID MCPServerACPID `json:"serverId"`
-	Meta     Meta           `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (MCPServerACP) mcpServerVariant() {}
@@ -4579,9 +5238,11 @@ type MCPServerStdio struct {
 	Command AbsolutePath `json:"command"`
 	// Command-line arguments to pass to the MCP server.
 	Args []string `json:"args,omitzero"`
-	// Environment variables to set when launching the MCP server.
-	Env  []EnvVariable `json:"env,omitzero"`
-	Meta Meta          `json:"_meta,omitzero"`
+	// Environment variables to set when launching the MCP server. Names SHOULD be unique.
+	// Agents MAY reject duplicates with `-32602`, and otherwise the last entry wins.
+	Env []EnvVariable `json:"env,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (MCPServerStdio) mcpServerVariant() {}
@@ -4716,6 +5377,7 @@ func unmarshalReplayFromVariant(dec *jsontext.Decoder, out *ReplayFromVariant) e
 //
 // Inclusive replay cursor requesting replay from the start of retained conversation history.
 type ReplayFromStart struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -4744,7 +5406,6 @@ type ReplayFromCustom struct {
 	// extensions. Unknown values that do not begin with `_` are reserved for
 	// future ACP variants.
 	Type                 string                    `json:"type"`
-	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
@@ -4758,6 +5419,14 @@ func (v ReplayFromCustom) Tag() string { return v.Type }
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Request parameters for setting a session configuration option.
+//
+// Agents MUST support this method for any session where they advertise config options.
+// Agents MUST reject an unknown `configId` or invalid value with `-32602` and leave the
+// configuration unchanged.
+//
+// See protocol docs: [Session Config Options]
+//
+// [Session Config Options]: https://agentclientprotocol.com/protocol/v2/draft/session-config-options#setting-a-config-option
 type SetSessionConfigOptionRequest struct {
 	value SetSessionConfigOptionRequestVariant
 }
@@ -4868,7 +5537,8 @@ type SetSessionConfigOptionRequestID struct {
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the configuration option to set.
 	ConfigID SessionConfigID `json:"configId"`
-	Meta     Meta            `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SetSessionConfigOptionRequestID) setSessionConfigOptionRequestVariant() {}
@@ -4896,7 +5566,8 @@ type SetSessionConfigOptionRequestBoolean struct {
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the configuration option to set.
 	ConfigID SessionConfigID `json:"configId"`
-	Meta     Meta            `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SetSessionConfigOptionRequestBoolean) setSessionConfigOptionRequestVariant() {}
@@ -4929,7 +5600,8 @@ type SetSessionConfigOptionRequestCustom struct {
 	// The ID of the session to set the configuration option for.
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the configuration option to set.
-	ConfigID             SessionConfigID           `json:"configId"`
+	ConfigID SessionConfigID `json:"configId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
@@ -5047,7 +5719,11 @@ func unmarshalRequestPermissionOutcomeVariant(dec *jsontext.Decoder, out *Reques
 }
 
 // RequestPermissionOutcomeCancelled is the RequestPermissionOutcome variant with outcome "cancelled".
+//
+// The request was not approved and no option was selected.
 type RequestPermissionOutcomeCancelled struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (RequestPermissionOutcomeCancelled) requestPermissionOutcomeVariant() {}
@@ -5073,7 +5749,8 @@ func (v *RequestPermissionOutcomeCancelled) UnmarshalJSONFrom(dec *jsontext.Deco
 type RequestPermissionOutcomeSelected struct {
 	// The ID of the option the user selected.
 	OptionID PermissionOptionID `json:"optionId"`
-	Meta     Meta               `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (RequestPermissionOutcomeSelected) requestPermissionOutcomeVariant() {}
@@ -5226,8 +5903,10 @@ func unmarshalCreateElicitationResponseVariant(dec *jsontext.Decoder, out *Creat
 // CreateElicitationResponseAccept is the CreateElicitationResponse variant with action "accept".
 type CreateElicitationResponseAccept struct {
 	// The user-provided content, if any, as an object matching the requested schema.
+	//
+	// Omitted and `null` are equivalent and mean no content is provided.
 	Content map[string]ElicitationContentValue `json:"content,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -5250,7 +5929,7 @@ func (v *CreateElicitationResponseAccept) UnmarshalJSONFrom(dec *jsontext.Decode
 
 // CreateElicitationResponseDecline is the CreateElicitationResponse variant with action "decline".
 type CreateElicitationResponseDecline struct {
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -5273,7 +5952,7 @@ func (v *CreateElicitationResponseDecline) UnmarshalJSONFrom(dec *jsontext.Decod
 
 // CreateElicitationResponseCancel is the CreateElicitationResponse variant with action "cancel".
 type CreateElicitationResponseCancel struct {
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -5302,7 +5981,7 @@ type CreateElicitationResponseCustom struct {
 	// extensions. Unknown values that do not begin with `_` are reserved for
 	// future ACP variants.
 	Action string `json:"action"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
@@ -5314,22 +5993,23 @@ func (v CreateElicitationResponseCustom) Tag() string { return v.Action }
 
 // ElicitationContentValue preserves the complete JSON payload, including future variants.
 // Use [ElicitationContentValue.As] to read one alternative and [NewElicitationContentValue] to build one.
-// The zero value holds no payload: an omitzero field omits it, and encoding it
-// anywhere else fails.
+// The zero value holds no payload and encodes as null.
 //
-// Allowed wire representations for [ElicitationContentValue].
+// Allowed wire representations for `ElicitationContentValue`.
 type ElicitationContentValue struct{ raw jsontext.Value }
 
 // ElicitationContentValueAlternative is the set of Go types ElicitationContentValue can hold.
 type ElicitationContentValueAlternative interface {
-	string | float64 | bool | []string
+	string | int64 | float64 | bool | []string | jsontext.Value
 }
 
 var elicitationContentValueAlternatives = union.Table(
 	union.Alt[string](union.Rule{NonNull: true}),
+	union.Alt[int64](union.Rule{NonNull: true}),
 	union.Alt[float64](union.Rule{NonNull: true}),
 	union.Alt[bool](union.Rule{NonNull: true}),
 	union.Alt[[]string](union.Rule{NonNull: true}),
+	union.Alt[jsontext.Value](union.Rule{}),
 )
 
 // NewElicitationContentValue encodes value, one of the ElicitationContentValueAlternative types, adding any literal members
@@ -5353,7 +6033,7 @@ func (v ElicitationContentValue) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationContentValue) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return errors.New("ElicitationContentValue: no value set; use NewElicitationContentValue")
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -5378,9 +6058,9 @@ func (v *ElicitationContentValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 // Outer ACP errors are reserved for binding and runtime failures.
 //
 // Both branches require their carrier key. An error must be a non-null object.
-// Unknown outer fields are ignored; inner result and error fields are preserved.
-// Carrier `_meta` is optional; null or invalid values are treated as absent.
-// Senders must include exactly one outcome; receivers prefer `result` if both are present.
+// Unknown outer fields are ignored. Inner result and error fields are preserved.
+// Carrier `_meta` is optional. Null or invalid values are treated as absent.
+// Senders must include exactly one outcome. Receivers prefer `result` if both are present.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MessageMCPResponse struct{ raw jsontext.Value }
@@ -5431,6 +6111,213 @@ func (v *MessageMCPResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// ProxyResponse is a JSON-RPC response object.
+//
+// ProxyResponse preserves the complete JSON payload, including future variants.
+// Use [ProxyResponse.As] to read one alternative and [NewProxyResponse] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
+type ProxyResponse struct{ raw jsontext.Value }
+
+// ProxyResponseAlternative is the set of Go types ProxyResponse can hold.
+type ProxyResponseAlternative interface {
+	ProxyResponseResult | ProxyResponseError
+}
+
+var proxyResponseAlternatives = union.Table(
+	union.Alt[ProxyResponseResult](union.Rule{NonNull: true, Required: []string{"id", "result"}, NotNull: []string{"id"}}),
+	union.Alt[ProxyResponseError](union.Rule{NonNull: true, Required: []string{"id", "error"}, NotNull: []string{"error"}}),
+)
+
+// NewProxyResponse encodes value, one of the ProxyResponseAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewProxyResponse[T ProxyResponseAlternative](value T) (ProxyResponse, error) {
+	raw, err := union.New("ProxyResponse", proxyResponseAlternatives, value)
+	return ProxyResponse{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ProxyResponse) As[T ProxyResponseAlternative]() (T, error) {
+	return union.As[T]("ProxyResponse", proxyResponseAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ProxyResponse) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ProxyResponse) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ProxyResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return errors.New("ProxyResponse: no value set; use NewProxyResponse")
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ProxyResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// ProxyRequestParams preserves the complete JSON payload, including future variants.
+// Use [ProxyRequestParams.As] to read one alternative and [NewProxyRequestParams] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
+type ProxyRequestParams struct{ raw jsontext.Value }
+
+// ProxyRequestParamsAlternative is the set of Go types ProxyRequestParams can hold.
+type ProxyRequestParamsAlternative interface {
+	InitializeRequest | ProxySuccessorRequest
+}
+
+var proxyRequestParamsAlternatives = union.Table(
+	union.Alt[InitializeRequest](union.Rule{NonNull: true, Required: []string{"protocolVersion", "info"}, NotNull: []string{"protocolVersion", "info", "capabilities"}}),
+	union.Alt[ProxySuccessorRequest](union.Rule{NonNull: true, Required: []string{"method"}, NotNull: []string{"method"}}),
+)
+
+// NewProxyRequestParams encodes value, one of the ProxyRequestParamsAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewProxyRequestParams[T ProxyRequestParamsAlternative](value T) (ProxyRequestParams, error) {
+	raw, err := union.New("ProxyRequestParams", proxyRequestParamsAlternatives, value)
+	return ProxyRequestParams{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ProxyRequestParams) As[T ProxyRequestParamsAlternative]() (T, error) {
+	return union.As[T]("ProxyRequestParams", proxyRequestParamsAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ProxyRequestParams) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ProxyRequestParams) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ProxyRequestParams) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return errors.New("ProxyRequestParams: no value set; use NewProxyRequestParams")
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ProxyRequestParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// ProxyResponseResultResult preserves the complete JSON payload, including future variants.
+// Use [ProxyResponseResultResult.As] to read one alternative and [NewProxyResponseResultResult] to build one.
+// The zero value holds no payload and encodes as null.
+type ProxyResponseResultResult struct{ raw jsontext.Value }
+
+// ProxyResponseResultResultAlternative is the set of Go types ProxyResponseResultResult can hold.
+type ProxyResponseResultResultAlternative interface {
+	InitializeResponse | jsontext.Value
+}
+
+var proxyResponseResultResultAlternatives = union.Table(
+	union.Alt[InitializeResponse](union.Rule{NonNull: true, Required: []string{"protocolVersion", "info"}, NotNull: []string{"protocolVersion", "info", "capabilities", "authMethods"}}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
+
+// NewProxyResponseResultResult encodes value, one of the ProxyResponseResultResultAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewProxyResponseResultResult[T ProxyResponseResultResultAlternative](value T) (ProxyResponseResultResult, error) {
+	raw, err := union.New("ProxyResponseResultResult", proxyResponseResultResultAlternatives, value)
+	return ProxyResponseResultResult{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ProxyResponseResultResult) As[T ProxyResponseResultResultAlternative]() (T, error) {
+	return union.As[T]("ProxyResponseResultResult", proxyResponseResultResultAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ProxyResponseResultResult) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ProxyResponseResultResult) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ProxyResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return enc.WriteToken(jsontext.Null)
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ProxyResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// ProxyResponseErrorID preserves the complete JSON payload, including future variants.
+// Use [ProxyResponseErrorID.As] to read one alternative and [NewProxyResponseErrorID] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
+type ProxyResponseErrorID struct{ raw jsontext.Value }
+
+// ProxyResponseErrorIDAlternative is the set of Go types ProxyResponseErrorID can hold.
+type ProxyResponseErrorIDAlternative interface{ int64 | string }
+
+var proxyResponseErrorIDAlternatives = union.Table(
+	union.Alt[int64](union.Rule{NonNull: true}),
+	union.Alt[string](union.Rule{NonNull: true}),
+)
+
+// NewProxyResponseErrorID encodes value, one of the ProxyResponseErrorIDAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewProxyResponseErrorID[T ProxyResponseErrorIDAlternative](value T) (ProxyResponseErrorID, error) {
+	raw, err := union.New("ProxyResponseErrorID", proxyResponseErrorIDAlternatives, value)
+	return ProxyResponseErrorID{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ProxyResponseErrorID) As[T ProxyResponseErrorIDAlternative]() (T, error) {
+	return union.As[T]("ProxyResponseErrorID", proxyResponseErrorIDAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ProxyResponseErrorID) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ProxyResponseErrorID) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ProxyResponseErrorID) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return errors.New("ProxyResponseErrorID: no value set; use NewProxyResponseErrorID")
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ProxyResponseErrorID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
 // Unmarshalers returns the unmarshalers that decode the tagged-union variant
 // interfaces directly, for callers that declare fields of those interface
 // types instead of the wrapper structs:
@@ -5447,10 +6334,12 @@ var unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalMultiSelectItemsVariant),
 	json.UnmarshalFromFunc(unmarshalAuthMethodVariant),
 	json.UnmarshalFromFunc(unmarshalSessionConfigOptionVariant),
+	json.UnmarshalFromFunc(unmarshalAvailableCommandVariant),
 	json.UnmarshalFromFunc(unmarshalAvailableCommandInputVariant),
-	json.UnmarshalFromFunc(unmarshalSessionUpdateVariant),
-	json.UnmarshalFromFunc(unmarshalIdleStateUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalStateUpdateVariant),
+	json.UnmarshalFromFunc(unmarshalBackgroundWorkVariant),
+	json.UnmarshalFromFunc(unmarshalIdleStateUpdateVariant),
+	json.UnmarshalFromFunc(unmarshalSessionUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalPlanUpdateContentVariant),
 	json.UnmarshalFromFunc(unmarshalMCPServerVariant),
 	json.UnmarshalFromFunc(unmarshalReplayFromVariant),

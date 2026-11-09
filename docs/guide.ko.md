@@ -18,7 +18,7 @@
 
 | 구성 요소 | 역할 |
 | --- | --- |
-| `acp` (루트) | `Option`, `Transport`와 stdio transport, `Middleware`, `RequestError`, `SessionStore` (`MemoryStore`, `FileStore`), `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
+| `acp` (루트) | `Option`, `Transport`와 stdio transport, `Middleware`, `RequestError`, `SessionStore` (`MemoryStore`, `FileStore`), `TurnTracker`, `WorkTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
 | `acphttp` | 초안 RFD를 따르는 Streamable HTTP·WebSocket transport. stdio 프로그램이 링크하지 않도록 루트와 분리 |
 | `acp1.AgentSideConnection` | `Agent`를 제공하고 상대편 클라이언트를 호출 |
 | `acp1.ClientSideConnection` | `Client`를 제공하고 상대편 에이전트를 호출 |
@@ -267,6 +267,25 @@ deadline이 지나면 `session/cancel`을 보내고, 턴은 에이전트의 canc
 그 컨텍스트를 살려 두세요. v2 턴은 그 턴을 시작한 연결이 닫히면 끝납니다. 턴 컨텍스트가 연결의 종료 원인으로
 취소되며, 다시 연결한 클라이언트는 세션을 resume하고 다시 프롬프트를 보냅니다.
 
+v2에서는 `capabilities.cancel`을 알린 도구 호출이나 터미널 하나를 턴 취소 없이 멈출 수도 있습니다. 에이전트에서
+`SessionManager.TrackToolCall`(또는 `TrackTerminal`)이 돌려주는 컨텍스트는 `tool_call/cancel`(또는
+`terminal/cancel`)이 `acp.ErrWorkCancelled`로 취소합니다. 임베드한 매니저가 두 요청을 처리하며, 추적하지 않는
+대상은 프로토콜대로 `-32602`로 거절합니다. 도구 호출은 `acp2.WithCancellable(true)`로 알리고, 결과는 취소되지
+않은 컨텍스트로 보고합니다:
+
+```go
+ctx, done := a.TrackToolCall(turnCtx, sessionID, id)
+defer done()
+stream.StartToolCall(ctx, id, "Run tests", acp2.ToolKindExecute, acp2.WithCancellable(true))
+err := run(ctx)
+if acp.WorkCancelled(ctx) {
+    return stream.UpdateToolCallStatus(context.WithoutCancel(ctx), id, acp2.ToolCallStatusCancelled)
+}
+```
+
+클라이언트는 `ClientSession.CancelToolCall(ctx, id)`나 `CancelTerminal`을 호출합니다. 그 밑의 버전 중립
+구성 요소는 `acp.WorkTracker`입니다.
+
 ## 연결과 버전
 
 ### 전송 계층
@@ -365,6 +384,12 @@ if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
     // 인증 후 재시도
 }
 ```
+
+프로토콜이 data 형태를 정한 에러가 둘 있습니다. `acp.SessionNotFound(id)`는 없거나 비활성인 세션을
+알립니다(`-32002`, `data.sessionId`). `SessionManager.Lookup`이 이를 반환하며 `acp.SessionNotFoundID(err)`로
+id를 다시 읽습니다. `acp.UnsupportedProtocolVersion(requested, supported...)`는 에이전트가 지원하는 모든
+버전보다 낮은 initialize에 대한 `-32022` 응답으로, 라우터와 v2 에이전트가 보냅니다.
+`acp.SupportedProtocolVersions(err)`는 그 안의 지원 버전 목록을 돌려줍니다.
 
 ### 미들웨어
 

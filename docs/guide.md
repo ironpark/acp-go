@@ -18,7 +18,7 @@ Examples use `acp1` unless stated otherwise. Application types and values such a
 
 | Component | Role |
 | --- | --- |
-| `acp` (root) | `Option`s, `Transport` and the stdio transport, `Middleware`, `RequestError`, `SessionStore` (`MemoryStore`, `FileStore`), `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
+| `acp` (root) | `Option`s, `Transport` and the stdio transport, `Middleware`, `RequestError`, `SessionStore` (`MemoryStore`, `FileStore`), `TurnTracker`, `WorkTracker`, typed extensions (`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
 | `acphttp` | Streamable HTTP and WebSocket transports, following the draft RFD, apart from the root so stdio programs do not link them |
 | `acp1.AgentSideConnection` | serves an `Agent` and calls the peer client |
 | `acp1.ClientSideConnection` | serves a `Client` and calls the peer agent |
@@ -286,6 +286,26 @@ with the agent's cancelled answer. Keep that context alive while the turn runs. 
 when the connection that started it closes: its context is cancelled with the connection's cause,
 and a client that reconnects resumes the session and prompts again.
 
+v2 can also stop one tool call or terminal without cancelling the turn, when it advertises
+`capabilities.cancel`. On the agent, `SessionManager.TrackToolCall` (or `TrackTerminal`) returns a
+context that `tool_call/cancel` (or `terminal/cancel`) cancels with `acp.ErrWorkCancelled`; the
+embedded manager serves both requests and refuses anything it does not track with `-32602`, as the
+protocol asks. Advertise the tool call with `acp2.WithCancellable(true)` and report the outcome with
+a context that is not cancelled:
+
+```go
+ctx, done := a.TrackToolCall(turnCtx, sessionID, id)
+defer done()
+stream.StartToolCall(ctx, id, "Run tests", acp2.ToolKindExecute, acp2.WithCancellable(true))
+err := run(ctx)
+if acp.WorkCancelled(ctx) {
+    return stream.UpdateToolCallStatus(context.WithoutCancel(ctx), id, acp2.ToolCallStatusCancelled)
+}
+```
+
+The client calls `ClientSession.CancelToolCall(ctx, id)` or `CancelTerminal`. `acp.WorkTracker` is
+the version-neutral building block behind them.
+
 ## Connections and Versions
 
 ### Transport Layer
@@ -411,6 +431,12 @@ if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
     // authenticate, then retry
 }
 ```
+
+Two errors carry data the protocol defines. `acp.SessionNotFound(id)` reports an unknown or
+inactive session (`-32002` with `data.sessionId`); `SessionManager.Lookup` returns it, and
+`acp.SessionNotFoundID(err)` reads the id back. `acp.UnsupportedProtocolVersion(requested,
+supported...)` is the `-32022` answer to an initialize below every version the agent speaks, which
+the router and v2 agents send; `acp.SupportedProtocolVersions(err)` lists the versions it names.
 
 ### Middleware
 

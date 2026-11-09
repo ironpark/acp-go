@@ -12,13 +12,18 @@ import (
 
 // listSession is session state that can describe itself for session/list.
 type listSession struct {
-	cwd     string
-	updated string
+	cwd      string
+	updated  string
+	archived bool
 }
 
 func (s listSession) SessionInfo() acp2.SessionInfo {
 	updated := s.updated
-	return acp2.SessionInfo{Cwd: acp2.AbsolutePath(s.cwd), UpdatedAt: &updated}
+	info := acp2.SessionInfo{Cwd: acp2.AbsolutePath(s.cwd), UpdatedAt: &updated}
+	if s.archived {
+		info.Archived = new(true)
+	}
+	return info
 }
 
 func seedListStore(t *testing.T, sessions map[acp2.SessionID]listSession) *acp2.MemoryStore[listSession] {
@@ -174,5 +179,43 @@ func TestSessionManagerListUsesSessionInfoLister(t *testing.T) {
 		if query.Cwd != "/a" || query.Limit != 3 || (query.After == nil) != (i == 0) {
 			t.Errorf("query %d = %+v", i, query)
 		}
+	}
+}
+
+func TestSessionManagerListArchivedFilter(t *testing.T) {
+	ctx := t.Context()
+	manager := newListManager(seedListStore(t, map[acp2.SessionID]listSession{
+		"live": {cwd: "/", updated: "2024-02-01"},
+		"old":  {cwd: "/", updated: "2024-01-01", archived: true},
+	}))
+	ids := func(filter acp2.SessionArchiveFilter) []acp2.SessionID {
+		t.Helper()
+		request := &acp2.ListSessionsRequest{}
+		if filter != "" {
+			request.Archived = &filter
+		}
+		page, err := manager.ListSessions(ctx, request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []acp2.SessionID
+		for _, info := range page.Sessions {
+			out = append(out, info.SessionID)
+		}
+		return out
+	}
+	for filter, want := range map[acp2.SessionArchiveFilter][]acp2.SessionID{
+		"":                               {"live"},
+		acp2.SessionArchiveFilterExclude: {"live"},
+		acp2.SessionArchiveFilterInclude: {"live", "old"},
+		acp2.SessionArchiveFilterOnly:    {"old"},
+	} {
+		if got := ids(filter); !slices.Equal(got, want) {
+			t.Errorf("archived=%q: got %v, want %v", filter, got, want)
+		}
+	}
+	unknown := acp2.SessionArchiveFilter("recent")
+	if _, err := manager.ListSessions(ctx, &acp2.ListSessionsRequest{Archived: &unknown}); !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
+		t.Errorf("unknown filter: got %v, want invalid params", err)
 	}
 }

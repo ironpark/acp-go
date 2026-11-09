@@ -54,9 +54,8 @@ type Agent interface {
 	CancelSession(ctx context.Context, params *CancelSessionNotification) error
 }
 
-// AuthHandler handles auth/login and auth/logout.
-//
-// [CapabilitiesOf] advertises it with the `capabilities.auth` agent capability.
+// AuthHandler handles auth/login and auth/logout. A non-empty authMethods
+// list in the Initialize response advertises them; no capability does.
 type AuthHandler interface {
 	Login(ctx context.Context, params *LoginAuthRequest) (*LoginAuthResponse, error)
 
@@ -77,6 +76,73 @@ type SessionDeleter interface {
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionForker interface {
 	ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error)
+}
+
+// ToolCallCanceller handles tool_call/cancel. Each tool call advertises
+// whether it can be cancelled in its own capabilities.cancel; there is no
+// connection-wide capability. Answer once the cancellation is accepted and
+// confirm it with a tool_call_update to a final status. Reject an unknown,
+// final or uncancellable tool call with an invalid-params error.
+//
+// See protocol docs: [Cancelling Tool Calls](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-tool-calls)
+type ToolCallCanceller interface {
+	CancelToolCall(ctx context.Context, params *CancelToolCallRequest) (*CancelToolCallResponse, error)
+}
+
+// TerminalCanceller handles terminal/cancel. Each terminal advertises whether
+// it can be cancelled in its own capabilities.cancel. Answer once the
+// cancellation is accepted and confirm it with a terminal_update that sets
+// exitStatus. Cancelling stops the process but does not release the terminal.
+//
+// See protocol docs: [Cancelling Terminals](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-terminals)
+type TerminalCanceller interface {
+	CancelTerminal(ctx context.Context, params *CancelTerminalRequest) (*CancelTerminalResponse, error)
+}
+
+// SessionArchiver handles session/archive and session/unarchive. An agent
+// that advertises it also supports the archived filter on session/list and
+// reports SessionInfo.Archived for every listed session.
+// Archive state persists across connections; archiving a loaded session first
+// cancels its work and frees it as session/close does. Archiving an archived
+// session, or unarchiving one that is not, succeeds.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.session.archive` agent capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionArchiver interface {
+	ArchiveSession(ctx context.Context, params *ArchiveSessionRequest) (*ArchiveSessionResponse, error)
+
+	UnarchiveSession(ctx context.Context, params *UnarchiveSessionRequest) (*UnarchiveSessionResponse, error)
+}
+
+// SessionStatusReader handles session/status, which reports whether the agent
+// holds a session in memory (open) or only in storage (saved).
+//
+// [CapabilitiesOf] advertises it with the `capabilities.session.status` agent capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatusReader interface {
+	GetSessionStatus(ctx context.Context, params *SessionStatusRequest) (*SessionStatusResponse, error)
+}
+
+// SessionTitleSetter handles session/set_title. Agents report titles through
+// session/list and session_info_update without it; it lets the client set one.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.session.title` agent capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionTitleSetter interface {
+	SetSessionTitle(ctx context.Context, params *SetSessionTitleRequest) (*SetSessionTitleResponse, error)
+}
+
+// AuthStatusReader handles auth/status. An agent that advertises it may also
+// send the auth/status_update notification whenever the status changes.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.auth.status` agent capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusReader interface {
+	GetAuthStatus(ctx context.Context, params *AuthStatusRequest) (*AuthStatusResponse, error)
 }
 
 // SessionConfigOptionSetter handles session/set_config_option. The response
@@ -140,6 +206,14 @@ type Client interface {
 // Experimental: not part of the spec yet; it may change or be removed.
 type MCPProvider interface {
 	MessageMCP(ctx context.Context, params *MessageMCPRequest) (*MessageMCPResponse, error)
+}
+
+// AuthStatusListener receives auth/status_update, which an agent advertising
+// auth.status sends when its authentication status changes.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusListener interface {
+	AuthStatusUpdate(ctx context.Context, params *AuthStatusUpdateNotification) error
 }
 
 // ElicitationHandler handles elicitation/create and the elicitation/complete
@@ -261,6 +335,59 @@ func (c *ClientSideConnection) ForkSession(ctx context.Context, params *ForkSess
 	return acpconn.Call[ForkSessionResponse](ctx, c.conn, schema.AgentMethodsSessionFork, params)
 }
 
+// CancelToolCall asks the agent to cancel one tool call that advertises
+// capabilities.cancel. The response means the cancellation was accepted; the
+// final tool_call_update confirms it.
+func (c *ClientSideConnection) CancelToolCall(ctx context.Context, params *CancelToolCallRequest) (*CancelToolCallResponse, error) {
+	return acpconn.Call[CancelToolCallResponse](ctx, c.conn, schema.AgentMethodsToolCallCancel, params)
+}
+
+// CancelTerminal asks the agent to stop one terminal that advertises
+// capabilities.cancel. The terminal_update that sets exitStatus confirms it.
+func (c *ClientSideConnection) CancelTerminal(ctx context.Context, params *CancelTerminalRequest) (*CancelTerminalResponse, error) {
+	return acpconn.Call[CancelTerminalResponse](ctx, c.conn, schema.AgentMethodsTerminalCancel, params)
+}
+
+// ArchiveSession hides a session from session/list's default view, closing it
+// first if it is loaded.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (c *ClientSideConnection) ArchiveSession(ctx context.Context, params *ArchiveSessionRequest) (*ArchiveSessionResponse, error) {
+	return acpconn.Call[ArchiveSessionResponse](ctx, c.conn, schema.AgentMethodsSessionArchive, params)
+}
+
+// UnarchiveSession restores an archived session. It does not load or resume it.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (c *ClientSideConnection) UnarchiveSession(ctx context.Context, params *UnarchiveSessionRequest) (*UnarchiveSessionResponse, error) {
+	return acpconn.Call[UnarchiveSessionResponse](ctx, c.conn, schema.AgentMethodsSessionUnarchive, params)
+}
+
+// GetSessionStatus reports whether the agent holds a session in memory. The
+// answer is a snapshot; treat a status you do not recognize as saved.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (c *ClientSideConnection) GetSessionStatus(ctx context.Context, params *SessionStatusRequest) (*SessionStatusResponse, error) {
+	return acpconn.Call[SessionStatusResponse](ctx, c.conn, schema.AgentMethodsSessionStatus, params)
+}
+
+// SetSessionTitle renames a session. The response carries the title the agent
+// stored, which may be normalized; display that one.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (c *ClientSideConnection) SetSessionTitle(ctx context.Context, params *SetSessionTitleRequest) (*SetSessionTitleResponse, error) {
+	return acpconn.Call[SetSessionTitleResponse](ctx, c.conn, schema.AgentMethodsSessionSetTitle, params)
+}
+
+// GetAuthStatus reports whether the agent can start sessions without the user
+// signing in first, and the accounts it has configured.
+// [ClientSideConnection.AuthStatus] keeps the answer.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (c *ClientSideConnection) GetAuthStatus(ctx context.Context, params *AuthStatusRequest) (*AuthStatusResponse, error) {
+	return c.getAuthStatus(ctx, params)
+}
+
 // SetSessionConfigOption sets one configuration option. The response returns
 // every option, since one change may affect the others.
 func (c *ClientSideConnection) SetSessionConfigOption(ctx context.Context, params *SetSessionConfigOptionRequest) (*SetSessionConfigOptionResponse, error) {
@@ -315,6 +442,14 @@ func (c *AgentSideConnection) MessageMCP(ctx context.Context, params *MessageMCP
 	return acpconn.Call[MessageMCPResponse](ctx, c.conn, schema.ClientMethodsMCPMessage, params)
 }
 
+// AuthStatusUpdate tells the client the agent's authentication status changed.
+// Send it only when the status differs from the last one sent on the connection.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (c *AgentSideConnection) AuthStatusUpdate(ctx context.Context, params *AuthStatusUpdateNotification) error {
+	return c.conn.SendNotification(ctx, schema.ClientMethodsAuthStatusUpdate, params)
+}
+
 // CreateElicitation asks the client to collect input from the user. Requires
 // the client's `capabilities.elicitation` capability.
 func (c *AgentSideConnection) CreateElicitation(ctx context.Context, params *CreateElicitationRequest) (*CreateElicitationResponse, error) {
@@ -355,6 +490,34 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 	case schema.AgentMethodsSessionFork:
 		if h, ok := c.agent.(SessionForker); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.ForkSession)
+		}
+	case schema.AgentMethodsToolCallCancel:
+		if h, ok := c.agent.(ToolCallCanceller); ok {
+			return acpconn.Request(ctx, schema.Validated(), params, h.CancelToolCall)
+		}
+	case schema.AgentMethodsTerminalCancel:
+		if h, ok := c.agent.(TerminalCanceller); ok {
+			return acpconn.Request(ctx, schema.Validated(), params, h.CancelTerminal)
+		}
+	case schema.AgentMethodsSessionArchive:
+		if h, ok := c.agent.(SessionArchiver); ok {
+			return acpconn.Request(ctx, schema.Validated(), params, h.ArchiveSession)
+		}
+	case schema.AgentMethodsSessionUnarchive:
+		if h, ok := c.agent.(SessionArchiver); ok {
+			return acpconn.Request(ctx, schema.Validated(), params, h.UnarchiveSession)
+		}
+	case schema.AgentMethodsSessionStatus:
+		if h, ok := c.agent.(SessionStatusReader); ok {
+			return acpconn.Request(ctx, schema.Validated(), params, h.GetSessionStatus)
+		}
+	case schema.AgentMethodsSessionSetTitle:
+		if h, ok := c.agent.(SessionTitleSetter); ok {
+			return acpconn.Request(ctx, schema.Validated(), params, h.SetSessionTitle)
+		}
+	case schema.AgentMethodsAuthStatus:
+		if h, ok := c.agent.(AuthStatusReader); ok {
+			return acpconn.Request(ctx, schema.Validated(), params, h.GetAuthStatus)
 		}
 	case schema.AgentMethodsSessionSetConfigOption:
 		if h, ok := c.agent.(SessionConfigOptionSetter); ok {
@@ -420,6 +583,8 @@ func (c *ClientSideConnection) handleNotification(ctx context.Context, method st
 	switch method {
 	case schema.ClientMethodsSessionUpdate:
 		return acpconn.Notify(ctx, schema.Validated(), params, c.sessionUpdate)
+	case schema.ClientMethodsAuthStatusUpdate:
+		return acpconn.Notify(ctx, schema.Validated(), params, c.authStatusUpdate)
 	case schema.ClientMethodsElicitationComplete:
 		if h, ok := c.client.(ElicitationHandler); ok {
 			return acpconn.Notify(ctx, schema.Validated(), params, h.CompleteElicitation)
@@ -436,14 +601,26 @@ func (c *ClientSideConnection) handleNotification(ctx context.Context, method st
 // optional interface agent implements.
 func capabilitiesOf(agent Agent, caps *schema.AgentCapabilities) {
 	caps.Session = &schema.SessionCapabilities{}
-	if _, ok := agent.(AuthHandler); ok {
-		caps.Auth = &schema.AgentAuthCapabilities{}
-	}
 	if _, ok := agent.(SessionDeleter); ok {
 		caps.Session.Delete = &schema.SessionDeleteCapabilities{}
 	}
 	if _, ok := agent.(SessionForker); ok {
 		caps.Session.Fork = &schema.SessionForkCapabilities{}
+	}
+	if _, ok := agent.(SessionArchiver); ok {
+		caps.Session.Archive = &schema.SessionArchiveCapabilities{}
+	}
+	if _, ok := agent.(SessionStatusReader); ok {
+		caps.Session.Status = &schema.SessionStatusCapabilities{}
+	}
+	if _, ok := agent.(SessionTitleSetter); ok {
+		caps.Session.Title = &schema.SessionTitleCapabilities{}
+	}
+	if _, ok := agent.(AuthStatusReader); ok {
+		if caps.Auth == nil {
+			caps.Auth = &schema.AgentAuthCapabilities{}
+		}
+		caps.Auth.Status = &schema.AuthStatusCapabilities{}
 	}
 	if _, ok := agent.(ProviderManager); ok {
 		caps.Providers = &schema.ProvidersCapabilities{}

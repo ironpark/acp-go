@@ -30,7 +30,7 @@ ACP(Agent Client Protocol) for golang
 
 ### Packages
 
-- Root `acp`: version-neutral runtime API — options, the `Transport` interface and stdio transport, middleware, errors, session store, `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`, and the `ExtMethodHandler`/`ExtNotificationHandler` interfaces the façades alias), `AfterReply`. Imports no façade.
+- Root `acp`: version-neutral runtime API — options, the `Transport` interface and stdio transport, middleware, errors, session store, `TurnTracker`, `WorkTracker`, typed extensions (`CallExt`, `ExtRouter`, and the `ExtMethodHandler`/`ExtNotificationHandler` interfaces the façades alias), `AfterReply`. Imports no façade.
 - `acphttp`: Streamable HTTP and WebSocket transports (draft RFD), apart from the root so stdio programs do not link them.
 - `acp1` / `acp2`: protocol façades on `schema/v1` / `schema/v2`; symmetric, both import root.
 - `acp1/acp1test` / `acp2/acp2test`: test helpers for agents — a recording client and an in-memory `Connect`.

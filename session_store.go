@@ -97,6 +97,12 @@ func (p SessionListPosition) Compare(other SessionListPosition) int {
 type SessionListQuery struct {
 	// Cwd, when not empty, keeps only the sessions in this working directory.
 	Cwd string
+	// Archived selects sessions by archive state, as session/list's archived
+	// filter does: "" or "exclude" keeps the sessions not archived,
+	// "include" keeps every session and "only" the archived ones. The manager
+	// rejects any other value before it asks. A store whose sessions are never
+	// archived may ignore it.
+	Archived string
 	// After, when not nil, keeps only the sessions listed after this
 	// position; a nil After starts at the most recently updated session.
 	After *SessionListPosition

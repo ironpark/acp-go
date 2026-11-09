@@ -28,17 +28,18 @@ type RequestPermissionRequest struct {
 	// Optional human-readable explanation of why permission is needed.
 	//
 	// This text is specific to the permission prompt and does not update any
-	// subject's displayed content. Omitted or `null` both mean no separate
+	// subject's displayed content. Omitted and `null` are equivalent and mean no separate
 	// permission description was provided.
 	Description *string `json:"description,omitzero"`
 	// Optional structured context about the operation requiring permission.
 	//
-	// Omitted or `null` both mean no structured subject was provided.
+	// Omitted and `null` are equivalent and mean no structured subject was provided.
 	Subject RequestPermissionSubject `json:"subject,omitzero"`
 	// Available permission options for the user to choose from.
 	// Must contain at least one option.
 	Options []PermissionOption `json:"options"`
-	Meta    Meta               `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Represents an upsert for a tool call that the language model has requested.
@@ -46,13 +47,13 @@ type RequestPermissionRequest struct {
 // Tool calls are actions that the agent executes on behalf of the language model,
 // such as reading files, executing code, or fetching data from external sources.
 //
-// Only [ToolCallUpdate.ToolCallID] is required. Other fields have patch semantics:
+// Only `toolCallId` is required. Other fields have patch semantics:
 // omitted fields leave the existing tool call value unchanged, `null` clears or
 // unsets the value, and concrete values replace the previous value. For
 // collection fields, concrete arrays replace the previous collection, and both
 // `null` and `[]` clear the collection. A concrete `_meta` object instead
 // patches the stored metadata by top-level key. When a client receives a tool
-// call ID it has not seen before, omitted fields use client defaults.
+// call ID it has not seen before, omitted fields start at their protocol defaults.
 //
 // See protocol docs: [Tool Calls]
 //
@@ -68,11 +69,20 @@ type ToolCallUpdate struct {
 	// tool name is available.
 	Name optional.Value[string] `json:"name,omitzero"`
 	// Human-readable title describing what the tool is doing.
+	//
+	// Omission leaves the title unchanged, `null` unsets it, and a string replaces it.
+	// A new tool call starts without a title.
 	Title optional.Value[string] `json:"title,omitzero"`
 	// The category of tool being invoked.
 	// Helps clients choose appropriate icons and UI treatment.
+	//
+	// Omission leaves the kind unchanged, `null` resets it to `other`, and a value replaces it.
+	// A new tool call starts as `other`.
 	Kind optional.Value[ToolKind] `json:"kind,omitzero"`
 	// Current execution status of the tool call.
+	//
+	// Omission leaves the status unchanged, `null` resets it to `pending`, and a value
+	// replaces it. A new tool call starts as `pending`.
 	Status optional.Value[ToolCallStatus] `json:"status,omitzero"`
 	// Content produced by the tool call.
 	Content optional.Value[[]ToolCallContent] `json:"content,omitzero"`
@@ -83,7 +93,12 @@ type ToolCallUpdate struct {
 	RawInput jsontext.Value `json:"rawInput,omitzero"`
 	// Raw output returned by the tool.
 	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
-	// Omitted leaves the stored metadata unchanged; `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects.
+	// Client-initiated controls this tool call currently supports, such as cancellation.
+	//
+	// Omission leaves the capabilities unchanged, `null` clears them, and an object replaces
+	// the whole previous value. A new tool call starts with none.
+	Capabilities optional.Value[ToolCallCapabilities] `json:"capabilities,omitzero"`
+	// Omitted leaves the stored metadata unchanged. `null` clears it. An object patches the stored metadata by top-level key: keys it omits are unchanged, a key set to `null` is removed, and any other value replaces that key's stored value without merging nested objects. Beyond this patch rule, implementations MUST NOT assign meaning to keys they do not recognize.
 	//
 	// See protocol docs: [Metadata Patches](https://agentclientprotocol.com/protocol/v2/draft/extensibility#metadata-patches)
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
@@ -92,30 +107,48 @@ type ToolCallUpdate struct {
 // Optional annotations for the client. The client can use annotations to inform how objects are used or displayed
 type Annotations struct {
 	// Intended recipients for this content, such as the user or assistant.
+	//
+	// Omitted and `null` are equivalent and mean no audience is specified.
 	Audience []Role `json:"audience,omitzero"`
 	// Timestamp indicating when the underlying resource was last modified.
 	//
-	// Must be an RFC 3339 formatted string (e.g., "2025-01-12T15:00:58Z").
+	// Should be an ISO 8601 formatted string (e.g., "2025-01-12T15:00:58Z"), as in MCP.
+	//
+	// Omitted and `null` are equivalent and mean the modification time is not reported.
 	LastModified *string `json:"lastModified,omitzero"`
-	// Relative importance of this content when clients choose what to surface.
+	// Relative importance of this content when clients choose what to surface, from 0 (least
+	// important) to 1 (most important).
+	//
+	// Omitted and `null` are equivalent and mean no priority is specified.
 	Priority *float64 `json:"priority,omitzero"`
-	Meta     Meta     `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An optionally-sized icon that can be displayed in a user interface.
 type Icon struct {
-	// A standard URI pointing to an icon resource.
+	// A standard URI pointing to an icon resource. MUST be an `https:` or `data:` URI.
+	// Clients reject other schemes, fetch without credentials, and do not follow
+	// scheme- or origin-changing redirects.
 	Src string `json:"src"`
 	// Optional MIME type override if the source MIME type is missing or generic.
+	//
+	// Omitted and `null` are equivalent and mean the source MIME type is used.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
 	// Optional array of strings that specify sizes at which the icon can be used.
 	// Each string should be in `WxH` format (e.g., `"48x48"`, `"96x96"`) or
 	// `"any"` for scalable formats like SVG.
 	//
 	// If not provided, the client should assume that the icon can be used at any size.
+	//
+	// Omitted and `null` are equivalent and mean no sizes are specified.
 	Sizes []string `json:"sizes,omitzero"`
 	// Optional theme this icon is designed for.
+	//
+	// Omitted and `null` are equivalent and mean the icon is not theme-specific.
 	Theme *IconTheme `json:"theme,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Text-based resource contents.
@@ -125,8 +158,11 @@ type TextResourceContents struct {
 	// URI associated with this resource or media payload.
 	URI string `json:"uri"`
 	// MIME type describing the encoded media payload.
+	//
+	// Omitted and `null` are equivalent and mean the MIME type is not specified.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
-	Meta     Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Binary resource contents.
@@ -136,8 +172,11 @@ type BlobResourceContents struct {
 	// URI associated with this resource or media payload.
 	URI string `json:"uri"`
 	// MIME type describing the encoded media payload.
+	//
+	// Omitted and `null` are equivalent and mean the MIME type is not specified.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
-	Meta     Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Operation metadata for add, delete, and modify changes.
@@ -160,6 +199,8 @@ type DiffPatch struct {
 	Format DiffPatchFormat `json:"format"`
 	// Patch text in the format named by `format`.
 	Text string `json:"text"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // ToolCallLocation is a file location being accessed or modified by a tool.
@@ -173,25 +214,54 @@ type DiffPatch struct {
 type ToolCallLocation struct {
 	// The absolute file path being accessed or modified.
 	Path AbsolutePath `json:"path"`
-	// Optional line number within the file.
+	// Optional 1-based line number within the file. Omitted and `null` are equivalent and
+	// mean no specific line. `0` is invalid.
 	Line *uint32 `json:"line,omitzero"`
-	Meta Meta    `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Client-initiated controls a tool call currently supports.
+//
+// A malformed value falls back to no controls, so the Client never sends a request the
+// Agent did not advertise.
+//
+// See protocol docs: [Cancelling Tool Calls]
+//
+// [Cancelling Tool Calls]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-tool-calls
+type ToolCallCapabilities struct {
+	// Permits the Client to cancel this tool call with `tool_call/cancel`.
+	//
+	// Omitted and `null` are equivalent and mean unsupported. An object (including `{}`)
+	// means supported. Agents SHOULD stop advertising it once the tool call reaches a final status.
+	Cancel *ToolCallCancelCapabilities `json:"cancel,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capability to cancel a tool call with `tool_call/cancel`.
+//
+// Supplying `{}` advertises support. An omitted or `null` `cancel` does not.
+type ToolCallCancelCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // PermissionOption is an option presented to the user when requesting permission.
 type PermissionOption struct {
-	// Unique identifier for this permission option.
+	// Identifier for this permission option. MUST be unique within the request.
 	OptionID PermissionOptionID `json:"optionId"`
 	// Human-readable label to display to the user.
 	Name string `json:"name"`
 	// Hint about the nature of this permission option.
 	Kind PermissionOptionKind `json:"kind"`
-	Meta Meta                 `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Session-scoped elicitation, optionally tied to a specific tool call.
 //
-// When `tool_call_id` is set, the elicitation is tied to a specific tool call.
+// When `toolCallId` is set, the elicitation is tied to a specific tool call.
 // This is useful when an agent receives an elicitation from an MCP server
 // during a tool call and needs to redirect it to the user.
 type ElicitationSessionScope struct {
@@ -207,7 +277,7 @@ type ElicitationSessionScope struct {
 // Request-scoped elicitation, tied to a specific JSON-RPC request outside of a session
 // (e.g., during auth/configuration phases before any session is started).
 type ElicitationRequestScope struct {
-	// The request this elicitation is tied to.
+	// The pending Client-to-Agent request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 }
 
@@ -216,14 +286,14 @@ type ElicitationRequestScope struct {
 // This represents a JSON Schema object with primitive-typed properties,
 // as required by the elicitation specification.
 type ElicitationSchema struct {
-	// Type discriminator. Always `"object"`.
-	Type *ElicitationSchemaType `json:"type,omitzero"`
+	// Type discriminator. Always `"object"`. Any other value is rejected.
+	Type ElicitationSchemaType `json:"type"`
 	// Optional title for the schema.
 	//
 	// Optional. Omitted and `null` are equivalent and mean no title is provided.
 	Title *string `json:"title,omitzero"`
 	// Property definitions (must be primitive types).
-	Properties map[string]ElicitationPropertySchema `json:"properties,omitzero"`
+	Properties map[string]ElicitationPropertySchema `json:"properties"`
 	// List of required property names.
 	//
 	// Optional. Omitted and `null` are equivalent and mean no property names are required.
@@ -232,7 +302,7 @@ type ElicitationSchema struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no schema description is provided.
 	Description *string `json:"description,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -246,7 +316,7 @@ type EnumOption struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -254,7 +324,7 @@ type EnumOption struct {
 type TitledMultiSelectItems struct {
 	// Titled enum options. Must contain at least one option.
 	AnyOf []EnumOption `json:"anyOf"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -268,9 +338,9 @@ type MessageMCPRequest struct {
 	RequestID MCPRequestID `json:"requestId"`
 	// The inner MCP method name.
 	Method string `json:"method"`
-	// Optional inner MCP params; null is equivalent to omission.
+	// Optional inner MCP params. Null is equivalent to omission.
 	Params map[string]jsontext.Value `json:"params,omitzero"`
-	// ACP extension metadata (not inner MCP params._meta); null is equivalent to omission.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This is ACP metadata, not the inner MCP message's `_meta`.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -291,10 +361,12 @@ type ExtRequest = jsontext.Value
 //
 // [Initialization]: https://agentclientprotocol.com/protocol/v2/draft/initialization
 type InitializeResponse struct {
-	// The protocol version the client specified if supported by the agent,
-	// or the latest protocol version supported by the agent.
+	// The highest protocol version supported by the agent that is at or below
+	// the version requested by the client. If no such version exists,
+	// initialization fails with error code -32022.
 	//
-	// The client should disconnect, if it doesn't support this version.
+	// The client must check that it supports this version and should disconnect
+	// if it does not.
 	ProtocolVersion ProtocolVersion `json:"protocolVersion"`
 	// Information about the implementation sending this initialize response.
 	Info Implementation `json:"info"`
@@ -303,10 +375,11 @@ type InitializeResponse struct {
 	// Authentication methods supported by the agent.
 	//
 	// Optional. Omitted or empty means the agent does not advertise the
-	// authentication method surface. Supplying one or more valid methods means
+	// `auth/login` and `auth/logout` methods. Supplying one or more methods means
 	// the agent MUST support both `auth/login` and `auth/logout`.
 	AuthMethods []AuthMethod `json:"authMethods,omitzero"`
-	Meta        Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Metadata about the implementation of the client or agent.
@@ -314,17 +387,20 @@ type InitializeResponse struct {
 // title for UI representation.
 type Implementation struct {
 	// Intended for programmatic or logical use, but can be used as a display
-	// name fallback if title isn’t present.
+	// name fallback if title isn't present.
 	Name string `json:"name"`
-	// Intended for UI and end-user contexts — optimized to be human-readable
+	// Intended for UI and end-user contexts and optimized to be human-readable
 	// and easily understood.
 	//
 	// If not provided, the name should be used for display.
+	//
+	// Omitted and `null` are equivalent and mean the `name` is used for display.
 	Title *string `json:"title,omitzero"`
 	// Version of the implementation. Can be displayed to the user or used
 	// for debugging or metrics purposes. (e.g. "1.0.0").
 	Version string `json:"version"`
-	Meta    Meta   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities supported by the agent.
@@ -338,27 +414,28 @@ type Implementation struct {
 type AgentCapabilities struct {
 	// Session capabilities supported by the agent.
 	//
-	// Optional. Omitted or `null` both mean the agent does not support the
-	// `session*` method surface. Supplying `{}` means the agent supports the
+	// Optional. Omitted and `null` are equivalent and mean the agent does not support the
+	// `session*` methods. Supplying `{}` means the agent supports the
 	// baseline session methods: `session/new`, `session/list`,
 	// `session/resume`, `session/close`, `session/prompt`, `session/cancel`,
 	// and `session/update`.
 	Session *SessionCapabilities `json:"session,omitzero"`
 	// Authentication-related extension capabilities supported by the agent.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise any
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise any
 	// authentication-related extensions. This field does not advertise support
-	// for `auth/login` or `auth/logout`; those methods are advertised by a
+	// for `auth/login` or `auth/logout`. Those methods are advertised by a
 	// non-empty `authMethods` list in the `initialize` response.
 	Auth *AgentAuthCapabilities `json:"auth,omitzero"`
 	// Provider configuration capabilities supported by the agent.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports provider configuration methods.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Providers *ProvidersCapabilities `json:"providers,omitzero"`
-	Meta      Meta                   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Session capabilities supported by the agent.
@@ -377,23 +454,23 @@ type AgentCapabilities struct {
 type SessionCapabilities struct {
 	// Prompt capabilities supported by the agent in `session/prompt` requests.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise any
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise any
 	// prompt extensions beyond the baseline text and resource-link content
 	// required by `session/prompt`.
 	Prompt *PromptCapabilities `json:"prompt,omitzero"`
 	// MCP capabilities supported by the agent for session lifecycle requests.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise MCP
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise MCP
 	// server transport support for sessions.
 	MCP *MCPCapabilities `json:"mcp,omitzero"`
 	// Whether the agent supports `session/delete`.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports deleting sessions from `session/list`.
 	Delete *SessionDeleteCapabilities `json:"delete,omitzero"`
 	// Whether the agent supports `additionalDirectories` on supported session lifecycle requests.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports `additionalDirectories` on
 	// supported session lifecycle requests.
 	//
@@ -402,25 +479,51 @@ type SessionCapabilities struct {
 	AdditionalDirectories *SessionAdditionalDirectoriesCapabilities `json:"additionalDirectories,omitzero"`
 	// Whether the agent supports `systemPrompt` on session lifecycle requests.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports `systemPrompt` in `append` mode.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	SystemPrompt *SessionSystemPromptCapabilities `json:"systemPrompt,omitzero"`
 	// Whether the agent supports `session/fork`.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports forking sessions.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Fork *SessionForkCapabilities `json:"fork,omitzero"`
-	Meta Meta                     `json:"_meta,omitzero"`
+	// Whether the agent supports `session/archive` and `session/unarchive`.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports both methods, the `archived` filter on
+	// `session/list`, and `SessionInfo.archived`.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Archive *SessionArchiveCapabilities `json:"archive,omitzero"`
+	// Whether the agent supports `session/status`.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports checking session status.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Status *SessionStatusCapabilities `json:"status,omitzero"`
+	// Whether the agent supports `session/set_title`.
+	//
+	// Agents report titles through `session/list` and `session_info_update` without this
+	// capability. It only advertises that Clients can set titles.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports setting session titles.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Title *SessionTitleCapabilities `json:"title,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Prompt capabilities supported by the agent in `session/prompt` requests.
 //
-// Baseline agent functionality requires support for [ContentBlockText]
-// and [ContentBlockResourceLink] in prompt requests.
+// Baseline agent functionality requires support for `text`
+// and `resource_link` content blocks in prompt requests.
 //
 // Other variants must be explicitly opted in to.
 // Capabilities for different types of content in prompt requests.
@@ -428,35 +531,37 @@ type SessionCapabilities struct {
 // Indicates which content types beyond the baseline (text and resource links)
 // the agent can process.
 //
-// See protocol docs: [Prompt Capabilities]
+// See protocol docs: [Session Prompt Capabilities]
 //
-// [Prompt Capabilities]: https://agentclientprotocol.com/protocol/v2/draft/initialization#prompt-capabilities
+// [Session Prompt Capabilities]: https://agentclientprotocol.com/protocol/v2/draft/initialization#session-prompt-capabilities
 type PromptCapabilities struct {
-	// Agent supports [ContentBlockImage].
+	// Agent supports `image` content blocks.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports image content in prompts.
 	Image *PromptImageCapabilities `json:"image,omitzero"`
-	// Agent supports [ContentBlockAudio].
+	// Agent supports `audio` content blocks.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports audio content in prompts.
 	Audio *PromptAudioCapabilities `json:"audio,omitzero"`
 	// Agent supports embedded context in `session/prompt` requests.
 	//
-	// When enabled, the Client is allowed to include [ContentBlockResource]
+	// When enabled, the Client is allowed to include `resource` content blocks
 	// in prompt requests for pieces of context that are referenced in the message.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports embedded context in prompts.
 	EmbeddedContext *PromptEmbeddedContextCapabilities `json:"embeddedContext,omitzero"`
-	Meta            Meta                               `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for image content in prompt requests.
 //
 // Supplying `{}` means the agent supports image content in prompts.
 type PromptImageCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -464,6 +569,7 @@ type PromptImageCapabilities struct {
 //
 // Supplying `{}` means the agent supports audio content in prompts.
 type PromptAudioCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -471,35 +577,38 @@ type PromptAudioCapabilities struct {
 //
 // Supplying `{}` means the agent supports embedded context in prompts.
 type PromptEmbeddedContextCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
 // MCP capabilities supported by the agent for session lifecycle requests.
 type MCPCapabilities struct {
-	// Agent supports [MCPServerStdio].
+	// Agent supports `stdio` MCP servers.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports stdio MCP server transports.
 	Stdio *MCPStdioCapabilities `json:"stdio,omitzero"`
-	// Agent supports [MCPServerHTTP].
+	// Agent supports `http` MCP servers.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports HTTP MCP server transports.
 	HTTP *MCPHTTPCapabilities `json:"http,omitzero"`
-	// Agent supports [MCPServerACP].
+	// Agent supports `acp` MCP servers.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports ACP MCP server transports.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
-	ACP  *MCPACPCapabilities `json:"acp,omitzero"`
-	Meta Meta                `json:"_meta,omitzero"`
+	ACP *MCPACPCapabilities `json:"acp,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for stdio MCP server transports.
 //
 // Supplying `{}` means the agent supports stdio MCP server transports.
 type MCPStdioCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -507,6 +616,7 @@ type MCPStdioCapabilities struct {
 //
 // Supplying `{}` means the agent supports HTTP MCP server transports.
 type MCPHTTPCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -516,6 +626,7 @@ type MCPHTTPCapabilities struct {
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MCPACPCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -523,16 +634,18 @@ type MCPACPCapabilities struct {
 //
 // Supplying `{}` means the agent supports deleting sessions from `session/list`.
 type SessionDeleteCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for additional session directories support.
 //
 // Supplying `{}` means the agent supports the `additionalDirectories` field on
-// supported session lifecycle requests. Agents that also support
-// `session/list` may return `SessionInfo.additionalDirectories` to report the
+// supported session lifecycle requests. Agents may return
+// `SessionInfo.additionalDirectories` in `session/list` to report the
 // complete ordered additional-root list associated with a listed session.
 type SessionAdditionalDirectoriesCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -545,9 +658,10 @@ type SessionAdditionalDirectoriesCapabilities struct {
 type SessionSystemPromptCapabilities struct {
 	// Delivery modes the agent supports in addition to `append`.
 	//
-	// Optional. Omitted or `null` both mean the agent supports only `append`.
+	// Optional. Omitted and `null` are equivalent and mean the agent supports only `append`.
 	Mode *SessionSystemPromptModeCapabilities `json:"mode,omitzero"`
-	Meta Meta                                 `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // System prompt delivery modes the agent supports in addition to `append`.
@@ -559,11 +673,12 @@ type SessionSystemPromptCapabilities struct {
 type SessionSystemPromptModeCapabilities struct {
 	// Whether the agent supports `override` mode.
 	//
-	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports replacing its built-in default
 	// instructions with the client-provided system prompt.
 	Override *SessionSystemPromptOverrideCapabilities `json:"override,omitzero"`
-	Meta     Meta                                     `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for the `override` system prompt mode.
@@ -573,6 +688,7 @@ type SessionSystemPromptModeCapabilities struct {
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionSystemPromptOverrideCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -582,6 +698,39 @@ type SessionSystemPromptOverrideCapabilities struct {
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionForkCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for `session/archive` and `session/unarchive`.
+//
+// Supplying `{}` means the agent supports both methods, the `archived` filter on
+// `session/list`, and `SessionInfo.archived`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionArchiveCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for the `session/status` method.
+//
+// Supplying `{}` means the agent supports checking session status.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatusCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for Client-set session titles.
+//
+// Supplying `{}` means the agent supports `session/set_title`. Agents report titles
+// through `session/list` and `session_info_update` without this capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionTitleCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -591,6 +740,24 @@ type SessionForkCapabilities struct {
 // Those methods are advertised by a non-empty `authMethods` list in the
 // `initialize` response.
 type AgentAuthCapabilities struct {
+	// Whether the agent supports the `auth/status` method.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports the `auth/status` method.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Status *AuthStatusCapabilities `json:"status,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Auth status capabilities supported by the agent.
+//
+// Supplying `{}` means the agent supports the `auth/status` method.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -600,6 +767,7 @@ type AgentAuthCapabilities struct {
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type ProvidersCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -609,11 +777,13 @@ type EnvVariable struct {
 	Name string `json:"name"`
 	// The value to set for the environment variable.
 	Value string `json:"value"`
-	Meta  Meta   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // LoginAuthResponse is a response to the `auth/login` method.
 type LoginAuthResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -623,7 +793,8 @@ type LoginAuthResponse struct {
 type ListProvidersResponse struct {
 	// Configurable providers with current routing info suitable for UI display.
 	Providers []ProviderInfo `json:"providers"`
-	Meta      Meta           `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Information about a configurable LLM provider.
@@ -640,7 +811,8 @@ type ProviderInfo struct {
 	// Current effective non-secret routing config.
 	// Null or omitted means provider is disabled.
 	Current *ProviderCurrentConfig `json:"current,omitzero"`
-	Meta    Meta                   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Current effective non-secret routing configuration for a provider.
@@ -651,13 +823,15 @@ type ProviderCurrentConfig struct {
 	APIType LLMProtocol `json:"apiType"`
 	// Base URL currently used by this provider.
 	BaseURL string `json:"baseUrl"`
-	Meta    Meta   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // SetProviderResponse is a response to `providers/set`.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SetProviderResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -665,11 +839,66 @@ type SetProviderResponse struct {
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type DisableProviderResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
 // LogoutAuthResponse is a response to the `auth/logout` method.
 type LogoutAuthResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// AuthStatusResponse is a response to the `auth/status` method.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusResponse struct {
+	// Whether the agent can start sessions without the user signing in first.
+	//
+	// This is the only field clients should act on. Clients MUST treat values they
+	// do not recognize as `unknown`.
+	State AuthState `json:"state"`
+	// The accounts the agent has configured, for display.
+	//
+	// Optional. Omitted and empty are equivalent and mean no accounts are reported.
+	// Agents that hold credentials for several providers or accounts SHOULD list each
+	// of them and mark the ones in effect with `active`.
+	Accounts []AuthAccount `json:"accounts,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// An account or credential the agent has configured, such as a signed-in user
+// account or an API key.
+//
+// All fields are display information only. Clients MUST NOT use them as stable
+// account identifiers, and SHOULD NOT log them or send them elsewhere, such as to
+// telemetry.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthAccount struct {
+	// Human-readable name for the account, suitable for display on its own,
+	// for example `Claude Max`, `OpenAI API key`, or `Vertex AI`.
+	Label string `json:"label"`
+	// Whether the agent currently uses this account by default.
+	//
+	// Several accounts MAY be active, for example one per provider.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent does not indicate whether this account is in effect.
+	Active *bool `json:"active,omitzero"`
+	// Display name of the user, such as a username or full name.
+	//
+	// Optional. Omitted and `null` are equivalent and mean no name is reported.
+	Name *string `json:"name,omitzero"`
+	// Email address of the user.
+	//
+	// Optional. Omitted and `null` are equivalent and mean no email is reported.
+	Email *string `json:"email,omitzero"`
+	// Display name of the organization, team, or workspace the account is using.
+	//
+	// Optional. Omitted and `null` are equivalent and mean no organization is reported.
+	Organization *string `json:"organization,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -688,14 +917,19 @@ type NewSessionResponse struct {
 	// Used in all subsequent requests for this conversation.
 	SessionID SessionID `json:"sessionId"`
 	// Initial session configuration options.
+	//
+	// Optional. Omitted or empty means no config options are advertised.
+	// Senders MUST use an array, not `null`. Receivers treat `null` like omission.
+	// Later `config_option_update` notifications replace this list.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
 	// Initial commands the agent can execute in this session.
 	//
 	// Optional. Omitted or empty means no initial commands are advertised.
-	// Senders MUST use an array, not `null`; receivers treat `null` like omission.
+	// Senders MUST use an array, not `null`. Receivers treat `null` like omission.
 	// Later `available_commands_update` notifications replace this list.
 	AvailableCommands []AvailableCommand `json:"availableCommands,omitzero"`
-	Meta              Meta               `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // SessionConfigSelectOption is a possible value for a session configuration option.
@@ -705,8 +939,11 @@ type SessionConfigSelectOption struct {
 	// Human-readable label for this option value.
 	Name string `json:"name"`
 	// Optional description for this option value.
+	//
+	// Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
-	Meta        Meta    `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // SessionConfigSelectGroup is a group of possible values for a session configuration option.
@@ -715,16 +952,18 @@ type SessionConfigSelectGroup struct {
 	GroupID SessionConfigGroupID `json:"groupId"`
 	// Human-readable label for this group.
 	Name string `json:"name"`
-	// The set of option values in this group.
+	// The set of option values in this group. MUST contain at least one value.
 	Options []SessionConfigSelectOption `json:"options"`
-	Meta    Meta                        `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // SessionConfigSelect is a single-value selector (dropdown) session configuration option payload.
 type SessionConfigSelect struct {
-	// The currently selected value.
+	// The currently selected value. MUST be one of the `value`s in `options`.
 	CurrentValue SessionConfigValueID `json:"currentValue"`
-	// The set of selectable options.
+	// The set of selectable options. MUST contain at least one value, and each `value` MUST be
+	// unique within the option, including across groups.
 	Options SessionConfigSelectOptions `json:"options"`
 }
 
@@ -734,25 +973,16 @@ type SessionConfigBoolean struct {
 	CurrentValue bool `json:"currentValue"`
 }
 
-// Information about a command.
-type AvailableCommand struct {
-	// Command name (e.g., `create_plan`, `research_codebase`).
-	Name string `json:"name"`
-	// Human-readable description of what the command does.
-	Description string `json:"description"`
-	// Input for the command if required
-	Input AvailableCommandInput `json:"input,omitzero"`
-	Meta  Meta                  `json:"_meta,omitzero"`
-}
-
 // ListSessionsResponse is a response from listing sessions.
 type ListSessionsResponse struct {
 	// Array of session information objects.
 	Sessions []SessionInfo `json:"sessions"`
 	// Opaque cursor token. If present, pass this in the next request's cursor parameter
-	// to fetch the next page. If absent, there are no more results.
+	// to fetch the next page. Omitted and `null` are equivalent and mean there are no more
+	// results. An empty string is a valid cursor, not the end of results.
 	NextCursor *SessionListCursor `json:"nextCursor,omitzero"`
-	Meta       Meta               `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Information about a session returned by session/list
@@ -768,14 +998,27 @@ type SessionInfo struct {
 	// reports no additional roots.
 	AdditionalDirectories []AbsolutePath `json:"additionalDirectories,omitzero"`
 	// Human-readable title for the session
+	//
+	// Omitted and `null` are equivalent and mean no title is provided.
 	Title *string `json:"title,omitzero"`
 	// RFC 3339 timestamp of last activity.
+	//
+	// Omitted and `null` are equivalent and mean the last activity time is not reported.
 	UpdatedAt *string `json:"updatedAt,omitzero"`
-	Meta      Meta    `json:"_meta,omitzero"`
+	// Whether the session is archived.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the archive state is not reported.
+	// Agents that advertise the `session.archive` capability MUST include it on every listed session.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Archived *bool `json:"archived,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // DeleteSessionResponse is a response from deleting a session.
 type DeleteSessionResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -786,14 +1029,133 @@ type ForkSessionResponse struct {
 	// Unique identifier for the newly created forked session.
 	SessionID SessionID `json:"sessionId"`
 	// Initial session configuration options.
+	//
+	// Optional. Omitted or empty means no config options are advertised.
+	// Senders MUST use an array, not `null`. Receivers treat `null` like omission.
+	// Later `config_option_update` notifications replace this list.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
 	// Initial commands the agent can execute in this session.
 	//
 	// Optional. Omitted or empty means no initial commands are advertised.
-	// Senders MUST use an array, not `null`; receivers treat `null` like omission.
+	// Senders MUST use an array, not `null`. Receivers treat `null` like omission.
 	// Later `available_commands_update` notifications replace this list.
 	AvailableCommands []AvailableCommand `json:"availableCommands,omitzero"`
-	Meta              Meta               `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// ArchiveSessionResponse is a response from archiving a session.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ArchiveSessionResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// UnarchiveSessionResponse is a response from unarchiving a session.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type UnarchiveSessionResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// SessionStatusResponse is a response from checking the status of a session.
+//
+// The result is a snapshot. A session reported `open` may be closed or evicted before
+// the Client's next request.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatusResponse struct {
+	// Whether the Agent has the session in memory.
+	//
+	// Required. Clients MUST treat a value they do not recognize as `saved`.
+	Status SessionStatus `json:"status"`
+	// The session's current foreground state, as the same snapshot the Agent sends in
+	// `state_update` notifications.
+	//
+	// Optional. Agents SHOULD include it when `status` is `open`. Omitted, `null`, and
+	// malformed values mean the Agent is not reporting foreground state, and Clients
+	// MUST NOT read that as `idle`. This is a snapshot, not a new transition. Clients
+	// MUST NOT count an `idle` snapshot as a new completion.
+	State StateUpdate `json:"state,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Data for the `-32022` (Unsupported protocol version) error.
+//
+// See protocol docs: [Version Negotiation]
+//
+// [Version Negotiation]: https://agentclientprotocol.com/protocol/v2/draft/initialization#version-negotiation
+type UnsupportedProtocolVersionErrorData struct {
+	// The protocol version the Client requested.
+	Requested ProtocolVersion `json:"requested"`
+	// The protocol versions the Agent supports.
+	Supported []ProtocolVersion `json:"supported"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Data for the `-32002` (Resource not found) error when a session-scoped request names a
+// session that does not exist or is not active.
+//
+// See protocol docs: [Unknown Sessions]
+//
+// [Unknown Sessions]: https://agentclientprotocol.com/protocol/v2/draft/error#unknown-sessions
+type SessionNotFoundErrorData struct {
+	// The session ID from the request.
+	SessionID SessionID `json:"sessionId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Details of a failure that ended active work.
+type ErrorStopReason struct {
+	// The failure, as a JSON-RPC error object.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent is not reporting failure details.
+	// Agents SHOULD include it.
+	Error *Error `json:"error,omitzero"`
+}
+
+// Token usage for the foreground work that just completed, not cumulative for the session.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type Usage struct {
+	// Sum of all token types for the completed work.
+	TotalTokens uint64 `json:"totalTokens"`
+	// Input tokens for the completed work.
+	InputTokens uint64 `json:"inputTokens"`
+	// Output tokens for the completed work.
+	OutputTokens uint64 `json:"outputTokens"`
+	// Thought/reasoning tokens for the completed work.
+	//
+	// Omitted and `null` are equivalent and mean the count is not reported.
+	ThoughtTokens *uint64 `json:"thoughtTokens,omitzero"`
+	// Cache read tokens for the completed work.
+	//
+	// Omitted and `null` are equivalent and mean the count is not reported.
+	CachedReadTokens *uint64 `json:"cachedReadTokens,omitzero"`
+	// Cache write tokens for the completed work.
+	//
+	// Omitted and `null` are equivalent and mean the count is not reported.
+	CachedWriteTokens *uint64 `json:"cachedWriteTokens,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// SetSessionTitleResponse is a response from setting the title of a session.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SetSessionTitleResponse struct {
+	// The title the Agent stored.
+	//
+	// This differs from the requested title if the Agent normalized it. Clients SHOULD
+	// display this value rather than the one they sent.
+	Title string `json:"title"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // ResumeSessionResponse is a response from resuming an existing session.
@@ -807,18 +1169,36 @@ type ForkSessionResponse struct {
 // [Current-State Synchronization]: https://agentclientprotocol.com/protocol/v2/draft/session-setup#current-state-synchronization
 type ResumeSessionResponse struct {
 	// Initial session configuration options.
+	//
+	// Optional. Omitted or empty means no config options are advertised.
+	// Senders MUST use an array, not `null`. Receivers treat `null` like omission.
+	// Later `config_option_update` notifications replace this list.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
 	// Initial commands the agent can execute in this session.
 	//
 	// Optional. Omitted or empty means no initial commands are advertised.
-	// Senders MUST use an array, not `null`; receivers treat `null` like omission.
+	// Senders MUST use an array, not `null`. Receivers treat `null` like omission.
 	// Later `available_commands_update` notifications replace this list.
 	AvailableCommands []AvailableCommand `json:"availableCommands,omitzero"`
-	Meta              Meta               `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // CloseSessionResponse is a response from closing a session.
 type CloseSessionResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// CancelToolCallResponse is a response from cancelling a tool call.
+type CancelToolCallResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// CancelTerminalResponse is a response from cancelling a terminal.
+type CancelTerminalResponse struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -826,12 +1206,13 @@ type CloseSessionResponse struct {
 type SetSessionConfigOptionResponse struct {
 	// The full set of configuration options and their current values.
 	ConfigOptions []SessionConfigOption `json:"configOptions"`
-	Meta          Meta                  `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response acknowledging that a user prompt was inserted into the ACP conversation.
 //
-// This response does not indicate that the prompt was merely received or queued, nor that the
+// This response does not indicate that the prompt was merely received or held, nor that the
 // agent has finished processing it.
 // Processing and completion are reported through `state_update` session updates.
 //
@@ -850,10 +1231,11 @@ type PromptResponse struct {
 	// before or after this response. Agents must echo the message during the live session, but are
 	// not required to retain it. If retained and replayed, the message keeps this identifier.
 	MessageID MessageID `json:"messageId"`
-	Meta      Meta      `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Allows for sending an arbitrary response to an [ExtRequest] that is not part of the ACP spec.
+// Allows for sending an arbitrary response to an extension request that is not part of the ACP spec.
 // Extension methods provide a way to add custom functionality while maintaining
 // protocol compatibility.
 //
@@ -874,7 +1256,8 @@ type UpdateSessionNotification struct {
 	SessionID SessionID `json:"sessionId"`
 	// The actual update content.
 	Update SessionUpdate `json:"update"`
-	Meta   Meta          `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // ContentChunk is a streamed item of message content.
@@ -882,47 +1265,19 @@ type ContentChunk struct {
 	// A unique identifier for the message this chunk belongs to.
 	//
 	// All chunks belonging to the same message share the same `messageId`.
-	// A change in `messageId` indicates a new message has started.
+	// Chunks for different messages can interleave.
 	MessageID MessageID `json:"messageId"`
 	// A single item of content
 	Content ContentBlock `json:"content"`
-	// This field is chunk-scoped.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This metadata is scoped to the chunk and does not patch stored metadata.
 	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Details of a failure that ended active work.
-type ErrorStopReason struct {
-	// The failure, as a JSON-RPC error object.
-	//
-	// Optional. Omitted or `null` both mean the agent is not reporting failure details.
-	// Agents SHOULD include it.
-	Error *Error `json:"error,omitzero"`
-}
-
-// Token usage information for completed session work.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type Usage struct {
-	// Sum of all token types across session.
-	TotalTokens uint64 `json:"totalTokens"`
-	// Total input tokens.
-	InputTokens uint64 `json:"inputTokens"`
-	// Total output tokens.
-	OutputTokens uint64 `json:"outputTokens"`
-	// Total thought/reasoning tokens
-	ThoughtTokens *uint64 `json:"thoughtTokens,omitzero"`
-	// Total cache read tokens.
-	CachedReadTokens *uint64 `json:"cachedReadTokens,omitzero"`
-	// Total cache write tokens.
-	CachedWriteTokens *uint64 `json:"cachedWriteTokens,omitzero"`
-	Meta              Meta    `json:"_meta,omitzero"`
 }
 
 // TerminalOutput is an authoritative replacement snapshot of terminal output bytes.
 type TerminalOutput struct {
 	// Base64-encoded replacement terminal output bytes.
 	Data string `json:"data"`
-	// This metadata is scoped to the replacement snapshot. Omitted and `null` are equivalent and mean no snapshot metadata was provided.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -931,15 +1286,52 @@ type TerminalOutput struct {
 // The presence of this object marks the terminal as exited, even when neither
 // an exit code nor a signal is known.
 type TerminalExitStatus struct {
-	// Process exit code, when known. Omitted and `null` are equivalent.
-	ExitCode *uint32 `json:"exitCode,omitzero"`
+	// Process exit code as the platform reports it, when known. Negative values are
+	// allowed, for example signed Windows exit codes. Omitted and `null` are equivalent.
+	ExitCode *int64 `json:"exitCode,omitzero"`
 	// Signal that terminated the process, when known.
 	//
 	// Agents should use the conventional platform signal name. POSIX examples
 	// include `SIGTERM`, `SIGKILL`, and `SIGINT`. Other platforms may use a
 	// platform-specific name. Omitted and `null` are equivalent.
 	Signal *string `json:"signal,omitzero"`
-	// This metadata is scoped to the exit information. Omitted and `null` are equivalent and mean no exit metadata was provided.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// TerminalSize is the size of an agent-owned terminal in character cells.
+type TerminalSize struct {
+	// Number of columns.
+	Cols uint16 `json:"cols"`
+	// Number of rows.
+	Rows uint16 `json:"rows"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Client-initiated controls a terminal currently supports.
+//
+// A malformed value falls back to no controls, so the Client never sends a request the
+// Agent did not advertise.
+//
+// See protocol docs: [Cancelling Terminals]
+//
+// [Cancelling Terminals]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-terminals
+type TerminalCapabilities struct {
+	// Permits the Client to cancel this terminal with `terminal/cancel`.
+	//
+	// Omitted and `null` are equivalent and mean unsupported. An object (including `{}`)
+	// means supported. Agents SHOULD stop advertising it once the terminal reports `exitStatus`.
+	Cancel *TerminalCancelCapabilities `json:"cancel,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capability to cancel a terminal with `terminal/cancel`.
+//
+// Supplying `{}` advertises support. An omitted or `null` `cancel` does not.
+type TerminalCancelCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -958,38 +1350,43 @@ type PlanEntry struct {
 	Priority PlanEntryPriority `json:"priority"`
 	// Current execution status of this task.
 	Status PlanEntryStatus `json:"status"`
-	Meta   Meta            `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Cost information for a session.
 type Cost struct {
 	// Total cumulative cost for session.
 	Amount float64 `json:"amount"`
-	// ISO 4217 currency code (e.g., "USD", "EUR").
+	// Unit of `amount`: an ISO 4217 currency code (e.g., "USD", "EUR") for money, or another
+	// unit such as "credits".
 	Currency string `json:"currency"`
-	Meta     Meta   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Client-initiated session mutations permitted for a specific subagent session.
 //
-// A mutation requires an explicit per-child capability; support for the method
+// A mutation requires an explicit per-child capability. Support for the method
 // on ordinary sessions does not grant support on a child.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SubagentSessionCapabilities struct {
 	// Permits the client to cancel this child's current work without ending
-	// the session. Omitted or `null` means unsupported; an object (including
+	// the session. Omitted and `null` are equivalent and mean unsupported. An object (including
 	// `{}`) means supported.
 	Cancel *SessionCancelCapabilities `json:"cancel,omitzero"`
-	Meta   Meta                       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capability to cancel work in a subagent session without ending that session.
 //
-// Supplying `{}` advertises support; an omitted or `null` `cancel` does not.
+// Supplying `{}` advertises support. An omitted or `null` `cancel` does not.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionCancelCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -999,11 +1396,34 @@ type SessionCancelCapabilities struct {
 type CompleteElicitationNotification struct {
 	// The ID of the elicitation that completed.
 	ElicitationID ElicitationID `json:"elicitationId"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Allows the Agent to send an arbitrary notification that is not part of the ACP spec.
+// AuthStatusUpdateNotification is a notification sent by the agent when its authentication status changes.
+//
+// Carries the same fields as the `auth/status` response. Agents that advertise the
+// `auth.status` capability MAY send it at any time after `initialize`, and SHOULD only
+// send it when the reported status differs from the last one sent on the connection.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusUpdateNotification struct {
+	// Whether the agent can start sessions without the user signing in first.
+	//
+	// This is the only field clients should act on. Clients MUST treat values they
+	// do not recognize as `unknown`.
+	State AuthState `json:"state"`
+	// The accounts the agent has configured, for display.
+	//
+	// Optional. Omitted and empty are equivalent and mean no accounts are reported.
+	// Agents that hold credentials for several providers or accounts SHOULD list each
+	// of them and mark the ones in effect with `active`.
+	Accounts []AuthAccount `json:"accounts,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Allows either side to send an arbitrary notification that is not part of the ACP spec.
 // Extension notifications provide a way to send one-way messages for custom functionality
 // while maintaining protocol compatibility.
 //
@@ -1026,7 +1446,8 @@ type InitializeRequest struct {
 	Info Implementation `json:"info"`
 	// Capabilities supported by the client.
 	Capabilities *ClientCapabilities `json:"capabilities,omitzero"`
-	Meta         Meta                `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities supported by the client.
@@ -1042,16 +1463,17 @@ type ClientCapabilities struct {
 	// Determines which authentication method types the agent may include
 	// in its `InitializeResponse`.
 	//
-	// Optional. Omitted or `null` both mean the client does not advertise any
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise any
 	// authentication-method extensions.
-	Auth *AuthCapabilities `json:"auth,omitzero"`
+	Auth *ClientAuthCapabilities `json:"auth,omitzero"`
 	// Elicitation capabilities supported by the client.
 	// Determines which elicitation modes the agent may use.
 	//
-	// Optional. Omitted or `null` both mean the client does not advertise
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise
 	// elicitation support.
 	Elicitation *ElicitationCapabilities `json:"elicitation,omitzero"`
-	Meta        Meta                     `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Authentication capabilities supported by the client.
@@ -1059,15 +1481,16 @@ type ClientCapabilities struct {
 // Advertised during initialization to inform the agent which authentication
 // method types the client can handle. This governs opt-in types that require
 // additional client-side support.
-type AuthCapabilities struct {
+type ClientAuthCapabilities struct {
 	// Whether the client supports `terminal` authentication methods.
 	//
-	// Optional. Omitted or `null` both mean the client does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise support.
 	// The client should supply `{}` only when it can reproduce the configured
 	// agent invocation in an interactive terminal. Supplying `{}` means the
 	// agent may include `terminal` entries in its authentication methods.
 	Terminal *TerminalAuthCapabilities `json:"terminal,omitzero"`
-	Meta     Meta                      `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for terminal authentication methods.
@@ -1076,6 +1499,7 @@ type AuthCapabilities struct {
 // invocation in an interactive terminal and supports terminal authentication
 // methods.
 type TerminalAuthCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1088,10 +1512,10 @@ type ElicitationCapabilities struct {
 	Form *ElicitationFormCapabilities `json:"form,omitzero"`
 	// Whether the client supports URL-based elicitation.
 	//
-	// Optional. Omitted or `null` both mean the client does not advertise support.
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise support.
 	// Supplying `{}` means the client supports URL-based elicitation.
 	URL *ElicitationURLCapabilities `json:"url,omitzero"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1099,7 +1523,7 @@ type ElicitationCapabilities struct {
 //
 // Supplying `{}` means the client supports form-based elicitation.
 type ElicitationFormCapabilities struct {
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1107,7 +1531,7 @@ type ElicitationFormCapabilities struct {
 //
 // Supplying `{}` means the client supports URL-based elicitation.
 type ElicitationURLCapabilities struct {
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1115,20 +1539,22 @@ type ElicitationURLCapabilities struct {
 //
 // Specifies which authentication method to use.
 //
-// Agents MUST support this method when their `initialize` response advertised
-// at least one valid authentication method. Clients MUST NOT call this method
+// Agents MUST support this method when their `initialize` response included
+// a non-empty `authMethods` list. Clients MUST NOT call this method
 // when `authMethods` was omitted or empty.
 type LoginAuthRequest struct {
 	// The ID of the authentication method to use.
 	// Must be one of the methods advertised in the initialize response.
 	MethodID AuthMethodID `json:"methodId"`
-	Meta     Meta         `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for `providers/list`.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type ListProvidersRequest struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1147,7 +1573,8 @@ type SetProviderRequest struct {
 	// Full headers map for this provider.
 	// May include authorization, routing, or other integration-specific headers.
 	Headers map[string]string `json:"headers,omitzero"`
-	Meta    Meta              `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for `providers/disable`.
@@ -1156,17 +1583,32 @@ type SetProviderRequest struct {
 type DisableProviderRequest struct {
 	// Provider ID to disable.
 	ProviderID ProviderID `json:"providerId"`
-	Meta       Meta       `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for the `auth/logout` method.
 //
 // Terminates the current authenticated session.
 //
-// Agents MUST support this method when their `initialize` response advertised
-// at least one valid authentication method. Clients MUST NOT call this method
+// Agents MUST support this method when their `initialize` response included
+// a non-empty `authMethods` list. Clients MUST NOT call this method
 // when `authMethods` was omitted or empty.
 type LogoutAuthRequest struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Request parameters for the `auth/status` method.
+//
+// Queries the agent's current authentication state without changing it.
+//
+// Agents MUST NOT reject it with `auth_required` (`-32000`), since Clients call it to learn
+// whether authentication is required.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusRequest struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1194,7 +1636,8 @@ type NewSessionRequest struct {
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
-	Meta         Meta          `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // HTTPHeader is an HTTP header to set when making requests to the MCP server.
@@ -1203,7 +1646,8 @@ type HTTPHeader struct {
 	Name string `json:"name"`
 	// The value to set for the HTTP header.
 	Value string `json:"value"`
-	Meta  Meta   `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Client-provided system-level instructions for a session.
@@ -1217,29 +1661,46 @@ type HTTPHeader struct {
 type SystemPrompt struct {
 	// How the Agent combines `content` with its own instructions.
 	//
-	// Required on the wire, so every request states its mode. In Rust,
-	// SystemPrompt.New starts it as [SystemPromptModeAppend]. Unknown
-	// values parse as SystemPromptMode.Other; Agents MUST return an error
-	// for modes they do not support.
+	// Required. Agents MUST return an error for a mode they do not support rather than
+	// treating it as `append` or `override`.
 	Mode SystemPromptMode `json:"mode"`
 	// The system prompt content.
 	//
-	// Agents advertising the capability MUST accept [ContentBlockText].
+	// Agents advertising the capability MUST accept `text` content blocks.
 	// Clients MUST NOT send other content block types until a future
 	// capability allows them, and Agents MUST return an error for content
-	// blocks they do not support, including unknown types preserved as
-	// ContentBlock.Other.
+	// blocks they do not support, including unknown types.
+	//
+	// Clients MUST NOT send an empty array. Agents MAY reject one with
+	// `-32602` without creating, resuming, or forking the session.
 	Content []ContentBlock `json:"content"`
-	Meta    Meta           `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for listing existing sessions.
 type ListSessionsRequest struct {
 	// Filter sessions by working directory. Must be an absolute path.
+	//
+	// Only sessions whose `cwd` is this same directory match. Subdirectories and
+	// `additionalDirectories` don't. Agents MAY normalize paths when comparing.
+	//
+	// Omitted and `null` are equivalent and mean sessions are not filtered by working directory.
 	Cwd *AbsolutePath `json:"cwd,omitzero"`
 	// Opaque cursor token from a previous response's nextCursor field for cursor-based pagination
+	//
+	// Omitted and `null` are equivalent and mean the first page is requested.
 	Cursor *SessionListCursor `json:"cursor,omitzero"`
-	Meta   Meta               `json:"_meta,omitzero"`
+	// Filter sessions by archive state.
+	//
+	// Optional. Omitted and `null` are equivalent and mean `exclude`. Only send this when
+	// the Agent advertises the `session.archive` capability. The filter combines with `cwd` and
+	// applies before pagination. Clients keep the same value when following `nextCursor`.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Archived *SessionArchiveFilter `json:"archived,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for deleting an existing session from `session/list`.
@@ -1248,7 +1709,8 @@ type ListSessionsRequest struct {
 type DeleteSessionRequest struct {
 	// The ID of the session to delete.
 	SessionID SessionID `json:"sessionId"`
-	Meta      Meta      `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for forking an existing session.
@@ -1274,7 +1736,7 @@ type ForkSessionRequest struct {
 	MCPServers []MCPServer `json:"mcpServers,omitzero"`
 	// System-level instructions for the forked session.
 	//
-	// Optional. Omitted and `null` are equivalent; the Agent may then keep a
+	// Optional. Omitted and `null` are equivalent. The Agent may then keep a
 	// system prompt it stored with the source session or use its default
 	// instructions. Clients MUST only send this when the Agent advertises
 	// `session.systemPrompt`, and SHOULD send the same value they used for the
@@ -1282,7 +1744,84 @@ type ForkSessionRequest struct {
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
-	Meta         Meta          `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Request parameters for archiving a session.
+//
+// Only available if the Agent supports the `session.archive` capability.
+//
+// Archiving hides the session from default `session/list` results. It keeps the session ID
+// and saved history. If the session is active, the Agent MUST cancel any ongoing work and
+// free the session's resources as if `session/close` had been called, then archive it.
+// Archiving an archived session succeeds. A session that does not exist gets `-32002`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ArchiveSessionRequest struct {
+	// The ID of the session to archive.
+	SessionID SessionID `json:"sessionId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Request parameters for unarchiving a session.
+//
+// Only available if the Agent supports the `session.archive` capability.
+//
+// Unarchiving returns the session to default `session/list` results with the same ID and
+// saved history. It never loads or resumes the session. Clients that want to continue an
+// archived session SHOULD unarchive it before calling `session/resume`.
+// Unarchiving a session that is not archived succeeds. A session that does not exist
+// gets `-32002`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type UnarchiveSessionRequest struct {
+	// The ID of the session to unarchive.
+	SessionID SessionID `json:"sessionId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Request parameters for checking the status of a session.
+//
+// Only available if the Agent supports the `session.status` capability.
+//
+// `session/status` MUST NOT have side effects. The Agent does not load, resume, create,
+// close, or change the session, and does not attach the requesting connection to it.
+// A session the Agent does not know gets `-32002` with the requested `sessionId` in `data`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatusRequest struct {
+	// The ID of the session to check.
+	SessionID SessionID `json:"sessionId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Request parameters for setting the title of a session.
+//
+// Only available if the Agent supports the `session.title` capability.
+//
+// The session does not need to be active on the connection. Any session the Agent would
+// return from `session/list` can be retitled. A session that does not exist gets `-32002`.
+//
+// The Agent responds only after it has stored the title. After a successful response, the
+// Agent SHOULD NOT replace the title with one it generates automatically.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SetSessionTitleRequest struct {
+	// The ID of the session to retitle.
+	SessionID SessionID `json:"sessionId"`
+	// The new title for the session.
+	//
+	// Required and non-null. Omission and explicit `null` are both invalid. The Agent MAY
+	// normalize the title before storing it, for example by trimming whitespace or
+	// truncating it. The Agent rejects a title that fails its validation, including one
+	// that is empty after normalization, with `-32602`.
+	Title string `json:"title"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for resuming an existing session.
@@ -1293,6 +1832,9 @@ type ResumeSessionRequest struct {
 	// The ID of the session to resume.
 	SessionID SessionID `json:"sessionId"`
 	// The working directory for this session. Must be an absolute path.
+	//
+	// Clients MUST send the session's working directory. Agents MAY reject a different directory
+	// with `-32602`, and MAY normalize paths when comparing.
 	Cwd AbsolutePath `json:"cwd"`
 	// Additional workspace roots to activate for this session. Each path must be absolute.
 	//
@@ -1302,10 +1844,13 @@ type ResumeSessionRequest struct {
 	// the request `cwd` matches the session's `cwd`.
 	AdditionalDirectories []AbsolutePath `json:"additionalDirectories,omitzero"`
 	// List of MCP servers to connect to for this session.
+	//
+	// The complete set of Client-provided servers. Omitted and `[]` mean none. Agents SHOULD
+	// NOT restore servers from earlier requests.
 	MCPServers []MCPServer `json:"mcpServers,omitzero"`
 	// Inclusive cursor describing where conversation replay should begin.
 	//
-	// Optional. Omitted or `null` both mean the Agent should resume without
+	// Optional. Omitted and `null` are equivalent and mean the Agent should resume without
 	// replaying previous conversation history. Replay cursors are inclusive:
 	// replay includes the position identified by the cursor. Supplying
 	// `{ "type": "start" }` means the Agent should replay all retained
@@ -1317,7 +1862,7 @@ type ResumeSessionRequest struct {
 	ReplayFrom ReplayFrom `json:"replayFrom,omitzero"`
 	// System-level instructions for the resumed session.
 	//
-	// Optional. Omitted and `null` are equivalent; the Agent may then keep a
+	// Optional. Omitted and `null` are equivalent. The Agent may then keep a
 	// system prompt it stored with the session or use its default instructions.
 	// Clients MUST only send this when the Agent advertises
 	// `session.systemPrompt`, and SHOULD send the same value they used when the
@@ -1325,29 +1870,82 @@ type ResumeSessionRequest struct {
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
-	Meta         Meta          `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for closing an active session.
 //
-// The agent **must** cancel any ongoing work related to the session (treat it
-// as if `session/cancel` was called) and then free up any resources associated
-// with the session.
+// The Agent MUST cancel any ongoing work related to the session as if `session/cancel`
+// was called, then free the resources associated with the session. Unlike `session/cancel`,
+// closing also stops the session's background work. After the close response, the Agent
+// sends no other messages for the session on that connection.
+//
+// Closing a session that does not exist or is not active SHOULD succeed, and Clients SHOULD
+// treat a `-32002` response as a successful close.
 //
 // When closing cancels active foreground work, the Agent MUST send the final
 // updates for that work and the idle `state_update` with `stopReason: "cancelled"`
 // before responding successfully to `session/close`. Closing an idle session
 // does not itself require another idle update.
 //
-// Closing may also cancel pending `session/prompt` requests, including queued
-// prompts. If closing prevents a prompt's user message from being inserted, the
+// Closing also cancels pending `session/prompt` requests whose messages have not
+// been inserted, including held prompts. If closing prevents a prompt's user message from being inserted, the
 // Agent MUST answer that request with `-32800` (Request Cancelled). If the message
 // has already been inserted, the Agent MUST respond successfully with its
 // `messageId`. Prompt responses need not precede the close response.
 type CloseSessionRequest struct {
 	// The ID of the session to close.
 	SessionID SessionID `json:"sessionId"`
-	Meta      Meta      `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Request parameters for cancelling one tool call.
+//
+// Clients MUST NOT send it unless the tool call currently advertises `capabilities.cancel`.
+//
+// The Agent responds once it has accepted the cancellation. The response does not mean
+// the work has stopped. The Agent confirms it with a `tool_call_update` to a final
+// status: normally `cancelled`, or `completed` or `failed` if the work finished first.
+//
+// The Agent responds with `-32602` if the tool call is unknown, already final, or not
+// cancellable. Cancelling a tool call does not change the foreground state by itself.
+//
+// See protocol docs: [Cancelling Tool Calls]
+//
+// [Cancelling Tool Calls]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-tool-calls
+type CancelToolCallRequest struct {
+	// The ID of the session that owns the tool call.
+	SessionID SessionID `json:"sessionId"`
+	// The ID of the tool call to cancel.
+	ToolCallID ToolCallID `json:"toolCallId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Request parameters for cancelling one terminal.
+//
+// Clients MUST NOT send it unless the terminal currently advertises `capabilities.cancel`.
+//
+// The Agent responds once it has accepted the cancellation. The response does not mean
+// the work has stopped. The Agent confirms it with a `terminal_update` that sets
+// `exitStatus`. Cancelling stops the process but does not release the terminal, and does
+// not change the status of a tool call that references it.
+//
+// The Agent responds with `-32602` if the terminal is unknown, has already exited, or is not
+// cancellable. Cancelling a terminal does not change the foreground state by itself.
+//
+// See protocol docs: [Cancelling Terminals]
+//
+// [Cancelling Terminals]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-terminals
+type CancelTerminalRequest struct {
+	// The ID of the session that owns the terminal.
+	SessionID SessionID `json:"sessionId"`
+	// The ID of the terminal to cancel.
+	TerminalID TerminalID `json:"terminalId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for sending a user prompt to the agent.
@@ -1362,51 +1960,58 @@ type PromptRequest struct {
 	SessionID SessionID `json:"sessionId"`
 	// The blocks of content that compose the user's message.
 	//
-	// As a baseline, the Agent MUST support [ContentBlockText] and [ContentBlockResourceLink],
-	// while other variants are optionally enabled via [PromptCapabilities].
+	// As a baseline, the Agent MUST support `text` and `resource_link` content blocks,
+	// while other variants are optionally enabled via `PromptCapabilities`.
 	//
-	// The Client MUST adapt its interface according to [PromptCapabilities].
+	// The Client MUST adapt its interface according to `PromptCapabilities`.
 	//
 	// The client MAY include referenced pieces of context as either
-	// [ContentBlockResource] or [ContentBlockResourceLink].
+	// `resource` or `resource_link` content blocks.
 	//
-	// When available, [ContentBlockResource] is preferred
+	// When available, `resource` is preferred
 	// as it avoids extra round-trips and allows the message to include
 	// pieces of context from sources the agent may not have access to.
+	//
+	// Clients MUST NOT send an empty array. Agents MAY reject one with `-32602` without
+	// inserting it.
 	Prompt []ContentBlock `json:"prompt"`
-	Meta   Meta           `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // RequestPermissionResponse is a response to a permission request.
 type RequestPermissionResponse struct {
 	// The user's decision on the permission request.
 	Outcome RequestPermissionOutcome `json:"outcome"`
-	Meta    Meta                     `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // ElicitationAcceptAction is the user accepted the elicitation and provided content.
 type ElicitationAcceptAction struct {
 	// The user-provided content, if any, as an object matching the requested schema.
+	//
+	// Omitted and `null` are equivalent and mean no content is provided.
 	Content map[string]ElicitationContentValue `json:"content,omitzero"`
 }
 
 // MCPError is an inner MCP error, distinct from an outer ACP binding or runtime error.
 //
-// `code` and `message` are required and non-null. `data` is optional;
-// explicit `null` is preserved separately from an omitted key.
+// `code` and `message` are required and non-null. `data` is optional.
+// Explicit `null` is preserved separately from an omitted key.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MCPError struct {
-	// Inner MCP error code; never an ACP error code.
+	// Inner MCP error code. Never an ACP error code.
 	Code int32 `json:"code"`
 	// Inner MCP error message.
 	Message string `json:"message"`
-	// Optional error data; explicit null is retained.
+	// Optional error data. Explicit null is retained.
 	Data                 jsontext.Value            `json:"data,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// CancelSessionNotification is a notification to cancel ongoing operations for a session.
+// CancelSessionNotification is a notification to cancel a session's foreground work and its prompts not yet inserted.
 //
 // See protocol docs: [Cancellation]
 //
@@ -1414,7 +2019,8 @@ type MCPError struct {
 type CancelSessionNotification struct {
 	// The ID of the session to cancel operations for.
 	SessionID SessionID `json:"sessionId"`
-	Meta      Meta      `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // MessageMCPNotification is a notification for an active request, sent from provider to consumer.
@@ -1428,9 +2034,9 @@ type MessageMCPNotification struct {
 	RequestID MCPRequestID `json:"requestId"`
 	// The inner MCP method name.
 	Method string `json:"method"`
-	// Optional inner MCP params; null is equivalent to omission.
+	// Optional inner MCP params. Null is equivalent to omission.
 	Params map[string]jsontext.Value `json:"params,omitzero"`
-	// ACP extension metadata (not inner MCP params._meta); null is equivalent to omission.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This is ACP metadata, not the inner MCP message's `_meta`.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1440,9 +2046,119 @@ type MessageMCPNotification struct {
 //
 // [Cancellation]: https://agentclientprotocol.com/protocol/v2/draft/cancellation
 type CancelRequestNotification struct {
-	// The ID of the request to cancel.
+	// The ID of the request to cancel: a request that the sender of this notification issued.
+	// Receivers match it only against requests they received from that sender.
 	RequestID RequestID `json:"requestId"`
-	Meta      Meta      `json:"_meta,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// ProxyRequest is a JSON-RPC request object.
+type ProxyRequest struct {
+	// The request id used to correlate the matching response.
+	ID RequestID `json:"id"`
+	// The method name to invoke.
+	Method string `json:"method"`
+	// Method-specific request parameters.
+	Params ProxyRequestParams `json:"params,omitzero"`
+}
+
+// Request parameters for `proxy/initialize`.
+//
+// A conductor sends `proxy/initialize` instead of `initialize` to every component that has a
+// successor, which tells the component to run as a proxy. The params and the response are
+// the same as for `initialize`. A conductor sends `initialize` to the final agent.
+//
+// The params carry the protocol version the conductor selected: the client's requested
+// version, unless the conductor supports only a lower one. Before answering successfully,
+// the proxy MUST forward an `initialize` request to its successor through `proxy/successor`.
+//
+// See the [Proxy Chains RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Proxy Chains RFD]: https://agentclientprotocol.com/rfds/proxy-chains
+type InitializeProxyRequest = InitializeRequest
+
+// Parameters of a `proxy/successor` request.
+//
+// A proxy sends it to forward a message to its successor, and the conductor sends it to
+// deliver a message from the successor to the proxy. The envelope wraps one request: `method`
+// and `params` are the wrapped request's method and params.
+//
+// The result or error of the wrapped request is returned unchanged, as the same JSON value,
+// as the result or error of the `proxy/successor` request. Errors the conductor returns
+// itself, for example because the successor has exited, are not wrapped results.
+//
+// To cancel it, the sender sends `$/cancel_request` with the ID of this `proxy/successor`
+// request on the same connection. Cancellation is never forwarded to another hop.
+//
+// See the [Proxy Chains RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Proxy Chains RFD]: https://agentclientprotocol.com/rfds/proxy-chains
+type ProxySuccessorRequest struct {
+	// Method name of the wrapped request.
+	Method string `json:"method"`
+	// Params of the wrapped request, forwarded unchanged.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the wrapped request has no params.
+	// When present, it MUST be a JSON object or array, as JSON-RPC requires.
+	// The wrapped request's own `_meta` stays inside these params.
+	Params jsontext.Value `json:"params,omitzero"`
+	// Metadata for the `proxy/successor` envelope itself, separate from the wrapped message's `_meta`. It is hop-local: the conductor does not copy it into the message it unwraps.
+	//
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// InitializeProxyResponse is a response to `proxy/initialize`.
+//
+// The same as the `initialize` response. The proxy builds it from its successor's
+// `initialize` response and answers with the capabilities of the chain from itself onward.
+// It MUST NOT change `protocolVersion`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type InitializeProxyResponse = InitializeResponse
+
+// Result of a `proxy/successor` request: the wrapped request's result, forwarded unchanged.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ProxySuccessorResponse = jsontext.Value
+
+// ProxyNotification is a JSON-RPC notification object.
+type ProxyNotification struct {
+	// The notification method name.
+	Method string `json:"method"`
+	// Method-specific notification parameters.
+	Params *ProxySuccessorNotification `json:"params,omitzero"`
+}
+
+// Parameters of a `proxy/successor` notification.
+//
+// A proxy sends it to forward a message to its successor, and the conductor sends it to
+// deliver a message from the successor to the proxy. The envelope wraps one notification: `method`
+// and `params` are the wrapped notification's method and params.
+//
+// See the [Proxy Chains RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Proxy Chains RFD]: https://agentclientprotocol.com/rfds/proxy-chains
+type ProxySuccessorNotification struct {
+	// Method name of the wrapped notification.
+	Method string `json:"method"`
+	// Params of the wrapped notification, forwarded unchanged.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the wrapped notification has no params.
+	// When present, it MUST be a JSON object or array, as JSON-RPC requires.
+	// The wrapped notification's own `_meta` stays inside these params.
+	Params jsontext.Value `json:"params,omitzero"`
+	// Metadata for the `proxy/successor` envelope itself, separate from the wrapped message's `_meta`. It is hop-local: the conductor does not copy it into the message it unwraps.
+	//
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 type CreateElicitationRequestFormSession struct {
@@ -1459,7 +2175,7 @@ type CreateElicitationRequestFormSession struct {
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1471,7 +2187,7 @@ func (v CreateElicitationRequestFormSession) MarshalJSONTo(enc *jsontext.Encoder
 }
 
 type CreateElicitationRequestFormRequest struct {
-	// The request this elicitation is tied to.
+	// The pending Client-to-Agent request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// A JSON Schema describing the form fields to present to the user.
 	RequestedSchema ElicitationSchema `json:"requestedSchema"`
@@ -1479,7 +2195,7 @@ type CreateElicitationRequestFormRequest struct {
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1506,7 +2222,7 @@ type CreateElicitationRequestURLSession struct {
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1518,7 +2234,7 @@ func (v CreateElicitationRequestURLSession) MarshalJSONTo(enc *jsontext.Encoder)
 }
 
 type CreateElicitationRequestURLRequest struct {
-	// The request this elicitation is tied to.
+	// The pending Client-to-Agent request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// The unique identifier for this elicitation.
 	ElicitationID ElicitationID `json:"elicitationId"`
@@ -1528,7 +2244,7 @@ type CreateElicitationRequestURLRequest struct {
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1555,13 +2271,13 @@ type CreateElicitationRequestCustomSession struct {
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 type CreateElicitationRequestCustomRequest struct {
-	// The request this elicitation is tied to.
+	// The pending Client-to-Agent request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// Custom or future elicitation mode.
 	//
@@ -1571,7 +2287,7 @@ type CreateElicitationRequestCustomRequest struct {
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
@@ -1589,7 +2305,7 @@ type ElicitationFormModeSession struct {
 }
 
 type ElicitationFormModeRequest struct {
-	// The request this elicitation is tied to.
+	// The pending Client-to-Agent request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// A JSON Schema describing the form fields to present to the user.
 	RequestedSchema ElicitationSchema `json:"requestedSchema"`
@@ -1610,7 +2326,7 @@ type ElicitationURLModeSession struct {
 }
 
 type ElicitationURLModeRequest struct {
-	// The request this elicitation is tied to.
+	// The pending Client-to-Agent request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// The unique identifier for this elicitation.
 	ElicitationID ElicitationID `json:"elicitationId"`
@@ -1621,15 +2337,32 @@ type ElicitationURLModeRequest struct {
 type MessageMCPResponseResult struct {
 	// Required, even if JSON null.
 	Result jsontext.Value `json:"result"`
-	// Optional ACP carrier metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This is ACP metadata, not the inner MCP message's `_meta`.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
 type MessageMCPResponseError struct {
 	// Required, non-null MCP error object.
 	Error MCPError `json:"error"`
-	// Optional ACP carrier metadata.
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize. This is ACP metadata, not the inner MCP message's `_meta`.
 	Meta Meta `json:"_meta,omitzero"`
+}
+
+type ProxyResponseResult struct {
+	// The id of the request this response answers.
+	ID RequestID `json:"id"`
+	// Method-specific response data.
+	Result ProxyResponseResultResult `json:"result"`
+}
+
+type ProxyResponseError struct {
+	// The id of the request this response answers.
+	//
+	// Required. `null` only when the request's id could not be determined, such as
+	// for a parse error or an invalid request.
+	ID *ProxyResponseErrorID `json:"id"`
+	// Method-specific error data.
+	Error Error `json:"error"`
 }
 
 // Meta is the _meta extension object reserved on protocol messages.

@@ -33,10 +33,14 @@ The next two tables describe **ACP v1**.
 | `session/fork` | `SessionForker` (unstable) |
 | `session/resume` | `SessionResumer` |
 | `session/close` | `SessionCloser` |
+| `session/archive`, `session/unarchive` | `SessionArchiver` (unstable) |
+| `session/status` | `SessionStatusReader` (unstable) |
+| `session/set_title` | `SessionTitleSetter` (unstable) |
 | `session/set_mode` | `SessionModeSetter` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
 | `logout` | `LogoutHandler` |
+| `auth/status` | `AuthStatusReader` (unstable) |
 | `mcp/message` (notifications) | `MCPMessageHandler` (unstable) |
 
 ## Client methods (agent → client)
@@ -49,6 +53,7 @@ The next two tables describe **ACP v1**.
 | `terminal/*` | `TerminalHandler` |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
 | `mcp/message` (requests) | `MCPProvider` (unstable) |
+| `auth/status_update` | `AuthStatusListener` (unstable) |
 
 `$/cancel_request` is handled by the connection itself.
 
@@ -62,8 +67,14 @@ The next two tables describe **ACP v1**.
 | `auth/login`, `auth/logout` | `AuthHandler` |
 | `session/delete` | `SessionDeleter` |
 | `session/fork` | `SessionForker` |
+| `session/archive`, `session/unarchive` | `SessionArchiver` (unstable) |
+| `session/status` | `SessionStatusReader` (unstable) |
+| `session/set_title` | `SessionTitleSetter` (unstable) |
+| `tool_call/cancel` | `ToolCallCanceller` (provided by `SessionManager`) |
+| `terminal/cancel` | `TerminalCanceller` (provided by `SessionManager`) |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/*` | `ProviderManager` (unstable) |
+| `auth/status` | `AuthStatusReader` (unstable) |
 | `mcp/message` (notifications) | `MCPMessageHandler` (unstable) |
 
 ### Client methods (agent → client)
@@ -73,11 +84,15 @@ The next two tables describe **ACP v1**.
 | `session/update`, `session/request_permission` | `Client` (required) |
 | `mcp/message` (requests) | `MCPProvider` (unstable) |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
+| `auth/status_update` | `AuthStatusListener` (unstable) |
 
 ### Turn behavior
 
-v2 has no `fs/*` or `terminal/*` methods — file and shell access go through MCP — so
-`TerminalHandle` exists only in the v1 package. In v2 the prompt response only accepts the message;
+v2 has no client-side `fs/*` or `terminal/*` methods — file and shell access go through MCP — so
+`TerminalHandle` exists only in the v1 package. The agent reports the terminals it runs with
+`terminal_update`, and the client may stop one with `terminal/cancel` or a tool call with
+`tool_call/cancel` when that terminal or tool call advertises `capabilities.cancel`
+(`acp2.WithCancellable` sets it on a tool call). In v2 the prompt response only accepts the message;
 a `Turn` reads the session's updates until the agent reports the idle state.
 
 Overlapping prompts follow each version's rules on both sides. A v1 session runs one turn at a

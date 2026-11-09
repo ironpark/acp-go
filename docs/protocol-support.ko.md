@@ -33,10 +33,14 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `session/fork` | `SessionForker` (unstable) |
 | `session/resume` | `SessionResumer` |
 | `session/close` | `SessionCloser` |
+| `session/archive`, `session/unarchive` | `SessionArchiver` (unstable) |
+| `session/status` | `SessionStatusReader` (unstable) |
+| `session/set_title` | `SessionTitleSetter` (unstable) |
 | `session/set_mode` | `SessionModeSetter` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
 | `logout` | `LogoutHandler` |
+| `auth/status` | `AuthStatusReader` (unstable) |
 | `mcp/message` (알림) | `MCPMessageHandler` (unstable) |
 
 ## 클라이언트 메서드 (에이전트 → 클라이언트)
@@ -49,6 +53,7 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `terminal/*` | `TerminalHandler` |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
 | `mcp/message` (요청) | `MCPProvider` (unstable) |
+| `auth/status_update` | `AuthStatusListener` (unstable) |
 
 `$/cancel_request`는 연결이 직접 처리합니다.
 
@@ -62,8 +67,14 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `auth/login`, `auth/logout` | `AuthHandler` |
 | `session/delete` | `SessionDeleter` |
 | `session/fork` | `SessionForker` |
+| `session/archive`, `session/unarchive` | `SessionArchiver` (unstable) |
+| `session/status` | `SessionStatusReader` (unstable) |
+| `session/set_title` | `SessionTitleSetter` (unstable) |
+| `tool_call/cancel` | `ToolCallCanceller` (`SessionManager` 제공) |
+| `terminal/cancel` | `TerminalCanceller` (`SessionManager` 제공) |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/*` | `ProviderManager` (unstable) |
+| `auth/status` | `AuthStatusReader` (unstable) |
 | `mcp/message` (알림) | `MCPMessageHandler` (unstable) |
 
 ### 클라이언트 메서드 (에이전트 → 클라이언트)
@@ -73,11 +84,14 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `session/update`, `session/request_permission` | `Client` (필수) |
 | `mcp/message` (요청) | `MCPProvider` (unstable) |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
+| `auth/status_update` | `AuthStatusListener` (unstable) |
 
 ### 턴 처리
 
-v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MCP 경유) `TerminalHandle`은 v1 패키지에만
-있습니다. v2에서 prompt 응답은 메시지 접수만 뜻하며, `Turn`은 에이전트가 idle 상태를 보고할 때까지 세션의 업데이트를 읽습니다.
+v2에는 클라이언트 측 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MCP 경유) `TerminalHandle`은 v1 패키지에만
+있습니다. 에이전트는 자신이 실행하는 터미널을 `terminal_update`로 보고하며, 해당 터미널이나 도구 호출이
+`capabilities.cancel`을 알리면 클라이언트는 `terminal/cancel`·`tool_call/cancel`로 중단할 수 있습니다
+(도구 호출에는 `acp2.WithCancellable`로 설정). v2에서 prompt 응답은 메시지 접수만 뜻하며, `Turn`은 에이전트가 idle 상태를 보고할 때까지 세션의 업데이트를 읽습니다.
 
 턴이 겹치는 프롬프트는 버전별 규칙을 양쪽이 똑같이 따릅니다. v1 세션은 한 번에 한 턴만 돌리므로
 `ClientSession.Prompt`와 `SessionManager.RunTurn`(또는 `BeginTurn`) 모두 두 번째 프롬프트를

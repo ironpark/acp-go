@@ -28,6 +28,8 @@ type Zod struct {
 	Pattern string         `json:"pattern,omitzero"`
 	Offset  bool           `json:"offset,omitzero"`
 	Loose   bool           `json:"loose,omitzero"` // object: keeps undeclared properties
+	// Keys holds, for exactlyOne, the required keys that select each member.
+	Keys [][]string `json:"keys,omitzero"`
 }
 
 // Children returns the rules nested directly in z.
@@ -230,7 +232,31 @@ func (r reader) zod(n *ts.Node) (*Zod, error) {
 			if err := one(); err != nil {
 				return nil, err
 			}
-		case "defaultOnError", "requiredDefaultOnError":
+		case "wideInt":
+			// An i64/u64 wire integer: whole, but without z.int()'s
+			// safe-integer bound.
+			if err := arity(0, 0); err != nil {
+				return nil, err
+			}
+		case "exactlyOneByRequiredKeys":
+			// oneOf over object variants told apart by which of their
+			// required keys are present.
+			if err := arity(2, 2); err != nil {
+				return nil, err
+			}
+			var err error
+			if z.Members, err = r.zodMembers(args[0], "options"); err != nil {
+				return nil, err
+			}
+			keys, err := r.zodValue(args[1])
+			if err != nil {
+				return nil, err
+			}
+			if keys.Kind() != '[' || json.Unmarshal(keys, &z.Keys) != nil || len(z.Keys) != len(z.Members) || len(z.Members) == 0 {
+				return nil, r.fail(args[1], "expected one required key list per option")
+			}
+			z.Kind = "exactlyOne"
+		case "defaultOnNull", "defaultOnError", "requiredDefaultOnError":
 			if err := arity(2, 2); err != nil {
 				return nil, err
 			}
@@ -246,9 +272,16 @@ func (r reader) zod(n *ts.Node) (*Zod, error) {
 			if err != nil {
 				return nil, err
 			}
-			z.Kind = "catch"
-			if method == "requiredDefaultOnError" {
+			switch method {
+			case "defaultOnNull":
+				if z.Value == nil {
+					return nil, r.fail(args[1], "expected a JSON empty value")
+				}
+				z.Kind = "nullDefault"
+			case "requiredDefaultOnError":
 				z.Kind = "requiredCatch"
+			default:
+				z.Kind = "catch"
 			}
 		case "defaultOnErrorOptionalStringTag":
 			// Drops a tag member that is neither a string nor null before
@@ -394,18 +427,9 @@ func (r reader) zod(n *ts.Node) (*Zod, error) {
 		if err := arity(1, 1); err != nil {
 			return nil, err
 		}
-		if args[0].Kind() != "array" {
-			return nil, r.fail(args[0], "expected literal union array")
-		}
-		for _, a := range children(args[0]) {
-			if a.Kind() == "comment" {
-				continue
-			}
-			m, err := r.zod(a)
-			if err != nil {
-				return nil, err
-			}
-			z.Members = append(z.Members, m)
+		var err error
+		if z.Members, err = r.zodMembers(args[0], "union"); err != nil {
+			return nil, err
 		}
 		if len(z.Members) == 0 {
 			return nil, r.fail(args[0], "empty union")
@@ -426,6 +450,26 @@ func (r reader) zod(n *ts.Node) (*Zod, error) {
 	}
 	return z, nil
 }
+
+// zodMembers parses a literal array of rules, such as a union's members.
+func (r reader) zodMembers(n *ts.Node, what string) ([]*Zod, error) {
+	if n.Kind() != "array" {
+		return nil, r.fail(n, "expected literal "+what+" array")
+	}
+	var members []*Zod
+	for _, a := range children(n) {
+		if a.Kind() == "comment" {
+			continue
+		}
+		m, err := r.zod(a)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, m)
+	}
+	return members, nil
+}
+
 func (r reader) zodOptions(n *ts.Node, allowed map[string]bool) error {
 	if n.Kind() != "object" {
 		return r.fail(n, "expected literal options")

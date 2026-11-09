@@ -23,7 +23,7 @@ import (
 //
 // See protocol docs: [Content]
 //
-// [Content]: https://agentclientprotocol.com/protocol/tool-calls#content
+// [Content]: https://agentclientprotocol.com/protocol/v1/draft/tool-calls#content
 type ToolCallContent struct{ value ToolCallContentVariant }
 
 // ToolCallContentVariant is implemented by [ToolCallContentContent], [ToolCallContentDiff], [ToolCallContentTerminal], [ToolCallContentUnknown].
@@ -175,11 +175,11 @@ func (v *ToolCallContentContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 //
 // ToolCallContentDiff is the ToolCallContent variant with type "diff".
 //
-// [Content]: https://agentclientprotocol.com/protocol/tool-calls#content
+// [Content]: https://agentclientprotocol.com/protocol/v1/draft/tool-calls#content
 type ToolCallContentDiff struct {
 	// The absolute file path being modified.
 	Path string `json:"path"`
-	// The original content (None for new files).
+	// The original content (omitted or `null` for new files).
 	OldText *string `json:"oldText,omitzero"`
 	// The new content after modification.
 	NewText string `json:"newText"`
@@ -211,7 +211,7 @@ func (v *ToolCallContentDiff) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 //
 // See protocol docs: [Terminal]
 //
-// [Terminal]: https://agentclientprotocol.com/protocol/terminals
+// [Terminal]: https://agentclientprotocol.com/protocol/v1/draft/terminals
 type ToolCallContentTerminal struct {
 	// Identifier of the terminal instance to embed in the content stream.
 	TerminalID TerminalID `json:"terminalId"`
@@ -241,20 +241,17 @@ func (v *ToolCallContentTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 //
 // Content blocks represent displayable information in the Agent Client Protocol.
 //
-// They provide a structured way to handle various types of user-facing content—whether
-// it's text from language models, images for analysis, or embedded resources for context.
-//
 // Content blocks appear in:
 //   - User prompts sent via `session/prompt`
 //   - Language model output streamed through `session/update` notifications
 //   - Progress updates and results from tool calls
 //
-// This structure is compatible with the Model Context Protocol (MCP), enabling
-// agents to seamlessly forward content from MCP tool outputs without transformation.
+// This structure is compatible with the Model Context Protocol (MCP), so agents can
+// forward content from MCP tool outputs without transformation.
 //
 // See protocol docs: [Content]
 //
-// [Content]: https://agentclientprotocol.com/protocol/content
+// [Content]: https://agentclientprotocol.com/protocol/v1/draft/content
 type ContentBlock struct{ value ContentBlockVariant }
 
 // ContentBlockVariant is implemented by [ContentBlockText], [ContentBlockImage], [ContentBlockAudio], [ContentBlockResourceLink], [ContentBlockResource], [ContentBlockUnknown].
@@ -658,8 +655,8 @@ func (v *CreateElicitationRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 // Property schema for elicitation form fields.
 //
 // Each variant corresponds to a JSON Schema `"type"` value.
-// Single-select enums use the `String` variant with `enum` or `oneOf` set.
-// Multi-select enums use the `Array` variant.
+// Single-select enums use `type: "string"` with `enum` or `oneOf` set.
+// Multi-select enums use `type: "array"`.
 type ElicitationPropertySchema struct {
 	value ElicitationPropertySchemaVariant
 }
@@ -1405,14 +1402,14 @@ func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) e
 // The client runs the configured agent program as a separate interactive
 // process for the user to authenticate via a TUI. Agents MUST advertise this
 // method only when the client enabled its terminal authentication capability.
-// A zero exit status signals success; any other termination signals failure.
+// A zero exit status signals success. Any other termination signals failure.
 // The client MUST NOT pass this method to `authenticate`.
 type AuthMethodTerminal struct {
 	// Unique identifier for this authentication method.
 	ID AuthMethodID `json:"id"`
 	// Human-readable name of the authentication method.
 	Name string `json:"name"`
-	// Optional description providing more details about this authentication method.
+	// Optional human-readable description of this authentication method.
 	Description *string `json:"description,omitzero"`
 	// Additional arguments to append to the configured agent invocation for terminal auth.
 	Args []string `json:"args,omitzero"`
@@ -1692,7 +1689,7 @@ func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 //
 // See protocol docs: [Agent Reports Output]
 //
-// [Agent Reports Output]: https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output
+// [Agent Reports Output]: https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#3-agent-reports-output
 type SessionUpdate struct{ value SessionUpdateVariant }
 
 // SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentThoughtChunk], [SessionUpdateToolCall], [SessionUpdateToolCallUpdate], [SessionUpdatePlan], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateCurrentModeUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdateSubagentUpdate], [SessionUpdateSessionMessage], [SessionUpdateSessionMessageChunk], [SessionUpdateUnknown].
@@ -2016,7 +2013,7 @@ func (v *SessionUpdateAgentThoughtChunk) UnmarshalJSONFrom(dec *jsontext.Decoder
 //
 // See protocol docs: [Tool Calls]
 //
-// [Tool Calls]: https://agentclientprotocol.com/protocol/tool-calls
+// [Tool Calls]: https://agentclientprotocol.com/protocol/v1/draft/tool-calls
 type SessionUpdateToolCall struct {
 	// Unique identifier for this tool call within the session.
 	ToolCallID ToolCallID `json:"toolCallId"`
@@ -2114,7 +2111,7 @@ func (v *SessionUpdateToolCallUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 //
 // SessionUpdatePlan is the SessionUpdate variant with sessionUpdate "plan".
 //
-// [Agent Plan]: https://agentclientprotocol.com/protocol/agent-plan
+// [Agent Plan]: https://agentclientprotocol.com/protocol/v1/draft/agent-plan
 type SessionUpdatePlan struct {
 	// The list of tasks to be accomplished.
 	//
@@ -2229,7 +2226,7 @@ func (v *SessionUpdateAvailableCommandsUpdate) UnmarshalJSONFrom(dec *jsontext.D
 //
 // See protocol docs: [Session Modes]
 //
-// [Session Modes]: https://agentclientprotocol.com/protocol/session-modes
+// [Session Modes]: https://agentclientprotocol.com/protocol/v1/draft/session-modes
 type SessionUpdateCurrentModeUpdate struct {
 	// The ID of the current mode
 	CurrentModeID SessionModeID `json:"currentModeId"`
@@ -2284,7 +2281,7 @@ func (v *SessionUpdateConfigOptionUpdate) UnmarshalJSONFrom(dec *jsontext.Decode
 // Update to session metadata. All fields are optional to support partial updates.
 //
 // Agents send this notification to update session information like title or custom metadata.
-// This allows clients to display dynamic session names and track session state changes.
+// Clients can use it to keep session titles and state current.
 type SessionUpdateSessionInfoUpdate struct {
 	// Human-readable title for the session. Set to null to clear.
 	Title optional.Value[string] `json:"title,omitzero"`
@@ -2347,7 +2344,7 @@ func (v *SessionUpdateUsageUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 // Notices are live events rather than session history. Agents must not rely on
 // a notice being received, displayed, or seen by the user.
 // Agents MUST only send notices when the Client advertised
-// [ClientSessionCapabilities.Notices]. Otherwise, Agents may use an agent
+// the `session.notices` Client capability. Otherwise, Agents may use an agent
 // message when the information should still be surfaced to the user.
 //
 // See RFD: [Session Notices]
@@ -2388,7 +2385,7 @@ func (v *SessionUpdateNotice) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // SessionUpdateCompactionUpdate is a context compaction upsert. The first notification fixes the compaction's
 // timeline position. Later updates with the same ID patch that entity in place.
 // Agents MUST only send this update when the Client advertised
-// [ClientSessionCapabilities.Compaction].
+// the `session.compaction` Client capability.
 //
 // `summary`, `error`, and `_meta` have patch semantics: omission leaves the
 // stored value unchanged, `null` clears it, and a concrete value replaces it.
@@ -2428,7 +2425,7 @@ func (v *SessionUpdateCompactionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder)
 // SessionUpdateCompactionSummaryChunk is a content block appended to a compaction's summary. A first-seen ID creates
 // an in-progress compaction. Chunks append in receive order.
 // Agents MUST only send this update when the Client advertised
-// [ClientSessionCapabilities.Compaction].
+// the `session.compaction` Client capability.
 //
 // SessionUpdateCompactionSummaryChunk is the SessionUpdate variant with sessionUpdate "compaction_summary_chunk".
 type SessionUpdateCompactionSummaryChunk struct {
@@ -2462,20 +2459,22 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 // Later updates modify the existing association's metadata, not its ownership.
 //
 // Sent on the immediate parent session. The first update for an unknown
-// [SessionUpdateSubagentUpdate.SessionID] announces the child and MUST be sent
+// `sessionId` announces the child and MUST be sent
 // before any live child traffic or live message naming the child as sender
 // or recipient. Parents may message and reuse an announced child across
 // multiple operations.
-// Child events are delivered automatically on the same connection; no child
+// Child events are delivered automatically on the same connection. No child
 // load, resume, or subscription is needed.
 //
 // Only the subagent session ID is required. Omitted patch fields keep their
-// previous values; `null` clears them. Clearing capabilities disables child
+// previous values. `null` clears them. Clearing capabilities disables child
 // mutations. Clearing state leaves current activity unset/unconfirmed: it does
 // not imply idle, stop work, or create an `unknown` state snapshot. A concrete
 // state replaces the entire previous state object, not the session.
 // The title and description provide the parent's display metadata for the
 // child. They do not replace the content of individual messages or operations.
+// `cwd` and `additionalDirectories` report where the Agent placed the child.
+// While unset, each inherits the immediate parent's effective value.
 //
 // SessionUpdateSubagentUpdate is the SessionUpdate variant with sessionUpdate "subagent_update".
 //
@@ -2485,30 +2484,45 @@ type SessionUpdateSubagentUpdate struct {
 	SessionID SessionID `json:"sessionId"`
 	// The parent's human-readable display title for this child. It need not be unique.
 	//
-	// Omitted means unchanged; `null` clears it. If unset, the Client chooses
+	// Omitted means unchanged. `null` clears it. If unset, the Client chooses
 	// a fallback presentation.
 	Title optional.Value[string] `json:"title,omitzero"`
 	// The parent's human-readable description of the child's role or purpose.
 	//
-	// Omitted means unchanged; `null` clears it. If unset, the Client chooses
+	// Omitted means unchanged. `null` clears it. If unset, the Client chooses
 	// a fallback presentation. This is current display metadata, not the
 	// history of instructions sent to the child.
 	Description optional.Value[string] `json:"description,omitzero"`
 	// Client-initiated session mutations permitted for this subagent session.
 	//
-	// Omitted means unchanged; `null` clears the capability set and disables
+	// Omitted means unchanged. `null` clears the capability set and disables
 	// child mutations. If never supplied, no session mutations are permitted.
 	// Read-only operations retain their normal protocol semantics and capability
 	// requirements. A concrete object replaces the whole capability set.
 	Capabilities optional.Value[SubagentSessionCapabilities] `json:"capabilities,omitzero"`
 	// Current state snapshot for the child session.
 	//
-	// Omitted means unchanged; `null` clears the current activity without
+	// Omitted means unchanged. `null` clears the current activity without
 	// asserting idle or sending an `unknown` snapshot. A concrete state
 	// replaces the previous state object wholesale. If never supplied, the
 	// current activity is unset/unconfirmed.
 	State optional.Value[StateUpdate] `json:"state,omitzero"`
-	Meta  optional.Value[Meta]        `json:"_meta,omitzero"`
+	// The child's working directory. Must be an absolute path.
+	//
+	// Optional and nullable. Omitted means unchanged. `null` clears the
+	// reported value. While unset, the child inherits its immediate parent's
+	// effective working directory. Clients use this value for the child's
+	// root set and as the default terminal working directory.
+	Cwd optional.Value[string] `json:"cwd,omitzero"`
+	// Additional workspace roots for the child. Each path must be absolute.
+	//
+	// Optional and nullable. Omitted means unchanged. `null` clears the
+	// reported value. While unset, the child inherits its immediate parent's
+	// effective additional directories, independently of `cwd`. A concrete
+	// array replaces the whole list. `[]` reports no additional directories.
+	// Clients use these values for the child's root set.
+	AdditionalDirectories optional.Value[[]string] `json:"additionalDirectories,omitzero"`
+	Meta                  optional.Value[Meta]     `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateSubagentUpdate) sessionUpdateVariant() {}
@@ -2536,14 +2550,30 @@ func (v *SessionUpdateSubagentUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 type SessionUpdateSessionMessage struct {
 	// Identifier of this message within the enclosing session's transcript.
 	MessageID MessageID `json:"messageId"`
-	// Optional sending session identity; omission or `null` retains a known value.
-	SenderSessionID *SessionID `json:"senderSessionId,omitzero"`
-	// Optional receiving session identity; omission or `null` retains a known value.
-	RecipientSessionID *SessionID `json:"recipientSessionId,omitzero"`
-	// Omitted leaves content unchanged; `null` or `[]` clears it.
+	// The sending session.
+	//
+	// Omitted leaves the stored value unchanged. `null` clears it. A value replaces it.
+	SenderSessionID optional.Value[SessionID] `json:"senderSessionId,omitzero"`
+	// The receiving session.
+	//
+	// Omitted leaves the stored value unchanged. `null` clears it. A value replaces it.
+	RecipientSessionID optional.Value[SessionID] `json:"recipientSessionId,omitzero"`
+	// On an incoming view, the `messageId` of the same message's outgoing view in the
+	// sender's transcript.
+	//
+	// Omitted leaves the stored value unchanged. `null` clears it. A value replaces it. It can arrive
+	// after the message starts streaming.
+	SenderMessageID optional.Value[MessageID] `json:"senderMessageId,omitzero"`
+	// On an outgoing view, the `messageId` of the same message's incoming view in the
+	// recipient's transcript.
+	//
+	// Omitted leaves the stored value unchanged. `null` clears it. A value replaces it. It can arrive
+	// after the message starts streaming.
+	RecipientMessageID optional.Value[MessageID] `json:"recipientMessageId,omitzero"`
+	// Omitted leaves content unchanged. `null` or `[]` clears it.
 	// A non-empty array replaces all content.
 	Content optional.Value[[]ContentBlock] `json:"content,omitzero"`
-	// Omitted leaves metadata unchanged; `null` removes it.
+	// Omitted leaves metadata unchanged. `null` removes it.
 	Meta optional.Value[Meta] `json:"_meta,omitzero"`
 }
 
@@ -2566,19 +2596,18 @@ func (v *SessionUpdateSessionMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 
 // SessionUpdateSessionMessageChunk is a streamed content block of an inter-session message.
 //
+// A chunk carries only content. The message's participants and references come from
+// `session_message` upserts, which can arrive before, between, or after its chunks.
+//
 // SessionUpdateSessionMessageChunk is the SessionUpdate variant with sessionUpdate "session_message_chunk".
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateSessionMessageChunk struct {
 	// Identifier of this message within the enclosing session's transcript.
 	MessageID MessageID `json:"messageId"`
-	// Optional sending session identity; omission or `null` retains a known value.
-	SenderSessionID *SessionID `json:"senderSessionId,omitzero"`
-	// Optional receiving session identity; omission or `null` retains a known value.
-	RecipientSessionID *SessionID `json:"recipientSessionId,omitzero"`
 	// A single content block appended to the message.
 	Content ContentBlock `json:"content"`
-	// Optional and nullable chunk-scoped metadata; omitted or `null` means none.
+	// Optional and nullable chunk-scoped metadata. Omitted or `null` means none.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2822,8 +2851,8 @@ func (v *PlanUpdateContentMarkdown) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 //
 // Current foreground-work state of a reusable child session.
 //
-// Each update is a whole-object snapshot. Idle does not terminate the child;
-// the parent can message it again, transitioning it back to running.
+// Each update is a whole-object snapshot. Idle does not terminate the child.
+// The parent can message it again, transitioning it back to running.
 // Background activity may still emit other session updates while idle.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
@@ -2940,7 +2969,7 @@ func unmarshalStateUpdateVariant(dec *jsontext.Decoder, out *StateUpdateVariant)
 //
 // Foreground work is in progress.
 type StateUpdateRunning struct {
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2984,7 +3013,7 @@ func (v *StateUpdateIdle) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 //
 // Foreground work is blocked on user action.
 type StateUpdateRequiresAction struct {
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3013,13 +3042,13 @@ func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 // snapshot normally.
 //
 // This is not a task outcome or session closure. It does not cancel work, resolve
-// pending requests, or revoke capabilities; capabilities are updated separately.
+// pending requests, or revoke capabilities. Capabilities are updated separately.
 //
 // StateUpdateUnknown is the StateUpdate variant with state "unknown".
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type StateUpdateUnknown struct {
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3197,11 +3226,11 @@ func unmarshalIdleStateUpdateVariant(dec *jsontext.Decoder, out *IdleStateUpdate
 type IdleStateUpdateEndTurn struct {
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
-	// Optional; omitted or `null` means not reported.
+	// Optional. Omitted or `null` means not reported.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3226,11 +3255,11 @@ func (v *IdleStateUpdateEndTurn) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 type IdleStateUpdateMaxTokens struct {
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
-	// Optional; omitted or `null` means not reported.
+	// Optional. Omitted or `null` means not reported.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3255,11 +3284,11 @@ func (v *IdleStateUpdateMaxTokens) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 type IdleStateUpdateMaxTurnRequests struct {
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
-	// Optional; omitted or `null` means not reported.
+	// Optional. Omitted or `null` means not reported.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3284,11 +3313,11 @@ func (v *IdleStateUpdateMaxTurnRequests) UnmarshalJSONFrom(dec *jsontext.Decoder
 type IdleStateUpdateRefusal struct {
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
-	// Optional; omitted or `null` means not reported.
+	// Optional. Omitted or `null` means not reported.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3313,11 +3342,11 @@ func (v *IdleStateUpdateRefusal) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 type IdleStateUpdateCancelled struct {
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
-	// Optional; omitted or `null` means not reported.
+	// Optional. Omitted or `null` means not reported.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3347,11 +3376,11 @@ type IdleStateUpdateError struct {
 	Error *Error `json:"error,omitzero"`
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
-	// Optional; omitted or `null` means not reported.
+	// Optional. Omitted or `null` means not reported.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3382,11 +3411,11 @@ type IdleStateUpdateCustom struct {
 	StopReason string `json:"stopReason"`
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
-	// Optional; omitted or `null` means not reported.
+	// Optional. Omitted or `null` means not reported.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
@@ -3400,11 +3429,11 @@ func (v IdleStateUpdateCustom) Tag() string { return v.StopReason }
 type IdleStateUpdateUntagged struct {
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
-	// Optional; omitted or `null` means not reported.
+	// Optional. Omitted or `null` means not reported.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// Optional; omitted and `null` mean no metadata for this state snapshot.
+	// Optional. Omitted and `null` mean no metadata for this state snapshot.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3424,7 +3453,7 @@ func (IdleStateUpdateUntagged) Tag() string { return "" }
 //
 // See protocol docs: [MCP Servers]
 //
-// [MCP Servers]: https://agentclientprotocol.com/protocol/session-setup#mcp-servers
+// [MCP Servers]: https://agentclientprotocol.com/protocol/v1/draft/session-setup#mcp-servers
 type MCPServer struct{ value MCPServerVariant }
 
 // MCPServerVariant is implemented by [MCPServerHTTP], [MCPServerSSE], [MCPServerACP], [MCPServerStdio].
@@ -4157,16 +4186,17 @@ func (v CreateElicitationResponseCustom) Tag() string { return v.Action }
 // The zero value holds no payload: an omitzero field omits it, and encoding it
 // anywhere else fails.
 //
-// Allowed wire representations for [ElicitationContentValue].
+// Allowed wire representations for `ElicitationContentValue`.
 type ElicitationContentValue struct{ raw jsontext.Value }
 
 // ElicitationContentValueAlternative is the set of Go types ElicitationContentValue can hold.
 type ElicitationContentValueAlternative interface {
-	string | float64 | bool | []string
+	string | int64 | float64 | bool | []string
 }
 
 var elicitationContentValueAlternatives = union.Table(
 	union.Alt[string](union.Rule{NonNull: true}),
+	union.Alt[int64](union.Rule{NonNull: true}),
 	union.Alt[float64](union.Rule{NonNull: true}),
 	union.Alt[bool](union.Rule{NonNull: true}),
 	union.Alt[[]string](union.Rule{NonNull: true}),
@@ -4218,9 +4248,9 @@ func (v *ElicitationContentValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 // Outer ACP errors are reserved for binding and runtime failures.
 //
 // Both branches require their carrier key. An error must be a non-null object.
-// Unknown outer fields are ignored; inner result and error fields are preserved.
-// Carrier `_meta` is optional; null or invalid values are treated as absent.
-// Senders must include exactly one outcome; receivers prefer `result` if both are present.
+// Unknown outer fields are ignored. Inner result and error fields are preserved.
+// Carrier `_meta` is optional. Null or invalid values are treated as absent.
+// Senders must include exactly one outcome. Receivers prefer `result` if both are present.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MessageMCPResponse struct{ raw jsontext.Value }
@@ -4263,6 +4293,163 @@ func (v MessageMCPResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *MessageMCPResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// ProxyResponse is a JSON-RPC response object.
+//
+// ProxyResponse preserves the complete JSON payload, including future variants.
+// Use [ProxyResponse.As] to read one alternative and [NewProxyResponse] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
+type ProxyResponse struct{ raw jsontext.Value }
+
+// ProxyResponseAlternative is the set of Go types ProxyResponse can hold.
+type ProxyResponseAlternative interface {
+	ProxyResponseResult | ProxyResponseError
+}
+
+var proxyResponseAlternatives = union.Table(
+	union.Alt[ProxyResponseResult](union.Rule{NonNull: true, Required: []string{"id", "result"}}),
+	union.Alt[ProxyResponseError](union.Rule{NonNull: true, Required: []string{"id", "error"}, NotNull: []string{"error"}}),
+)
+
+// NewProxyResponse encodes value, one of the ProxyResponseAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewProxyResponse[T ProxyResponseAlternative](value T) (ProxyResponse, error) {
+	raw, err := union.New("ProxyResponse", proxyResponseAlternatives, value)
+	return ProxyResponse{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ProxyResponse) As[T ProxyResponseAlternative]() (T, error) {
+	return union.As[T]("ProxyResponse", proxyResponseAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ProxyResponse) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ProxyResponse) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ProxyResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return errors.New("ProxyResponse: no value set; use NewProxyResponse")
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ProxyResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// ProxyRequestParams preserves the complete JSON payload, including future variants.
+// Use [ProxyRequestParams.As] to read one alternative and [NewProxyRequestParams] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
+type ProxyRequestParams struct{ raw jsontext.Value }
+
+// ProxyRequestParamsAlternative is the set of Go types ProxyRequestParams can hold.
+type ProxyRequestParamsAlternative interface {
+	InitializeRequest | ProxySuccessorRequest
+}
+
+var proxyRequestParamsAlternatives = union.Table(
+	union.Alt[InitializeRequest](union.Rule{NonNull: true, Required: []string{"protocolVersion"}, NotNull: []string{"protocolVersion", "clientCapabilities"}}),
+	union.Alt[ProxySuccessorRequest](union.Rule{NonNull: true, Required: []string{"method"}, NotNull: []string{"method"}}),
+)
+
+// NewProxyRequestParams encodes value, one of the ProxyRequestParamsAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewProxyRequestParams[T ProxyRequestParamsAlternative](value T) (ProxyRequestParams, error) {
+	raw, err := union.New("ProxyRequestParams", proxyRequestParamsAlternatives, value)
+	return ProxyRequestParams{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ProxyRequestParams) As[T ProxyRequestParamsAlternative]() (T, error) {
+	return union.As[T]("ProxyRequestParams", proxyRequestParamsAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ProxyRequestParams) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ProxyRequestParams) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ProxyRequestParams) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return errors.New("ProxyRequestParams: no value set; use NewProxyRequestParams")
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ProxyRequestParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// ProxyResponseResultResult preserves the complete JSON payload, including future variants.
+// Use [ProxyResponseResultResult.As] to read one alternative and [NewProxyResponseResultResult] to build one.
+// The zero value holds no payload and encodes as null.
+type ProxyResponseResultResult struct{ raw jsontext.Value }
+
+// ProxyResponseResultResultAlternative is the set of Go types ProxyResponseResultResult can hold.
+type ProxyResponseResultResultAlternative interface {
+	InitializeResponse | jsontext.Value
+}
+
+var proxyResponseResultResultAlternatives = union.Table(
+	union.Alt[InitializeResponse](union.Rule{NonNull: true, Required: []string{"protocolVersion"}, NotNull: []string{"protocolVersion", "agentCapabilities", "authMethods"}}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
+
+// NewProxyResponseResultResult encodes value, one of the ProxyResponseResultResultAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewProxyResponseResultResult[T ProxyResponseResultResultAlternative](value T) (ProxyResponseResultResult, error) {
+	raw, err := union.New("ProxyResponseResultResult", proxyResponseResultResultAlternatives, value)
+	return ProxyResponseResultResult{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ProxyResponseResultResult) As[T ProxyResponseResultResultAlternative]() (T, error) {
+	return union.As[T]("ProxyResponseResultResult", proxyResponseResultResultAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ProxyResponseResultResult) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ProxyResponseResultResult) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ProxyResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return enc.WriteToken(jsontext.Null)
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ProxyResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err

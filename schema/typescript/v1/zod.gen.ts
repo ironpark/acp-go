@@ -3,11 +3,13 @@
 import {
   defaultOnError,
   defaultOnErrorOptionalStringTag,
+  defaultOnNull,
   excludeKnownTags,
   preserveCustomPayload,
   requiredDefaultOnError,
   vecSkipError,
-} from "../schema-deserialize.js";
+  wideInt,
+} from "../../../core/schema-deserialize.js";
 import * as z from "zod/v4";
 
 /**
@@ -21,15 +23,15 @@ import * as z from "zod/v4";
  *
  * \[2\] Fractional parts may be problematic, since many decimal fractions cannot be represented exactly as binary fractions.
  */
-export const zRequestId = z.union([z.number(), z.string()]).nullable();
+export const zRequestId = z.union([wideInt(), z.string()]).nullable();
 
 /**
  * A unique identifier for a conversation session between a client and agent.
  *
- * Sessions maintain their own context, conversation history, and state,
- * allowing multiple independent interactions with the same agent.
+ * Each session has its own context, conversation history, and state, so one
+ * agent can run several independent sessions.
  *
- * See protocol docs: [Session ID](https://agentclientprotocol.com/protocol/session-setup#session-id)
+ * See protocol docs: [Session ID](https://agentclientprotocol.com/protocol/v1/draft/session-setup#session-id)
  */
 export const zSessionId = z.string();
 
@@ -87,7 +89,7 @@ export const zToolCallId = z.string();
  * Tool kinds help clients choose appropriate icons and optimize how they
  * display tool execution progress.
  *
- * See protocol docs: [Creating](https://agentclientprotocol.com/protocol/tool-calls#creating)
+ * See protocol docs: [Creating](https://agentclientprotocol.com/protocol/v1/draft/tool-calls#creating)
  */
 export const zToolKind = z.union([
   z.literal("read"),
@@ -107,7 +109,7 @@ export const zToolKind = z.union([
  *
  * Tool calls progress through different statuses during their lifecycle.
  *
- * See protocol docs: [Status](https://agentclientprotocol.com/protocol/tool-calls#status)
+ * See protocol docs: [Status](https://agentclientprotocol.com/protocol/v1/draft/tool-calls#status)
  */
 export const zToolCallStatus = z.union([
   z.literal("pending"),
@@ -181,7 +183,7 @@ export const zResourceLink = z.object({
   description: defaultOnError(z.string().nullish(), () => undefined),
   mimeType: defaultOnError(z.string().nullish(), () => undefined),
   name: z.string(),
-  size: defaultOnError(z.number().nullish(), () => undefined),
+  size: defaultOnError(wideInt().nullish(), () => undefined),
   title: defaultOnError(z.string().nullish(), () => undefined),
   uri: z.string(),
   _meta: defaultOnError(
@@ -239,18 +241,15 @@ export const zEmbeddedResource = z.object({
 /**
  * Content blocks represent displayable information in the Agent Client Protocol.
  *
- * They provide a structured way to handle various types of user-facing content—whether
- * it's text from language models, images for analysis, or embedded resources for context.
- *
  * Content blocks appear in:
  * - User prompts sent via `session/prompt`
  * - Language model output streamed through `session/update` notifications
  * - Progress updates and results from tool calls
  *
- * This structure is compatible with the Model Context Protocol (MCP), enabling
- * agents to seamlessly forward content from MCP tool outputs without transformation.
+ * This structure is compatible with the Model Context Protocol (MCP), so agents can
+ * forward content from MCP tool outputs without transformation.
  *
- * See protocol docs: [Content](https://agentclientprotocol.com/protocol/content)
+ * See protocol docs: [Content](https://agentclientprotocol.com/protocol/v1/draft/content)
  */
 export const zContentBlock = z.union([
   zTextContent.and(
@@ -296,7 +295,7 @@ export const zContent = z.object({
  *
  * Shows changes to files in a format suitable for display in the client UI.
  *
- * See protocol docs: [Content](https://agentclientprotocol.com/protocol/tool-calls#content)
+ * See protocol docs: [Content](https://agentclientprotocol.com/protocol/v1/draft/tool-calls#content)
  */
 export const zDiff = z.object({
   path: z.string(),
@@ -318,7 +317,7 @@ export const zTerminalId = z.string();
  *
  * The terminal must be added before calling `terminal/release`.
  *
- * See protocol docs: [Terminal](https://agentclientprotocol.com/protocol/terminals)
+ * See protocol docs: [Terminal](https://agentclientprotocol.com/protocol/v1/draft/terminals)
  */
 export const zTerminal = z.object({
   terminalId: zTerminalId,
@@ -334,7 +333,7 @@ export const zTerminal = z.object({
  * Tool calls can produce different types of content including
  * standard content blocks (text, images) or file diffs.
  *
- * See protocol docs: [Content](https://agentclientprotocol.com/protocol/tool-calls#content)
+ * See protocol docs: [Content](https://agentclientprotocol.com/protocol/v1/draft/tool-calls#content)
  */
 export const zToolCallContent = z.union([
   zContent.and(
@@ -360,7 +359,7 @@ export const zToolCallContent = z.union([
  * Enables clients to implement "follow-along" features that track
  * which files the agent is working with in real-time.
  *
- * See protocol docs: [Following the Agent](https://agentclientprotocol.com/protocol/tool-calls#following-the-agent)
+ * See protocol docs: [Following the Agent](https://agentclientprotocol.com/protocol/v1/draft/tool-calls#following-the-agent)
  */
 export const zToolCallLocation = z.object({
   path: z.string(),
@@ -386,7 +385,7 @@ export const zToolCallLocation = z.object({
  * Used to report progress and results as tools execute. All fields except
  * the tool call ID are optional - only changed fields need to be included.
  *
- * See protocol docs: [Updating](https://agentclientprotocol.com/protocol/tool-calls#updating)
+ * See protocol docs: [Updating](https://agentclientprotocol.com/protocol/v1/draft/tool-calls#updating)
  */
 export const zToolCallUpdate = z.object({
   toolCallId: zToolCallId,
@@ -445,7 +444,7 @@ export const zPermissionOption = z.object({
  *
  * Sent when the agent needs authorization before performing a sensitive operation.
  *
- * See protocol docs: [Requesting Permission](https://agentclientprotocol.com/protocol/tool-calls#requesting-permission)
+ * See protocol docs: [Requesting Permission](https://agentclientprotocol.com/protocol/v1/draft/tool-calls#requesting-permission)
  */
 export const zRequestPermissionRequest = z.object({
   sessionId: zSessionId,
@@ -475,10 +474,10 @@ export const zEnvVariable = z.object({
 export const zCreateTerminalRequest = z.object({
   sessionId: zSessionId,
   command: z.string(),
-  args: z.array(z.string()).optional(),
-  env: z.array(zEnvVariable).optional(),
+  args: defaultOnNull(z.array(z.string()), () => []).optional(),
+  env: defaultOnNull(z.array(zEnvVariable), () => []).optional(),
   cwd: z.string().nullish(),
-  outputByteLimit: z.number().nullish(),
+  outputByteLimit: wideInt().gte(0).nullish(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -536,7 +535,7 @@ export const zKillTerminalRequest = z.object({
 /**
  * Session-scoped elicitation, optionally tied to a specific tool call.
  *
- * When `tool_call_id` is set, the elicitation is tied to a specific tool call.
+ * When `toolCallId` is set, the elicitation is tied to a specific tool call.
  * This is useful when an agent receives an elicitation from an MCP server
  * during a tool call and needs to redirect it to the user.
  */
@@ -636,9 +635,9 @@ export const zNumberPropertySchema = z.object({
 export const zIntegerPropertySchema = z.object({
   title: defaultOnError(z.string().nullish(), () => undefined),
   description: defaultOnError(z.string().nullish(), () => undefined),
-  minimum: z.number().nullish(),
-  maximum: z.number().nullish(),
-  default: defaultOnError(z.number().nullish(), () => undefined),
+  minimum: wideInt().nullish(),
+  maximum: wideInt().nullish(),
+  default: defaultOnError(wideInt().nullish(), () => undefined),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -713,8 +712,8 @@ export const zMultiSelectItems = preserveCustomPayload(
 export const zMultiSelectPropertySchema = z.object({
   title: defaultOnError(z.string().nullish(), () => undefined),
   description: defaultOnError(z.string().nullish(), () => undefined),
-  minItems: z.number().nullish(),
-  maxItems: z.number().nullish(),
+  minItems: wideInt().gte(0).nullish(),
+  maxItems: wideInt().gte(0).nullish(),
   items: zMultiSelectItems,
   default: defaultOnError(vecSkipError(z.string()).nullish(), () => undefined),
   _meta: defaultOnError(
@@ -727,8 +726,8 @@ export const zMultiSelectPropertySchema = z.object({
  * Property schema for elicitation form fields.
  *
  * Each variant corresponds to a JSON Schema `"type"` value.
- * Single-select enums use the `String` variant with `enum` or `oneOf` set.
- * Multi-select enums use the `Array` variant.
+ * Single-select enums use `type: "string"` with `enum` or `oneOf` set.
+ * Multi-select enums use `type: "array"`.
  *
  * Custom variants (unknown `type` values) keep their extra
  * properties exactly as received; unlike known variants, those keys
@@ -923,7 +922,7 @@ export const zMessageMcpRequest = z.object({
  * Extension methods provide a way to add custom functionality while maintaining
  * protocol compatibility.
  *
- * See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+ * See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v1/draft/extensibility)
  */
 export const zExtRequest = z.unknown();
 
@@ -961,8 +960,8 @@ export const zProtocolVersion = z.int().gte(0).lte(65535);
 /**
  * Prompt capabilities supported by the agent in `session/prompt` requests.
  *
- * Baseline agent functionality requires support for [`ContentBlock::Text`]
- * and [`ContentBlock::ResourceLink`] in prompt requests.
+ * Baseline agent functionality requires support for `text`
+ * and `resource_link` content blocks in prompt requests.
  *
  * Other variants must be explicitly opted in to.
  * Capabilities for different types of content in prompt requests.
@@ -970,7 +969,7 @@ export const zProtocolVersion = z.int().gte(0).lte(65535);
  * Indicates which content types beyond the baseline (text and resource links)
  * the agent can process.
  *
- * See protocol docs: [Prompt Capabilities](https://agentclientprotocol.com/protocol/initialization#prompt-capabilities)
+ * See protocol docs: [Prompt Capabilities](https://agentclientprotocol.com/protocol/v1/draft/initialization#prompt-capabilities)
  */
 export const zPromptCapabilities = z.object({
   image: defaultOnError(
@@ -1136,6 +1135,62 @@ export const zSessionForkCapabilities = z.object({
 });
 
 /**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Capabilities for `session/archive` and `session/unarchive`.
+ *
+ * Supplying `{}` means the agent supports both methods, the `archived` filter on
+ * `session/list`, and `SessionInfo.archived`.
+ *
+ * @experimental
+ */
+export const zSessionArchiveCapabilities = z.object({
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Capabilities for the `session/status` method.
+ *
+ * Supplying `{}` means the agent supports checking session status.
+ *
+ * @experimental
+ */
+export const zSessionStatusCapabilities = z.object({
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Capabilities for Client-set session titles.
+ *
+ * Supplying `{}` means the agent supports `session/set_title`. Agents report titles
+ * through `session/list` and `session_info_update` without this capability.
+ *
+ * @experimental
+ */
+export const zSessionTitleCapabilities = z.object({
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
  * Capabilities for the `session/resume` method.
  *
  * Supplying `{}` means the agent supports resuming sessions.
@@ -1166,9 +1221,9 @@ export const zSessionCloseCapabilities = z.object({
  *
  * Optionally, they **MAY** support other session methods and notifications by specifying additional capabilities.
  *
- * Note: `session/load` is still handled by the top-level `load_session` capability. This will be unified in future versions of the protocol.
+ * Note: `session/load` is still handled by the top-level `loadSession` capability. This will be unified in future versions of the protocol.
  *
- * See protocol docs: [Session Capabilities](https://agentclientprotocol.com/protocol/initialization#session-capabilities)
+ * See protocol docs: [Session Capabilities](https://agentclientprotocol.com/protocol/v1/draft/initialization#session-capabilities)
  */
 export const zSessionCapabilities = z.object({
   list: defaultOnError(zSessionListCapabilities.nullish(), () => undefined),
@@ -1182,8 +1237,32 @@ export const zSessionCapabilities = z.object({
     () => undefined,
   ),
   fork: defaultOnError(zSessionForkCapabilities.nullish(), () => undefined),
+  archive: defaultOnError(
+    zSessionArchiveCapabilities.nullish(),
+    () => undefined,
+  ),
+  status: defaultOnError(zSessionStatusCapabilities.nullish(), () => undefined),
+  title: defaultOnError(zSessionTitleCapabilities.nullish(), () => undefined),
   resume: defaultOnError(zSessionResumeCapabilities.nullish(), () => undefined),
   close: defaultOnError(zSessionCloseCapabilities.nullish(), () => undefined),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Auth status capabilities supported by the agent.
+ *
+ * Supplying `{}` means the agent supports the `auth/status` method.
+ *
+ * @experimental
+ */
+export const zAuthStatusCapabilities = z.object({
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -1206,6 +1285,7 @@ export const zLogoutCapabilities = z.object({
  * Authentication-related capabilities supported by the agent.
  */
 export const zAgentAuthCapabilities = z.object({
+  status: defaultOnError(zAuthStatusCapabilities.nullish(), () => undefined),
   logout: defaultOnError(zLogoutCapabilities.nullish(), () => undefined),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
@@ -1237,7 +1317,7 @@ export const zProvidersCapabilities = z.object({
  * Advertised during initialization to inform the client about
  * available features and content types.
  *
- * See protocol docs: [Agent Capabilities](https://agentclientprotocol.com/protocol/initialization#agent-capabilities)
+ * See protocol docs: [Agent Capabilities](https://agentclientprotocol.com/protocol/v1/draft/initialization#agent-capabilities)
  */
 export const zAgentCapabilities = z.object({
   loadSession: defaultOnError(
@@ -1294,15 +1374,15 @@ export const zAuthMethodId = z.string();
  * The client runs the configured agent program as a separate interactive
  * process for the user to authenticate via a TUI. Agents MUST advertise this
  * method only when the client enabled its terminal authentication capability.
- * A zero exit status signals success; any other termination signals failure.
+ * A zero exit status signals success. Any other termination signals failure.
  * The client MUST NOT pass this method to `authenticate`.
  */
 export const zAuthMethodTerminal = z.object({
   id: zAuthMethodId,
   name: z.string(),
   description: defaultOnError(z.string().nullish(), () => undefined),
-  args: z.array(z.string()).optional(),
-  env: z.record(z.string(), z.string()).optional(),
+  args: defaultOnNull(z.array(z.string()), () => []).optional(),
+  env: defaultOnNull(z.record(z.string(), z.string()), () => ({})).optional(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -1359,7 +1439,7 @@ export const zImplementation = z.object({
  *
  * Contains the negotiated protocol version and agent capabilities.
  *
- * See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)
+ * See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/v1/draft/initialization)
  */
 export const zInitializeResponse = z.object({
   protocolVersion: zProtocolVersion,
@@ -1548,6 +1628,67 @@ export const zLogoutResponse = z.object({
 });
 
 /**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * The agent's overall authentication state.
+ *
+ * @experimental
+ */
+export const zAuthState = z.union([
+  z.literal("authenticated"),
+  z.literal("unauthenticated"),
+  z.literal("not_required"),
+  z.literal("unknown"),
+  z.string(),
+]);
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * An account or credential the agent has configured, such as a signed-in user
+ * account or an API key.
+ *
+ * All fields are display information only. Clients MUST NOT use them as stable
+ * account identifiers, and SHOULD NOT log them or send them elsewhere, such as to
+ * telemetry.
+ *
+ * @experimental
+ */
+export const zAuthAccount = z.object({
+  label: z.string(),
+  active: defaultOnError(z.boolean().nullish(), () => undefined),
+  name: defaultOnError(z.string().nullish(), () => undefined),
+  email: defaultOnError(z.string().nullish(), () => undefined),
+  organization: defaultOnError(z.string().nullish(), () => undefined),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Response to the `auth/status` method.
+ *
+ * @experimental
+ */
+export const zAuthStatusResponse = z.object({
+  state: zAuthState,
+  accounts: defaultOnError(vecSkipError(zAuthAccount).optional(), () => []),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
  * Unique identifier for a Session Mode.
  */
 export const zSessionModeId = z.string();
@@ -1555,7 +1696,7 @@ export const zSessionModeId = z.string();
 /**
  * A mode the agent can operate in.
  *
- * See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
+ * See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/v1/draft/session-modes)
  */
 export const zSessionMode = z.object({
   id: zSessionModeId,
@@ -1699,7 +1840,7 @@ export const zSessionConfigOption = z.intersection(
 /**
  * Response from creating a new session.
  *
- * See protocol docs: [Creating a Session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session)
+ * See protocol docs: [Creating a Session](https://agentclientprotocol.com/protocol/v1/draft/session-setup#creating-a-session)
  */
 export const zNewSessionResponse = z.object({
   sessionId: zSessionId,
@@ -1741,6 +1882,7 @@ export const zSessionInfo = z.object({
   ),
   title: defaultOnError(z.string().nullish(), () => undefined),
   updatedAt: defaultOnError(z.string().nullish(), () => undefined),
+  archived: defaultOnError(z.boolean().nullish(), () => undefined),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -1785,6 +1927,90 @@ export const zForkSessionResponse = z.object({
     vecSkipError(zSessionConfigOption).nullish(),
     () => undefined,
   ),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Response from archiving a session.
+ *
+ * @experimental
+ */
+export const zArchiveSessionResponse = z.object({
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Response from unarchiving a session.
+ *
+ * @experimental
+ */
+export const zUnarchiveSessionResponse = z.object({
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Whether the Agent has a session in memory, as reported by `session/status`.
+ *
+ * @experimental
+ */
+export const zSessionStatus = z.union([
+  z.literal("open"),
+  z.literal("saved"),
+  z.string(),
+]);
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Response from checking the status of a session.
+ *
+ * The result is a snapshot. A session reported `open` may be closed or evicted before
+ * the Client's next request.
+ *
+ * @experimental
+ */
+export const zSessionStatusResponse = z.object({
+  status: zSessionStatus,
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Response from setting the title of a session.
+ *
+ * @experimental
+ */
+export const zSetSessionTitleResponse = z.object({
+  title: z.string(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -1843,7 +2069,7 @@ export const zSetSessionConfigOptionResponse = z.object({
 /**
  * Reasons why an agent stops processing a prompt turn.
  *
- * See protocol docs: [Stop Reasons](https://agentclientprotocol.com/protocol/prompt-turn#stop-reasons)
+ * See protocol docs: [Stop Reasons](https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#stop-reasons)
  */
 export const zStopReason = z.union([
   z.literal("end_turn"),
@@ -1863,12 +2089,15 @@ export const zStopReason = z.union([
  * @experimental
  */
 export const zUsage = z.object({
-  totalTokens: z.number(),
-  inputTokens: z.number(),
-  outputTokens: z.number(),
-  thoughtTokens: defaultOnError(z.number().nullish(), () => undefined),
-  cachedReadTokens: defaultOnError(z.number().nullish(), () => undefined),
-  cachedWriteTokens: defaultOnError(z.number().nullish(), () => undefined),
+  totalTokens: wideInt().gte(0),
+  inputTokens: wideInt().gte(0),
+  outputTokens: wideInt().gte(0),
+  thoughtTokens: defaultOnError(wideInt().gte(0).nullish(), () => undefined),
+  cachedReadTokens: defaultOnError(wideInt().gte(0).nullish(), () => undefined),
+  cachedWriteTokens: defaultOnError(
+    wideInt().gte(0).nullish(),
+    () => undefined,
+  ),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -1878,7 +2107,7 @@ export const zUsage = z.object({
 /**
  * Response from processing a user prompt.
  *
- * See protocol docs: [Check for Completion](https://agentclientprotocol.com/protocol/prompt-turn#4-check-for-completion)
+ * See protocol docs: [Check for Completion](https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#4-check-for-completion)
  */
 export const zPromptResponse = z.object({
   stopReason: zStopReason,
@@ -1890,19 +2119,20 @@ export const zPromptResponse = z.object({
 });
 
 /**
- * Allows for sending an arbitrary response to an [`ExtRequest`] that is not part of the ACP spec.
+ * Allows for sending an arbitrary response to an extension request that is not part of the ACP spec.
  * Extension methods provide a way to add custom functionality while maintaining
  * protocol compatibility.
  *
- * See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+ * See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v1/draft/extensibility)
  */
 export const zExtResponse = z.unknown();
 
 /**
  * Predefined error codes for common JSON-RPC and ACP-specific errors.
  *
- * These codes follow the JSON-RPC 2.0 specification for standard errors
- * and use the reserved range (-32000 to -32099) for protocol-specific errors.
+ * Standard errors use the JSON-RPC 2.0 codes. ACP-specific errors use the JSON-RPC
+ * server-error range (-32000 to -32099), and request cancellation uses -32800 from the
+ * range LSP reserves (-32899 to -32800).
  */
 export const zErrorCode = z.union([
   z.literal(-32700),
@@ -1950,11 +2180,16 @@ export const zAgentResponse = z.union([
       zSetProviderResponse,
       zDisableProviderResponse,
       zLogoutResponse,
+      zAuthStatusResponse,
       zNewSessionResponse,
       zLoadSessionResponse,
       zListSessionsResponse,
       zDeleteSessionResponse,
       zForkSessionResponse,
+      zArchiveSessionResponse,
+      zUnarchiveSessionResponse,
+      zSessionStatusResponse,
+      zSetSessionTitleResponse,
       zResumeSessionResponse,
       zCloseSessionResponse,
       zSetSessionModeResponse,
@@ -1992,7 +2227,7 @@ export const zContentChunk = z.object({
  * Tool calls are actions that the agent executes on behalf of the language model,
  * such as reading files, executing code, or fetching data from external sources.
  *
- * See protocol docs: [Tool Calls](https://agentclientprotocol.com/protocol/tool-calls)
+ * See protocol docs: [Tool Calls](https://agentclientprotocol.com/protocol/v1/draft/tool-calls)
  */
 export const zToolCall = z.object({
   toolCallId: zToolCallId,
@@ -2018,7 +2253,7 @@ export const zToolCall = z.object({
  *
  * Used to indicate the relative importance or urgency of different
  * tasks in the execution plan.
- * See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/agent-plan#plan-entries)
+ * See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/v1/draft/agent-plan#plan-entries)
  */
 export const zPlanEntryPriority = z.union([
   z.literal("high"),
@@ -2030,7 +2265,7 @@ export const zPlanEntryPriority = z.union([
  * Status of a plan entry in the execution flow.
  *
  * Tracks the lifecycle of each task from planning through completion.
- * See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/agent-plan#plan-entries)
+ * See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/v1/draft/agent-plan#plan-entries)
  */
 export const zPlanEntryStatus = z.union([
   z.literal("pending"),
@@ -2043,7 +2278,7 @@ export const zPlanEntryStatus = z.union([
  *
  * Represents a task or goal that the assistant intends to accomplish
  * as part of fulfilling the user's request.
- * See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/agent-plan#plan-entries)
+ * See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/v1/draft/agent-plan#plan-entries)
  */
 export const zPlanEntry = z.object({
   content: z.string(),
@@ -2062,7 +2297,7 @@ export const zPlanEntry = z.object({
  * Agents report plans to clients to provide visibility into their execution strategy.
  * Plans can evolve during execution as the agent discovers new requirements or completes tasks.
  *
- * See protocol docs: [Agent Plan](https://agentclientprotocol.com/protocol/agent-plan)
+ * See protocol docs: [Agent Plan](https://agentclientprotocol.com/protocol/v1/draft/agent-plan)
  */
 export const zPlan = z.object({
   entries: requiredDefaultOnError(vecSkipError(zPlanEntry), () => []),
@@ -2246,7 +2481,7 @@ export const zAvailableCommandsUpdate = z.object({
 /**
  * The current mode of the session has changed
  *
- * See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
+ * See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/v1/draft/session-modes)
  */
 export const zCurrentModeUpdate = z.object({
   currentModeId: zSessionModeId,
@@ -2274,7 +2509,7 @@ export const zConfigOptionUpdate = z.object({
  * Update to session metadata. All fields are optional to support partial updates.
  *
  * Agents send this notification to update session information like title or custom metadata.
- * This allows clients to display dynamic session names and track session state changes.
+ * Clients can use it to keep session titles and state current.
  */
 export const zSessionInfoUpdate = z.object({
   title: defaultOnError(z.string().nullish(), () => undefined),
@@ -2301,8 +2536,8 @@ export const zCost = z.object({
  * Context window and cost update for a session.
  */
 export const zUsageUpdate = z.object({
-  used: z.number(),
-  size: z.number(),
+  used: wideInt().gte(0),
+  size: wideInt().gte(0),
   cost: defaultOnError(zCost.nullish(), () => undefined),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
@@ -2326,7 +2561,7 @@ export const zNoticeSeverity = z.union([
  * Notices are live events rather than session history. Agents must not rely on
  * a notice being received, displayed, or seen by the user.
  * Agents MUST only send notices when the Client advertised
- * [`ClientSessionCapabilities::notices`]. Otherwise, Agents may use an agent
+ * the `session.notices` Client capability. Otherwise, Agents may use an agent
  * message when the information should still be surfaced to the user.
  *
  * See RFD: [Session Notices](https://agentclientprotocol.com/rfds/session-notices)
@@ -2361,7 +2596,7 @@ export const zCompactionStatus = z.union([
  * A context compaction upsert. The first notification fixes the compaction's
  * timeline position. Later updates with the same ID patch that entity in place.
  * Agents MUST only send this update when the Client advertised
- * [`ClientSessionCapabilities::compaction`].
+ * the `session.compaction` Client capability.
  *
  * `summary`, `error`, and `_meta` have patch semantics: omission leaves the
  * stored value unchanged, `null` clears it, and a concrete value replaces it.
@@ -2385,7 +2620,7 @@ export const zCompactionUpdate = z.object({
  * A content block appended to a compaction's summary. A first-seen ID creates
  * an in-progress compaction. Chunks append in receive order.
  * Agents MUST only send this update when the Client advertised
- * [`ClientSessionCapabilities::compaction`].
+ * the `session.compaction` Client capability.
  */
 export const zCompactionSummaryChunk = z.object({
   compactionId: zCompactionId,
@@ -2403,7 +2638,7 @@ export const zCompactionSummaryChunk = z.object({
  *
  * Capability to cancel work in a subagent session without ending that session.
  *
- * Supplying `{}` advertises support; an omitted or `null` `cancel` does not.
+ * Supplying `{}` advertises support. An omitted or `null` `cancel` does not.
  *
  * @experimental
  */
@@ -2421,7 +2656,7 @@ export const zSessionCancelCapabilities = z.object({
  *
  * Client-initiated session mutations permitted for a specific subagent session.
  *
- * A mutation requires an explicit per-child capability; support for the method
+ * A mutation requires an explicit per-child capability. Support for the method
  * on ordinary sessions does not grant support on a child.
  *
  * @experimental
@@ -2553,7 +2788,7 @@ export const zRequiresActionStateUpdate = z.object({
  * snapshot normally.
  *
  * This is not a task outcome or session closure. It does not cancel work, resolve
- * pending requests, or revoke capabilities; capabilities are updated separately.
+ * pending requests, or revoke capabilities. Capabilities are updated separately.
  *
  * @experimental
  */
@@ -2571,8 +2806,8 @@ export const zUnknownStateUpdate = z.object({
  *
  * Current foreground-work state of a reusable child session.
  *
- * Each update is a whole-object snapshot. Idle does not terminate the child;
- * the parent can message it again, transitioning it back to running.
+ * Each update is a whole-object snapshot. Idle does not terminate the child.
+ * The parent can message it again, transitioning it back to running.
  * Background activity may still emit other session updates while idle.
  *
  * @experimental
@@ -2625,20 +2860,22 @@ export const zStateUpdate = preserveCustomPayload(
  * Later updates modify the existing association's metadata, not its ownership.
  *
  * Sent on the immediate parent session. The first update for an unknown
- * [`SubagentUpdate::session_id`] announces the child and MUST be sent
+ * `sessionId` announces the child and MUST be sent
  * before any live child traffic or live message naming the child as sender
  * or recipient. Parents may message and reuse an announced child across
  * multiple operations.
- * Child events are delivered automatically on the same connection; no child
+ * Child events are delivered automatically on the same connection. No child
  * load, resume, or subscription is needed.
  *
  * Only the subagent session ID is required. Omitted patch fields keep their
- * previous values; `null` clears them. Clearing capabilities disables child
+ * previous values. `null` clears them. Clearing capabilities disables child
  * mutations. Clearing state leaves current activity unset/unconfirmed: it does
  * not imply idle, stop work, or create an `unknown` state snapshot. A concrete
  * state replaces the entire previous state object, not the session.
  * The title and description provide the parent's display metadata for the
  * child. They do not replace the content of individual messages or operations.
+ * `cwd` and `additionalDirectories` report where the Agent placed the child.
+ * While unset, each inherits the immediate parent's effective value.
  *
  * @experimental
  */
@@ -2651,6 +2888,8 @@ export const zSubagentUpdate = z.object({
     () => undefined,
   ),
   state: defaultOnError(zStateUpdate.nullish(), () => undefined),
+  cwd: z.string().nullish(),
+  additionalDirectories: z.array(z.string()).nullish(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -2670,6 +2909,8 @@ export const zSessionMessage = z.object({
   messageId: zMessageId,
   senderSessionId: defaultOnError(zSessionId.nullish(), () => undefined),
   recipientSessionId: defaultOnError(zSessionId.nullish(), () => undefined),
+  senderMessageId: defaultOnError(zMessageId.nullish(), () => undefined),
+  recipientMessageId: defaultOnError(zMessageId.nullish(), () => undefined),
   content: defaultOnError(
     vecSkipError(zContentBlock).nullish(),
     () => undefined,
@@ -2687,12 +2928,13 @@ export const zSessionMessage = z.object({
  *
  * A streamed content block of an inter-session message.
  *
+ * A chunk carries only content. The message's participants and references come from
+ * `session_message` upserts, which can arrive before, between, or after its chunks.
+ *
  * @experimental
  */
 export const zSessionMessageChunk = z.object({
   messageId: zMessageId,
-  senderSessionId: defaultOnError(zSessionId.nullish(), () => undefined),
-  recipientSessionId: defaultOnError(zSessionId.nullish(), () => undefined),
   content: zContentBlock,
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
@@ -2705,7 +2947,7 @@ export const zSessionMessageChunk = z.object({
  *
  * These updates provide real-time feedback about the agent's progress.
  *
- * See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)
+ * See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#3-agent-reports-output)
  */
 export const zSessionUpdate = z.union([
   zContentChunk.and(
@@ -2810,7 +3052,7 @@ export const zSessionUpdate = z.union([
  *
  * Used to stream real-time progress and results during prompt processing.
  *
- * See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)
+ * See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#3-agent-reports-output)
  */
 export const zSessionNotification = z.object({
   sessionId: zSessionId,
@@ -2833,11 +3075,33 @@ export const zCompleteElicitationNotification = z.object({
 });
 
 /**
- * Allows the Agent to send an arbitrary notification that is not part of the ACP spec.
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Notification sent by the agent when its authentication status changes.
+ *
+ * Carries the same fields as the `auth/status` response. Agents that advertise the
+ * `auth.status` capability MAY send it at any time after `initialize`, and SHOULD only
+ * send it when the reported status differs from the last one sent on the connection.
+ *
+ * @experimental
+ */
+export const zAuthStatusUpdateNotification = z.object({
+  state: zAuthState,
+  accounts: defaultOnError(vecSkipError(zAuthAccount).optional(), () => []),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * Allows either side to send an arbitrary notification that is not part of the ACP spec.
  * Extension notifications provide a way to send one-way messages for custom functionality
  * while maintaining protocol compatibility.
  *
- * See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+ * See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v1/draft/extensibility)
  */
 export const zExtNotification = z.unknown();
 
@@ -2850,6 +3114,7 @@ export const zAgentNotification = z.object({
     .union([
       zSessionNotification,
       zCompleteElicitationNotification,
+      zAuthStatusUpdateNotification,
       zExtNotification,
     ])
     .nullish(),
@@ -2858,7 +3123,7 @@ export const zAgentNotification = z.object({
 /**
  * File system capabilities that a client may support.
  *
- * See protocol docs: [FileSystem](https://agentclientprotocol.com/protocol/initialization#filesystem)
+ * See protocol docs: [FileSystem](https://agentclientprotocol.com/protocol/v1/draft/initialization#filesystem)
  */
 export const zFileSystemCapabilities = z.object({
   readTextFile: defaultOnError(
@@ -3027,7 +3292,7 @@ export const zElicitationCapabilities = z.object({
  * Advertised during initialization to inform the agent about
  * available features and methods.
  *
- * See protocol docs: [Client Capabilities](https://agentclientprotocol.com/protocol/initialization#client-capabilities)
+ * See protocol docs: [Client Capabilities](https://agentclientprotocol.com/protocol/v1/draft/initialization#client-capabilities)
  */
 export const zClientCapabilities = z.object({
   fs: defaultOnError(
@@ -3065,7 +3330,7 @@ export const zClientCapabilities = z.object({
  *
  * Sent by the client to establish connection and negotiate capabilities.
  *
- * See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)
+ * See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/v1/draft/initialization)
  */
 export const zInitializeRequest = z.object({
   protocolVersion: zProtocolVersion,
@@ -3169,6 +3434,27 @@ export const zLogoutRequest = z.object({
 });
 
 /**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Request parameters for the `auth/status` method.
+ *
+ * Queries the agent's current authentication state without changing it.
+ *
+ * Agents MUST NOT reject it with `auth_required` (`-32000`), since Clients call it to learn
+ * whether authentication is required.
+ *
+ * @experimental
+ */
+export const zAuthStatusRequest = z.object({
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
  * An HTTP header to set when making requests to the MCP server.
  */
 export const zHttpHeader = z.object({
@@ -3186,7 +3472,7 @@ export const zHttpHeader = z.object({
 export const zMcpServerHttp = z.object({
   name: z.string(),
   url: z.string(),
-  headers: z.array(zHttpHeader),
+  headers: defaultOnNull(z.array(zHttpHeader), () => []),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -3199,7 +3485,7 @@ export const zMcpServerHttp = z.object({
 export const zMcpServerSse = z.object({
   name: z.string(),
   url: z.string(),
-  headers: z.array(zHttpHeader),
+  headers: defaultOnNull(z.array(zHttpHeader), () => []),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -3233,8 +3519,8 @@ export const zMcpServerAcp = z.object({
 export const zMcpServerStdio = z.object({
   name: z.string(),
   command: z.string(),
-  args: z.array(z.string()),
-  env: z.array(zEnvVariable),
+  args: defaultOnNull(z.array(z.string()), () => []),
+  env: defaultOnNull(z.array(zEnvVariable), () => []),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -3247,7 +3533,7 @@ export const zMcpServerStdio = z.object({
  * MCP servers provide tools and context that the agent can use when
  * processing prompts.
  *
- * See protocol docs: [MCP Servers](https://agentclientprotocol.com/protocol/session-setup#mcp-servers)
+ * See protocol docs: [MCP Servers](https://agentclientprotocol.com/protocol/v1/draft/session-setup#mcp-servers)
  */
 export const zMcpServer = z.union([
   zMcpServerHttp.and(
@@ -3275,7 +3561,7 @@ export const zMcpServer = z.union([
  *
  * How the Agent combines a client-provided system prompt with its own instructions.
  *
- * Unknown modes parse as [`SystemPromptMode::Other`] so they can be stored,
+ * Unknown modes are preserved so they can be stored,
  * proxied, or forwarded. An Agent MUST return an error for a mode it does not
  * support rather than treating it as `append` or `override`.
  *
@@ -3314,12 +3600,15 @@ export const zSystemPrompt = z.object({
 /**
  * Request parameters for creating a new session.
  *
- * See protocol docs: [Creating a Session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session)
+ * See protocol docs: [Creating a Session](https://agentclientprotocol.com/protocol/v1/draft/session-setup#creating-a-session)
  */
 export const zNewSessionRequest = z.object({
   cwd: z.string(),
-  additionalDirectories: z.array(z.string()).optional(),
-  mcpServers: z.array(zMcpServer),
+  additionalDirectories: defaultOnNull(
+    z.array(z.string()),
+    () => [],
+  ).optional(),
+  mcpServers: defaultOnNull(z.array(zMcpServer), () => []),
   systemPrompt: zSystemPrompt.nullish(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
@@ -3332,12 +3621,15 @@ export const zNewSessionRequest = z.object({
  *
  * Only available if the Agent supports the `loadSession` capability.
  *
- * See protocol docs: [Loading Sessions](https://agentclientprotocol.com/protocol/session-setup#loading-sessions)
+ * See protocol docs: [Loading Sessions](https://agentclientprotocol.com/protocol/v1/draft/session-setup#loading-sessions)
  */
 export const zLoadSessionRequest = z.object({
-  mcpServers: z.array(zMcpServer),
+  mcpServers: defaultOnNull(z.array(zMcpServer), () => []),
   cwd: z.string(),
-  additionalDirectories: z.array(z.string()).optional(),
+  additionalDirectories: defaultOnNull(
+    z.array(z.string()),
+    () => [],
+  ).optional(),
   sessionId: zSessionId,
   systemPrompt: zSystemPrompt.nullish(),
   _meta: defaultOnError(
@@ -3347,6 +3639,25 @@ export const zLoadSessionRequest = z.object({
 });
 
 /**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Which sessions `session/list` returns based on their archive state.
+ *
+ * Unknown values are preserved so they can be stored, proxied, or forwarded. An Agent MUST
+ * return `-32602` for a value it does not support rather than treating it as `exclude`.
+ *
+ * @experimental
+ */
+export const zSessionArchiveFilter = z.union([
+  z.literal("exclude"),
+  z.literal("include"),
+  z.literal("only"),
+  z.string(),
+]);
+
+/**
  * Request parameters for listing existing sessions.
  *
  * Only available if the Agent supports the `sessionCapabilities.list` capability.
@@ -3354,6 +3665,7 @@ export const zLoadSessionRequest = z.object({
 export const zListSessionsRequest = z.object({
   cwd: z.string().nullish(),
   cursor: z.string().nullish(),
+  archived: zSessionArchiveFilter.nullish(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -3390,9 +3702,110 @@ export const zDeleteSessionRequest = z.object({
 export const zForkSessionRequest = z.object({
   sessionId: zSessionId,
   cwd: z.string(),
-  additionalDirectories: z.array(z.string()).optional(),
-  mcpServers: z.array(zMcpServer).optional(),
+  additionalDirectories: defaultOnNull(
+    z.array(z.string()),
+    () => [],
+  ).optional(),
+  mcpServers: defaultOnNull(z.array(zMcpServer), () => []).optional(),
   systemPrompt: zSystemPrompt.nullish(),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Request parameters for archiving a session.
+ *
+ * Only available if the Agent supports the `sessionCapabilities.archive` capability.
+ *
+ * Archiving hides the session from default `session/list` results. It keeps the session ID
+ * and saved history. If the session is active, the Agent MUST cancel any ongoing work and
+ * free the session's resources as if `session/close` had been called, then archive it.
+ * Archiving an archived session succeeds. A session that does not exist gets `-32002`.
+ *
+ * @experimental
+ */
+export const zArchiveSessionRequest = z.object({
+  sessionId: zSessionId,
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Request parameters for unarchiving a session.
+ *
+ * Only available if the Agent supports the `sessionCapabilities.archive` capability.
+ *
+ * Unarchiving returns the session to default `session/list` results with the same ID and
+ * saved history. It never loads or resumes the session. Clients that want to continue an
+ * archived session SHOULD unarchive it before calling `session/load` or `session/resume`.
+ * Unarchiving a session that is not archived succeeds. A session that does not exist
+ * gets `-32002`.
+ *
+ * @experimental
+ */
+export const zUnarchiveSessionRequest = z.object({
+  sessionId: zSessionId,
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Request parameters for checking the status of a session.
+ *
+ * Only available if the Agent supports the `sessionCapabilities.status` capability.
+ *
+ * `session/status` MUST NOT have side effects. The Agent does not load, resume, create,
+ * close, or change the session, and does not attach the requesting connection to it.
+ * A session the Agent does not know gets `-32002` with the requested `sessionId` in `data`.
+ *
+ * @experimental
+ */
+export const zSessionStatusRequest = z.object({
+  sessionId: zSessionId,
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Request parameters for setting the title of a session.
+ *
+ * Only available if the Agent supports the `sessionCapabilities.title` capability.
+ *
+ * The session does not need to be active on the connection. Any session the Agent would
+ * return from `session/list` can be retitled. A session that does not exist gets `-32002`.
+ *
+ * The Agent responds only after it has stored the title. After a successful response, the
+ * Agent SHOULD NOT replace the title with one it generates automatically.
+ *
+ * @experimental
+ */
+export const zSetSessionTitleRequest = z.object({
+  sessionId: zSessionId,
+  title: z.string(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -3410,8 +3823,11 @@ export const zForkSessionRequest = z.object({
 export const zResumeSessionRequest = z.object({
   sessionId: zSessionId,
   cwd: z.string(),
-  additionalDirectories: z.array(z.string()).optional(),
-  mcpServers: z.array(zMcpServer).optional(),
+  additionalDirectories: defaultOnNull(
+    z.array(z.string()),
+    () => [],
+  ).optional(),
+  mcpServers: defaultOnNull(z.array(zMcpServer), () => []).optional(),
   systemPrompt: zSystemPrompt.nullish(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
@@ -3454,8 +3870,8 @@ export const zSetSessionModeRequest = z.object({
 export const zSetSessionConfigOptionRequest = z.intersection(
   z.union([
     z.object({
-      value: z.boolean(),
       type: z.literal("boolean"),
+      value: z.boolean(),
     }),
     z.object({
       value: zSessionConfigValueId,
@@ -3476,7 +3892,7 @@ export const zSetSessionConfigOptionRequest = z.intersection(
  *
  * Contains the user's message and any additional context.
  *
- * See protocol docs: [User Message](https://agentclientprotocol.com/protocol/prompt-turn#1-user-message)
+ * See protocol docs: [User Message](https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#1-user-message)
  */
 export const zPromptRequest = z.object({
   sessionId: zSessionId,
@@ -3501,11 +3917,16 @@ export const zClientRequest = z.object({
       zSetProviderRequest,
       zDisableProviderRequest,
       zLogoutRequest,
+      zAuthStatusRequest,
       zNewSessionRequest,
       zLoadSessionRequest,
       zListSessionsRequest,
       zDeleteSessionRequest,
       zForkSessionRequest,
+      zArchiveSessionRequest,
+      zUnarchiveSessionRequest,
+      zSessionStatusRequest,
+      zSetSessionTitleRequest,
       zResumeSessionRequest,
       zCloseSessionRequest,
       zSetSessionModeRequest,
@@ -3660,11 +4081,11 @@ export const zKillTerminalResponse = z.object({
 });
 
 /**
- * Allowed wire representations for [`ElicitationContentValue`].
+ * Allowed wire representations for `ElicitationContentValue`.
  */
 export const zElicitationContentValue = z.union([
   z.string(),
-  z.number(),
+  wideInt(),
   z.number(),
   z.boolean(),
   z.array(z.string()),
@@ -3722,8 +4143,8 @@ export const zCreateElicitationResponse = preserveCustomPayload(
  *
  * An inner MCP error, distinct from an outer ACP binding or runtime error.
  *
- * `code` and `message` are required and non-null. `data` is optional;
- * explicit `null` is preserved separately from an omitted key.
+ * `code` and `message` are required and non-null. `data` is optional.
+ * Explicit `null` is preserved separately from an omitted key.
  *
  * @experimental
  */
@@ -3748,9 +4169,9 @@ export const zMcpError = z.looseObject({
  * Outer ACP errors are reserved for binding and runtime failures.
  *
  * Both branches require their carrier key. An error must be a non-null object.
- * Unknown outer fields are ignored; inner result and error fields are preserved.
- * Carrier `_meta` is optional; null or invalid values are treated as absent.
- * Senders must include exactly one outcome; receivers prefer `result` if both are present.
+ * Unknown outer fields are ignored. Inner result and error fields are preserved.
+ * Carrier `_meta` is optional. Null or invalid values are treated as absent.
+ * Senders must include exactly one outcome. Receivers prefer `result` if both are present.
  *
  * @experimental
  */
@@ -3800,7 +4221,7 @@ export const zClientResponse = z.union([
 /**
  * Notification to cancel ongoing operations for a session.
  *
- * See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
+ * See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#cancellation)
  */
 export const zCancelNotification = z.object({
   sessionId: zSessionId,
@@ -3818,7 +4239,7 @@ export const zCancelNotification = z.object({
  * Notification parameters for `mcp/message`.
  *
  * Sent by the provider to the consumer for an active request (including
- * subscription acknowledgements and updates); the outer envelope has no `id`.
+ * subscription acknowledgements and updates). The outer envelope has no `id`.
  *
  * @experimental
  */
@@ -3846,7 +4267,7 @@ export const zClientNotification = z.object({
 /**
  * Notification to cancel an ongoing request.
  *
- * See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/cancellation)
+ * See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/v1/draft/cancellation)
  */
 export const zCancelRequestNotification = z.object({
   requestId: zRequestId,
@@ -3854,4 +4275,137 @@ export const zCancelRequestNotification = z.object({
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
   ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Request parameters for `proxy/initialize`.
+ *
+ * A conductor sends `proxy/initialize` instead of `initialize` to every component that has a
+ * successor, which tells the component to run as a proxy. The params and the response are
+ * the same as for `initialize`. A conductor sends `initialize` to the final agent.
+ *
+ * The params carry the protocol version the conductor selected: the client's requested
+ * version, unless the conductor supports only a lower one. Before answering successfully,
+ * the proxy MUST forward an `initialize` request to its successor through `proxy/successor`.
+ *
+ * See the [Proxy Chains RFD](https://agentclientprotocol.com/rfds/proxy-chains).
+ *
+ * @experimental
+ */
+export const zInitializeProxyRequest = zInitializeRequest;
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Parameters of a `proxy/successor` request.
+ *
+ * A proxy sends it to forward a message to its successor, and the conductor sends it to
+ * deliver a message from the successor to the proxy. The envelope wraps one request: `method`
+ * and `params` are the wrapped request's method and params.
+ *
+ * The result or error of the wrapped request is returned unchanged, as the same JSON value,
+ * as the result or error of the `proxy/successor` request. Errors the conductor returns
+ * itself, for example because the successor has exited, are not wrapped results.
+ *
+ * To cancel it, the sender sends `$/cancel_request` with the ID of this `proxy/successor`
+ * request on the same connection. Cancellation is never forwarded to another hop.
+ *
+ * See the [Proxy Chains RFD](https://agentclientprotocol.com/rfds/proxy-chains).
+ *
+ * @experimental
+ */
+export const zProxySuccessorRequest = z.object({
+  method: z.string(),
+  params: z.unknown().optional(),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * A JSON-RPC request object.
+ */
+export const zProxyRequest = z.object({
+  id: zRequestId,
+  method: z.string(),
+  params: z.union([zInitializeProxyRequest, zProxySuccessorRequest]).nullish(),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Response to `proxy/initialize`.
+ *
+ * The same as the `initialize` response. The proxy builds it from its successor's
+ * `initialize` response and answers with the capabilities of the chain from itself onward.
+ * It MUST NOT change `protocolVersion`.
+ *
+ * @experimental
+ */
+export const zInitializeProxyResponse = zInitializeResponse;
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Result of a `proxy/successor` request: the wrapped request's result, forwarded unchanged.
+ *
+ * @experimental
+ */
+export const zProxySuccessorResponse = z.unknown();
+
+/**
+ * A JSON-RPC response object.
+ */
+export const zProxyResponse = z.union([
+  z.object({
+    id: zRequestId,
+    result: z.union([zInitializeProxyResponse, zProxySuccessorResponse]),
+  }),
+  z.object({
+    id: zRequestId,
+    error: zError,
+  }),
+]);
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * Parameters of a `proxy/successor` notification.
+ *
+ * A proxy sends it to forward a message to its successor, and the conductor sends it to
+ * deliver a message from the successor to the proxy. The envelope wraps one notification: `method`
+ * and `params` are the wrapped notification's method and params.
+ *
+ * See the [Proxy Chains RFD](https://agentclientprotocol.com/rfds/proxy-chains).
+ *
+ * @experimental
+ */
+export const zProxySuccessorNotification = z.object({
+  method: z.string(),
+  params: z.unknown().optional(),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * A JSON-RPC notification object.
+ */
+export const zProxyNotification = z.object({
+  method: z.string(),
+  params: zProxySuccessorNotification.nullish(),
 });

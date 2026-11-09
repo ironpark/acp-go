@@ -48,7 +48,12 @@ func idleState(reason StopReason) IdleStateUpdate {
 // object an error response would.
 func errorState(failure error) IdleStateUpdate {
 	code, message, data := jsonrpc.ErrorObject(failure)
-	return schema.NewIdleStateUpdate(schema.IdleStateUpdateError{Error: &schema.Error{Code: schema.ErrorCode(code), Message: message, Data: data}})
+	object := &schema.Error{Code: schema.ErrorCode(code), Message: message}
+	if len(data) > 0 {
+		// Any JSON value is an ErrorData alternative, so this cannot fail.
+		object.Data, _ = schema.NewErrorData(data)
+	}
+	return schema.NewIdleStateUpdate(schema.IdleStateUpdateError{Error: object})
 }
 
 // stopOf returns the stop reason an idle state update reports and, for the
@@ -61,5 +66,5 @@ func stopOf(idle IdleStateUpdate) (StopReason, error) {
 	if e.Error == nil {
 		return StopReasonError, acp.InternalError("the agent reported a failure without details")
 	}
-	return StopReasonError, jsonrpc.FromErrorObject(jsonrpc.ErrorCode(e.Error.Code), e.Error.Message, e.Error.Data)
+	return StopReasonError, jsonrpc.FromErrorObject(jsonrpc.ErrorCode(e.Error.Code), e.Error.Message, e.Error.Data.RawJSON())
 }

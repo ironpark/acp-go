@@ -268,8 +268,17 @@ func TestUnsupportedVersionIsRejected(t *testing.T) {
 	if string(msg["id"]) != "7" {
 		t.Errorf("id = %s", msg["id"])
 	}
-	if code, text := errorOf(t, msg); code != int64(acp.ErrorCodeInvalidRequest) || !strings.Contains(text, "unsupported ACP protocol version 1; this endpoint supports ACP protocol version 2") {
-		t.Errorf("error = %d %q", code, text)
+	if code, _ := errorOf(t, msg); code != int64(acp.ErrorCodeUnsupportedProtocolVersion) {
+		t.Errorf("code = %d, want -32022", code)
+	}
+	var e struct {
+		Data struct {
+			Requested uint16   `json:"requested"`
+			Supported []uint16 `json:"supported"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(msg["error"], &e); err != nil || e.Data.Requested != 1 || len(e.Data.Supported) != 1 || e.Data.Supported[0] != 2 {
+		t.Errorf("error data = %+v (%v), want requested 1, supported [2]", e.Data, err)
 	}
 	if !p.closedWithoutOutput() {
 		t.Error("connection stayed open after rejection")

@@ -38,8 +38,11 @@ Inputs and outputs:
 
 | Upstream | Snapshot | Go import |
 | --- | --- | --- |
-| `src/schema/*.ts` | `typescript/v1` | `github.com/ironpark/acp-go/schema/v1` |
-| `src/v2/schema/*.ts` | `typescript/v2` | `github.com/ironpark/acp-go/schema/v2` |
+| `src/v1/unstable/schema/*.ts` | `typescript/v1` | `github.com/ironpark/acp-go/schema/v1` |
+| `src/v2/unstable/schema/*.ts` | `typescript/v2` | `github.com/ironpark/acp-go/schema/v2` |
+
+The snapshot takes the SDK's unstable views, which carry every method and type; the stable views
+are subsets of them. The façade tables mark the unstable groups as experimental.
 
 Both Go packages are named `schema`; use aliases such as `acp1` and `acp2` when importing both.
 `acp1` implements ACP v1 on top of `schema/v1`, `acp2` implements the draft v2 on top of
@@ -62,7 +65,9 @@ lifecycle methods and the extension hooks.
 - `types.gen.ts`: exported aliases, references, primitives, literal enums, objects,
   optional properties, nullable types, arrays, string index signatures, unions and object intersections.
   Template literal types such as `` `_${string}` `` are strings, and the `UnknownVariant<T>` brand
-  is `T`; union alternatives that are then the same JSON shape merge into one. Other generic
+  is `T`; union alternatives that are then the same JSON shape merge into one, once numbers have
+  their Go types, so `number | number` whose Zod rule is `wideInt() | number()` stays an `int64`
+  and a `float64` alternative. Other generic
   declarations fail. An intersection that declares a member twice keeps the narrower type.
 - `index.ts`: protocol version and method constants. Imports, re-exports and private declarations
   are ignored. Unsupported exported declarations fail with a source location.
@@ -70,8 +75,11 @@ lifecycle methods and the extension hooks.
   unions/intersections, optional/nullable/nullish wrappers, defaults, integer/numeric/length
   bounds, regular expressions, URL and ISO datetime builders. The ACP helpers
   `defaultOnError`, `requiredDefaultOnError`, `vecSkipError`, `excludeKnownTags`,
-  `preserveCustomPayload` and `defaultOnErrorOptionalStringTag` retain their ordering and distinct
-  semantics. Unsupported builder
+  `preserveCustomPayload`, `defaultOnErrorOptionalStringTag`, `defaultOnNull` (an explicit null
+  becomes the field's empty value, a missing key still meets the rule), `wideInt` (a whole number
+  without `z.int()`'s safe-integer bound, for 64-bit wire integers) and `exactlyOneByRequiredKeys`
+  (JSON Schema `oneOf` over object variants picked by which required keys are present) retain
+  their ordering and distinct semantics. Unsupported builder
   expressions fail with a source location; no JavaScript code is evaluated.
 - `guards.gen.ts`: retained with the upstream snapshot for reference; not executed or translated.
 
@@ -88,7 +96,8 @@ named scalar type with constants and a `Known` method.
 A number whose Zod rule is an integer gets the narrowest of `uint16`, `uint32`, `uint64`, `int32` and
 `int64` its bounds allow; an integer rule the generator cannot pair with a number fails generation.
 Other TypeScript numbers use `float64`, except those `internal/cmd/schema/overrides.yaml`
-gives an integer type because the protocol's Rust schema declares them integers; unknown payloads use `jsontext.Value` to preserve
+gives an integer type because the protocol's Rust schema declares them integers (since the SDK
+emits `wideInt` for every 64-bit field, the list is empty); unknown payloads use `jsontext.Value` to preserve
 large numbers and extension data. Object index signatures use JSON v2's `embed` fallback:
 additional properties retain their declared value type, and duplicate keys that collide with
 named fields are rejected. Caller options such as deterministic map ordering propagate normally.
