@@ -17,7 +17,11 @@
       "amount": 1.5,
       "currency": "usd"
     },
-    "success": false
+    "success": true,
+    "output": {
+      "amount": 1.5,
+      "currency": "usd"
+    }
   },
   {
     "schema": "zCost",
@@ -58,7 +62,9 @@
       "lastModified": "2026-09-22T10:20:30+24:00"
     },
     "success": true,
-    "output": {}
+    "output": {
+      "lastModified": "2026-09-22T10:20:30+24:00"
+    }
   },
   {
     "schema": "zIcon",
@@ -198,5 +204,224 @@
       "type": "custom"
     },
     "success": false
+  },
+  {
+    "schema": "zRequestId",
+    "input": 9007199254740992,
+    "success": true,
+    "output": 9007199254740992
+  },
+  {
+    "schema": "zRequestId",
+    "input": 1.5,
+    "success": false
+  },
+  {
+    "schema": "zRequestId",
+    "input": 2,
+    "success": true,
+    "output": 2
+  },
+  {
+    "schema": "zRequestId",
+    "input": "r",
+    "success": true,
+    "output": "r"
+  },
+  {
+    "schema": "zUsage",
+    "input": {
+      "totalTokens": 9007199254740992,
+      "inputTokens": 1,
+      "outputTokens": 2
+    },
+    "success": true,
+    "output": {
+      "totalTokens": 9007199254740992,
+      "inputTokens": 1,
+      "outputTokens": 2
+    }
+  },
+  {
+    "schema": "zUsage",
+    "input": {
+      "totalTokens": -1,
+      "inputTokens": 1,
+      "outputTokens": 2
+    },
+    "success": false
+  },
+  {
+    "schema": "zUsage",
+    "input": {
+      "totalTokens": 1.5,
+      "inputTokens": 1,
+      "outputTokens": 2
+    },
+    "success": false
+  },
+  {
+    "schema": "zMcpServerStdio",
+    "input": {
+      "name": "m",
+      "command": "c",
+      "args": null,
+      "env": null
+    },
+    "success": true,
+    "output": {
+      "name": "m",
+      "command": "c",
+      "args": [],
+      "env": []
+    }
+  },
+  {
+    "schema": "zMcpServerStdio",
+    "input": {
+      "name": "m",
+      "command": "c",
+      "args": [
+        "a"
+      ]
+    },
+    "success": true,
+    "output": {
+      "name": "m",
+      "command": "c",
+      "args": [
+        "a"
+      ]
+    }
+  },
+  {
+    "schema": "zAuthMethodTerminal",
+    "input": {
+      "id": "t",
+      "name": "T",
+      "args": null,
+      "env": null
+    },
+    "success": false
+  },
+  {
+    "schema": "zElicitationContentValue",
+    "input": 1.5,
+    "success": true,
+    "output": 1.5
+  },
+  {
+    "schema": "zElicitationContentValue",
+    "input": 3,
+    "success": true,
+    "output": 3
+  },
+  {
+    "schema": "zElicitationContentValue",
+    "input": [
+      "a"
+    ],
+    "success": true,
+    "output": [
+      "a"
+    ]
+  },
+  {
+    "schema": "zElicitationFormMode",
+    "input": {
+      "sessionId": "s",
+      "requestedSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "success": true,
+    "output": {
+      "sessionId": "s",
+      "requestedSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "schema": "zElicitationFormMode",
+    "input": {
+      "requestId": 7,
+      "requestedSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "success": true,
+    "output": {
+      "requestId": 7,
+      "requestedSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "schema": "zElicitationFormMode",
+    "input": {
+      "sessionId": "s",
+      "requestId": 7,
+      "requestedSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "success": false
+  },
+  {
+    "schema": "zElicitationFormMode",
+    "input": {
+      "requestedSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "success": false
+  },
+  {
+    "schema": "zElicitationFormMode",
+    "input": {
+      "sessionId": null,
+      "requestedSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "success": false
+  },
+  {
+    "schema": "zElicitationUrlMode",
+    "input": {
+      "requestId": "r",
+      "elicitationId": "e",
+      "url": "https://example.com/a"
+    },
+    "success": true,
+    "output": {
+      "requestId": "r",
+      "elicitationId": "e",
+      "url": "https://example.com/a"
+    }
+  },
+  {
+    "schema": "zElicitationUrlMode",
+    "input": {
+      "sessionId": "s",
+      "toolCallId": 5,
+      "elicitationId": "e",
+      "url": "https://example.com/a"
+    },
+    "success": true,
+    "output": {
+      "sessionId": "s",
+      "elicitationId": "e",
+      "url": "https://example.com/a"
+    }
   }
 ]

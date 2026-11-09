@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
@@ -166,6 +167,14 @@ func (c *ClientConnector) initializeV2(ctx context.Context, start func() (*acp2.
 			// A strict v1 agent may reject the v2 request shape outright
 			// rather than answer protocolVersion 1.
 			return nil, acp1.ProtocolVersion, nil
+		}
+		if supported, ok := acp.SupportedProtocolVersions(err); ok {
+			// The agent named the versions it speaks: retry with v1 when it
+			// is one of them, or report that none is shared.
+			if slices.Contains(supported, uint16(acp1.ProtocolVersion)) {
+				return nil, acp1.ProtocolVersion, nil
+			}
+			return nil, 0, fmt.Errorf("%w: agent supports protocol versions %v", ErrNoCommonVersion, supported)
 		}
 		return nil, 0, fmt.Errorf("initialize: %w", err)
 	}

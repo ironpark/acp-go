@@ -2,6 +2,14 @@
 
 package schema
 
+// GetStatus returns Status, or nil if x is nil.
+func (x *AgentAuthCapabilities) GetStatus() *AuthStatusCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Status
+}
+
 // GetSession returns Session, or nil if x is nil.
 func (x *AgentCapabilities) GetSession() *SessionCapabilities {
 	if x == nil {
@@ -44,25 +52,44 @@ func (x *Annotations) GetPriority() float64 {
 	return zero
 }
 
-// GetTerminal returns Terminal, or nil if x is nil.
-func (x *AuthCapabilities) GetTerminal() *TerminalAuthCapabilities {
-	if x == nil {
-		return nil
+// GetActive returns the value of Active, or the zero value if x or Active is nil.
+func (x *AuthAccount) GetActive() bool {
+	if x != nil && x.Active != nil {
+		return *x.Active
 	}
-	return x.Terminal
+	var zero bool
+	return zero
 }
 
-// GetDescription returns the value of Description, or the zero value if x or Description is nil.
-func (x *AuthMethodAgent) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
+// GetName returns the value of Name, or the zero value if x or Name is nil.
+func (x *AuthAccount) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	var zero string
+	return zero
+}
+
+// GetEmail returns the value of Email, or the zero value if x or Email is nil.
+func (x *AuthAccount) GetEmail() string {
+	if x != nil && x.Email != nil {
+		return *x.Email
+	}
+	var zero string
+	return zero
+}
+
+// GetOrganization returns the value of Organization, or the zero value if x or Organization is nil.
+func (x *AuthAccount) GetOrganization() string {
+	if x != nil && x.Organization != nil {
+		return *x.Organization
 	}
 	var zero string
 	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
-func (x *AuthMethodCustom) GetDescription() string {
+func (x *AuthMethodAgent) GetDescription() string {
 	if x != nil && x.Description != nil {
 		return *x.Description
 	}
@@ -88,8 +115,16 @@ func (x *BlobResourceContents) GetMIMEType() MediaType {
 	return zero
 }
 
+// GetTerminal returns Terminal, or nil if x is nil.
+func (x *ClientAuthCapabilities) GetTerminal() *TerminalAuthCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Terminal
+}
+
 // GetAuth returns Auth, or nil if x is nil.
-func (x *ClientCapabilities) GetAuth() *AuthCapabilities {
+func (x *ClientCapabilities) GetAuth() *ClientAuthCapabilities {
 	if x == nil {
 		return nil
 	}
@@ -165,11 +200,11 @@ func (x *ContentBlockResourceLink) GetMIMEType() MediaType {
 }
 
 // GetSize returns the value of Size, or the zero value if x or Size is nil.
-func (x *ContentBlockResourceLink) GetSize() int64 {
+func (x *ContentBlockResourceLink) GetSize() uint64 {
 	if x != nil && x.Size != nil {
 		return *x.Size
 	}
-	var zero int64
+	var zero uint64
 	return zero
 }
 
@@ -565,15 +600,6 @@ func (x *ElicitationPropertySchemaString) GetDefault() string {
 	return zero
 }
 
-// GetType returns the value of Type, or the zero value if x or Type is nil.
-func (x *ElicitationSchema) GetType() ElicitationSchemaType {
-	if x != nil && x.Type != nil {
-		return *x.Type
-	}
-	var zero ElicitationSchemaType
-	return zero
-}
-
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ElicitationSchema) GetTitle() string {
 	if x != nil && x.Title != nil {
@@ -768,6 +794,15 @@ func (x *ListSessionsRequest) GetCursor() SessionListCursor {
 	return zero
 }
 
+// GetArchived returns the value of Archived, or the zero value if x or Archived is nil.
+func (x *ListSessionsRequest) GetArchived() SessionArchiveFilter {
+	if x != nil && x.Archived != nil {
+		return *x.Archived
+	}
+	var zero SessionArchiveFilter
+	return zero
+}
+
 // GetNextCursor returns the value of NextCursor, or the zero value if x or NextCursor is nil.
 func (x *ListSessionsResponse) GetNextCursor() SessionListCursor {
 	if x != nil && x.NextCursor != nil {
@@ -839,6 +874,23 @@ func (x *ProviderInfo) GetCurrent() *ProviderCurrentConfig {
 		return nil
 	}
 	return x.Current
+}
+
+// GetParams returns Params, or nil if x is nil.
+func (x *ProxyNotification) GetParams() *ProxySuccessorNotification {
+	if x == nil {
+		return nil
+	}
+	return x.Params
+}
+
+// GetID returns the value of ID, or the zero value if x or ID is nil.
+func (x *ProxyResponseError) GetID() ProxyResponseErrorID {
+	if x != nil && x.ID != nil {
+		return *x.ID
+	}
+	var zero ProxyResponseErrorID
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
@@ -924,6 +976,30 @@ func (x *SessionCapabilities) GetFork() *SessionForkCapabilities {
 	return x.Fork
 }
 
+// GetArchive returns Archive, or nil if x is nil.
+func (x *SessionCapabilities) GetArchive() *SessionArchiveCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Archive
+}
+
+// GetStatus returns Status, or nil if x is nil.
+func (x *SessionCapabilities) GetStatus() *SessionStatusCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Status
+}
+
+// GetTitle returns Title, or nil if x is nil.
+func (x *SessionCapabilities) GetTitle() *SessionTitleCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Title
+}
+
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *SessionConfigOptionBoolean) GetDescription() string {
 	if x != nil && x.Description != nil {
@@ -1002,6 +1078,15 @@ func (x *SessionInfo) GetUpdatedAt() string {
 		return *x.UpdatedAt
 	}
 	var zero string
+	return zero
+}
+
+// GetArchived returns the value of Archived, or the zero value if x or Archived is nil.
+func (x *SessionInfo) GetArchived() bool {
+	if x != nil && x.Archived != nil {
+		return *x.Archived
+	}
+	var zero bool
 	return zero
 }
 
@@ -1130,22 +1215,44 @@ func (x *SessionUpdateSessionInfoUpdate) GetMeta() Meta {
 	return v
 }
 
-// GetSenderSessionID returns the value of SenderSessionID, or the zero value if x or SenderSessionID is nil.
+// GetSenderSessionID returns the value of SenderSessionID, or the zero value if x is nil or SenderSessionID is absent or null.
 func (x *SessionUpdateSessionMessage) GetSenderSessionID() SessionID {
-	if x != nil && x.SenderSessionID != nil {
-		return *x.SenderSessionID
+	if x == nil {
+		var zero SessionID
+		return zero
 	}
-	var zero SessionID
-	return zero
+	v, _ := x.SenderSessionID.Get()
+	return v
 }
 
-// GetRecipientSessionID returns the value of RecipientSessionID, or the zero value if x or RecipientSessionID is nil.
+// GetRecipientSessionID returns the value of RecipientSessionID, or the zero value if x is nil or RecipientSessionID is absent or null.
 func (x *SessionUpdateSessionMessage) GetRecipientSessionID() SessionID {
-	if x != nil && x.RecipientSessionID != nil {
-		return *x.RecipientSessionID
+	if x == nil {
+		var zero SessionID
+		return zero
 	}
-	var zero SessionID
-	return zero
+	v, _ := x.RecipientSessionID.Get()
+	return v
+}
+
+// GetSenderMessageID returns the value of SenderMessageID, or the zero value if x is nil or SenderMessageID is absent or null.
+func (x *SessionUpdateSessionMessage) GetSenderMessageID() MessageID {
+	if x == nil {
+		var zero MessageID
+		return zero
+	}
+	v, _ := x.SenderMessageID.Get()
+	return v
+}
+
+// GetRecipientMessageID returns the value of RecipientMessageID, or the zero value if x is nil or RecipientMessageID is absent or null.
+func (x *SessionUpdateSessionMessage) GetRecipientMessageID() MessageID {
+	if x == nil {
+		var zero MessageID
+		return zero
+	}
+	v, _ := x.RecipientMessageID.Get()
+	return v
 }
 
 // GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
@@ -1166,24 +1273,6 @@ func (x *SessionUpdateSessionMessage) GetMeta() Meta {
 	}
 	v, _ := x.Meta.Get()
 	return v
-}
-
-// GetSenderSessionID returns the value of SenderSessionID, or the zero value if x or SenderSessionID is nil.
-func (x *SessionUpdateSessionMessageChunk) GetSenderSessionID() SessionID {
-	if x != nil && x.SenderSessionID != nil {
-		return *x.SenderSessionID
-	}
-	var zero SessionID
-	return zero
-}
-
-// GetRecipientSessionID returns the value of RecipientSessionID, or the zero value if x or RecipientSessionID is nil.
-func (x *SessionUpdateSessionMessageChunk) GetRecipientSessionID() SessionID {
-	if x != nil && x.RecipientSessionID != nil {
-		return *x.RecipientSessionID
-	}
-	var zero SessionID
-	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x is nil or Title is absent or null.
@@ -1223,6 +1312,26 @@ func (x *SessionUpdateSubagentUpdate) GetState() StateUpdate {
 		return zero
 	}
 	v, _ := x.State.Get()
+	return v
+}
+
+// GetCwd returns the value of Cwd, or the zero value if x is nil or Cwd is absent or null.
+func (x *SessionUpdateSubagentUpdate) GetCwd() AbsolutePath {
+	if x == nil {
+		var zero AbsolutePath
+		return zero
+	}
+	v, _ := x.Cwd.Get()
+	return v
+}
+
+// GetAdditionalDirectories returns the value of AdditionalDirectories, or the zero value if x is nil or AdditionalDirectories is absent or null.
+func (x *SessionUpdateSubagentUpdate) GetAdditionalDirectories() []AbsolutePath {
+	if x == nil {
+		var zero []AbsolutePath
+		return zero
+	}
+	v, _ := x.AdditionalDirectories.Get()
 	return v
 }
 
@@ -1270,6 +1379,26 @@ func (x *SessionUpdateTerminalUpdate) GetOutput() *TerminalOutput {
 func (x *SessionUpdateTerminalUpdate) GetExitStatus() *TerminalExitStatus {
 	if x != nil {
 		if v, ok := x.ExitStatus.Get(); ok {
+			return &v
+		}
+	}
+	return nil
+}
+
+// GetSize returns a copy of Size, or nil if x is nil or Size is absent or null.
+func (x *SessionUpdateTerminalUpdate) GetSize() *TerminalSize {
+	if x != nil {
+		if v, ok := x.Size.Get(); ok {
+			return &v
+		}
+	}
+	return nil
+}
+
+// GetCapabilities returns a copy of Capabilities, or nil if x is nil or Capabilities is absent or null.
+func (x *SessionUpdateTerminalUpdate) GetCapabilities() *TerminalCapabilities {
+	if x != nil {
+		if v, ok := x.Capabilities.Get(); ok {
 			return &v
 		}
 	}
@@ -1346,6 +1475,16 @@ func (x *SessionUpdateToolCallUpdate) GetLocations() []ToolCallLocation {
 	return v
 }
 
+// GetCapabilities returns a copy of Capabilities, or nil if x is nil or Capabilities is absent or null.
+func (x *SessionUpdateToolCallUpdate) GetCapabilities() *ToolCallCapabilities {
+	if x != nil {
+		if v, ok := x.Capabilities.Get(); ok {
+			return &v
+		}
+	}
+	return nil
+}
+
 // GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
 func (x *SessionUpdateToolCallUpdate) GetMeta() Meta {
 	if x == nil {
@@ -1356,12 +1495,14 @@ func (x *SessionUpdateToolCallUpdate) GetMeta() Meta {
 	return v
 }
 
-// GetCost returns Cost, or nil if x is nil.
+// GetCost returns a copy of Cost, or nil if x is nil or Cost is absent or null.
 func (x *SessionUpdateUsageUpdate) GetCost() *Cost {
-	if x == nil {
-		return nil
+	if x != nil {
+		if v, ok := x.Cost.Get(); ok {
+			return &v
+		}
 	}
-	return x.Cost
+	return nil
 }
 
 // GetContent returns the value of Content, or the zero value if x is nil or Content is absent or null.
@@ -1392,12 +1533,20 @@ func (x *SubagentSessionCapabilities) GetCancel() *SessionCancelCapabilities {
 	return x.Cancel
 }
 
+// GetCancel returns Cancel, or nil if x is nil.
+func (x *TerminalCapabilities) GetCancel() *TerminalCancelCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Cancel
+}
+
 // GetExitCode returns the value of ExitCode, or the zero value if x or ExitCode is nil.
-func (x *TerminalExitStatus) GetExitCode() uint32 {
+func (x *TerminalExitStatus) GetExitCode() int64 {
 	if x != nil && x.ExitCode != nil {
 		return *x.ExitCode
 	}
-	var zero uint32
+	var zero int64
 	return zero
 }
 
@@ -1417,6 +1566,14 @@ func (x *TextResourceContents) GetMIMEType() MediaType {
 	}
 	var zero MediaType
 	return zero
+}
+
+// GetCancel returns Cancel, or nil if x is nil.
+func (x *ToolCallCapabilities) GetCancel() *ToolCallCancelCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Cancel
 }
 
 // GetPatch returns Patch, or nil if x is nil.
@@ -1494,6 +1651,16 @@ func (x *ToolCallUpdate) GetLocations() []ToolCallLocation {
 	}
 	v, _ := x.Locations.Get()
 	return v
+}
+
+// GetCapabilities returns a copy of Capabilities, or nil if x is nil or Capabilities is absent or null.
+func (x *ToolCallUpdate) GetCapabilities() *ToolCallCapabilities {
+	if x != nil {
+		if v, ok := x.Capabilities.Get(); ok {
+			return &v
+		}
+	}
+	return nil
 }
 
 // GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.

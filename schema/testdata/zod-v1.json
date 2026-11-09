@@ -185,5 +185,160 @@
     "schema": "zMessageMcpResponse",
     "input": {},
     "success": false
+  },
+  {
+    "schema": "zRequestId",
+    "input": 9007199254740992,
+    "success": true,
+    "output": 9007199254740992
+  },
+  {
+    "schema": "zRequestId",
+    "input": 1.5,
+    "success": false
+  },
+  {
+    "schema": "zRequestId",
+    "input": 2,
+    "success": true,
+    "output": 2
+  },
+  {
+    "schema": "zRequestId",
+    "input": "r",
+    "success": true,
+    "output": "r"
+  },
+  {
+    "schema": "zUsage",
+    "input": {
+      "totalTokens": 9007199254740992,
+      "inputTokens": 1,
+      "outputTokens": 2
+    },
+    "success": true,
+    "output": {
+      "totalTokens": 9007199254740992,
+      "inputTokens": 1,
+      "outputTokens": 2
+    }
+  },
+  {
+    "schema": "zUsage",
+    "input": {
+      "totalTokens": -1,
+      "inputTokens": 1,
+      "outputTokens": 2
+    },
+    "success": false
+  },
+  {
+    "schema": "zUsage",
+    "input": {
+      "totalTokens": 1.5,
+      "inputTokens": 1,
+      "outputTokens": 2
+    },
+    "success": false
+  },
+  {
+    "schema": "zMcpServerStdio",
+    "input": {
+      "name": "m",
+      "command": "c",
+      "args": null,
+      "env": null
+    },
+    "success": true,
+    "output": {
+      "name": "m",
+      "command": "c",
+      "args": [],
+      "env": []
+    }
+  },
+  {
+    "schema": "zMcpServerStdio",
+    "input": {
+      "name": "m",
+      "command": "c",
+      "args": [
+        "a"
+      ]
+    },
+    "success": false
+  },
+  {
+    "schema": "zAuthMethodTerminal",
+    "input": {
+      "id": "t",
+      "name": "T",
+      "args": null,
+      "env": null
+    },
+    "success": true,
+    "output": {
+      "id": "t",
+      "name": "T",
+      "args": [],
+      "env": {}
+    }
+  },
+  {
+    "schema": "zElicitationContentValue",
+    "input": 1.5,
+    "success": true,
+    "output": 1.5
+  },
+  {
+    "schema": "zElicitationContentValue",
+    "input": 3,
+    "success": true,
+    "output": 3
+  },
+  {
+    "schema": "zElicitationContentValue",
+    "input": [
+      "a"
+    ],
+    "success": true,
+    "output": [
+      "a"
+    ]
+  },
+  {
+    "schema": "zRequestId",
+    "input": null,
+    "success": true,
+    "output": null
+  },
+  {
+    "schema": "zCreateTerminalRequest",
+    "input": {
+      "sessionId": "s",
+      "command": "c",
+      "args": null,
+      "env": null,
+      "outputByteLimit": 1.5
+    },
+    "success": false
+  },
+  {
+    "schema": "zCreateTerminalRequest",
+    "input": {
+      "sessionId": "s",
+      "command": "c",
+      "args": null,
+      "env": null,
+      "outputByteLimit": 10
+    },
+    "success": true,
+    "output": {
+      "sessionId": "s",
+      "command": "c",
+      "args": [],
+      "env": [],
+      "outputByteLimit": 10
+    }
   }
 ]

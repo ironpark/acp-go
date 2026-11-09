@@ -93,6 +93,45 @@ func (s *ClientSession) Cancel(ctx context.Context) error {
 	return s.conn.CancelSession(ctx, &CancelNotification{SessionID: s.ID})
 }
 
+// Close cancels any ongoing work in the session and frees its resources on
+// the agent. It needs the agent's sessionCapabilities.close capability.
+func (s *ClientSession) Close(ctx context.Context) error {
+	_, err := s.conn.CloseSession(ctx, &CloseSessionRequest{SessionID: s.ID})
+	return err
+}
+
+// SetTitle renames the session and returns the title the agent stored, which
+// may be normalized; display that one. It needs the agent's
+// sessionCapabilities.title capability.
+func (s *ClientSession) SetTitle(ctx context.Context, title string) (string, error) {
+	response, err := s.conn.SetSessionTitle(ctx, &SetSessionTitleRequest{SessionID: s.ID, Title: title})
+	if err != nil {
+		return "", err
+	}
+	return response.Title, nil
+}
+
+// Archive archives the session, hiding it from session/list's default view;
+// the agent closes a loaded session first. It needs the agent's
+// sessionCapabilities.archive capability.
+func (s *ClientSession) Archive(ctx context.Context) error {
+	_, err := s.conn.ArchiveSession(ctx, &ArchiveSessionRequest{SessionID: s.ID})
+	return err
+}
+
+// Unarchive restores an archived session. It does not load or resume it.
+func (s *ClientSession) Unarchive(ctx context.Context) error {
+	_, err := s.conn.UnarchiveSession(ctx, &UnarchiveSessionRequest{SessionID: s.ID})
+	return err
+}
+
+// Status reports whether the agent holds the session in memory. The answer is
+// a snapshot; treat a status you do not recognize as [SessionStatusSaved]. It
+// needs the agent's sessionCapabilities.status capability.
+func (s *ClientSession) Status(ctx context.Context) (*SessionStatusResponse, error) {
+	return s.conn.GetSessionStatus(ctx, &SessionStatusRequest{SessionID: s.ID})
+}
+
 // Turn is one prompt turn started by [ClientSession.Prompt].
 type Turn struct {
 	t *acpconn.Turn[SessionUpdate, *PromptResponse]

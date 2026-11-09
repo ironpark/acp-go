@@ -53,6 +53,9 @@ const (
 	KindSkipArray
 	KindObject
 	KindRecord
+	KindWideInt     // wideInt: a whole number without the safe-integer bound
+	KindNullDefault // defaultOnNull: null becomes Value, anything else meets Inner
+	KindExactlyOne  // exactlyOneByRequiredKeys: the one member whose Keys are all present
 )
 
 // Rule is one node of a statically parsed Zod schema. Value is JSON for
@@ -70,6 +73,9 @@ type Rule struct {
 	Regexp  *regexp.Regexp
 	Offset  bool
 	Loose   bool // KindObject: keep the input's undeclared properties (z.looseObject)
+	// Keys holds, for KindExactlyOne, the required keys that select each
+	// member, in member order.
+	Keys [][]string
 
 	// Set by Link, which every registry goes through before evaluation.
 	target   *Rule            // KindRef: the rule Ref names
@@ -79,7 +85,7 @@ type Rule struct {
 	tag      string           // KindUnion: the property whose value picks the member
 	cases    map[string]*Rule // KindUnion: the member for each tag value
 	fallback *Rule            // KindUnion: the member for any other value, if any
-	value    *node            // KindDefault, KindCatch, KindRequiredCatch: Value as a tree
+	value    *node            // KindDefault, KindCatch, KindRequiredCatch, KindNullDefault: Value as a tree
 	// absent is what Inner makes of an absent value, for KindOptional,
 	// KindNullish and KindCatch, which meet one for every missing property;
 	// absentOK is false when Inner rejects it. Until absentReady, as while
@@ -171,7 +177,11 @@ func (l *linker) walk(s *Rule) {
 		if err := s.lit.Canonicalize(); err != nil {
 			panic(fmt.Sprintf("zod: invalid literal %s", s.Value))
 		}
-	case KindDefault, KindCatch, KindRequiredCatch:
+	case KindExactlyOne:
+		if len(s.Keys) != len(s.Members) {
+			panic("zod: exactlyOne needs one key list per member")
+		}
+	case KindDefault, KindCatch, KindRequiredCatch, KindNullDefault:
 		if s.Value != nil {
 			if !s.Value.IsValid() {
 				panic(fmt.Sprintf("zod: invalid default %s", s.Value))

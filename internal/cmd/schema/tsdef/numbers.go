@@ -23,7 +23,7 @@ func ApplyNumericHints(schema *Schema) error {
 	for _, name := range slices.Sorted(maps.Keys(schema.Validators)) {
 		var missed error
 		walkZod(schema.Validators[name], func(z *Zod) {
-			if z.Kind == "int" && !h.used[z] && missed == nil {
+			if (z.Kind == "int" || z.Kind == "wideInt") && !h.used[z] && missed == nil {
 				missed = fmt.Errorf("%s: integer rule matches no number of the TypeScript type", name)
 			}
 		})
@@ -48,11 +48,19 @@ func (h hinter) hint(t *Type, z *Zod) {
 	switch t.Kind {
 	case KindUnion, KindIntersection:
 		// z.union([...]) members align positionally with the TypeScript union.
-		if u := unwrapZod(z); t.Kind == KindUnion && u.Kind == "union" && len(u.Members) == len(t.Members) {
-			for i, m := range t.Members {
-				h.hint(m, u.Members[i])
+		// A null alternative the Zod rule expresses as .nullable() instead
+		// has no member there.
+		if u := unwrapZod(z); t.Kind == KindUnion && u.Kind == "union" {
+			members := t.Members
+			if len(u.Members) != len(members) {
+				members = slices.DeleteFunc(slices.Clone(members), func(m *Type) bool { return m.Kind == KindNull })
 			}
-			return
+			if len(u.Members) == len(members) {
+				for i, m := range members {
+					h.hint(m, u.Members[i])
+				}
+				return
+			}
 		}
 		for _, m := range t.Members {
 			h.hint(m, z)
@@ -88,7 +96,7 @@ func (h hinter) number(t *Type, z *Zod) {
 	for ; z != nil; z = z.Inner {
 		var bound float64
 		switch z.Kind {
-		case "int":
+		case "int", "wideInt":
 			integer = z
 		case "min", "gte":
 			if json.Unmarshal(z.Value, &bound) == nil {

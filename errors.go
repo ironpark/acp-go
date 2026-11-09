@@ -37,6 +37,8 @@ const (
 	ErrorCodeRequestCancelled = jsonrpc.CodeRequestCancelled
 	ErrorCodeAuthRequired     = jsonrpc.CodeAuthRequired
 	ErrorCodeResourceNotFound = jsonrpc.CodeResourceNotFound
+
+	ErrorCodeUnsupportedProtocolVersion = jsonrpc.CodeUnsupportedProtocolVersion
 )
 
 // The constructors below build the standard errors. Each takes a detail
@@ -76,3 +78,48 @@ func AuthRequired(detail string) *RequestError { return jsonrpc.AuthRequired(det
 
 // ResourceNotFound reports a missing resource such as a file (-32002).
 func ResourceNotFound(detail string) *RequestError { return jsonrpc.ResourceNotFound(detail) }
+
+// SessionNotFound reports that a session-scoped request names a session that
+// does not exist or is not active on this connection (-32002). The data
+// carries the session id, as ACP asks; [SessionNotFoundID] reads it back:
+//
+//	return nil, acp.SessionNotFound(params.SessionID)
+func SessionNotFound[ID ~string](id ID) *RequestError { return jsonrpc.SessionNotFound(string(id)) }
+
+// SessionNotFoundID reports whether err is, or wraps, a resource-not-found
+// error for a session, and returns the session id its data names. It reads
+// errors built by [SessionNotFound] and ones received from the peer.
+func SessionNotFoundID(err error) (string, bool) {
+	data, ok := errorData[jsonrpc.SessionNotFoundData](err, ErrorCodeResourceNotFound)
+	return data.SessionID, ok && data.SessionID != ""
+}
+
+// UnsupportedProtocolVersion reports that initialize asked for a protocol
+// version below every one the agent supports (-32022). The data lists the
+// requested version and the supported ones; [SupportedProtocolVersions] reads
+// them back.
+func UnsupportedProtocolVersion(requested uint16, supported ...uint16) *RequestError {
+	return jsonrpc.UnsupportedProtocolVersion(requested, supported...)
+}
+
+// SupportedProtocolVersions reports whether err is, or wraps, an
+// unsupported-protocol-version error, and returns the versions its data says
+// the agent supports, so a client can retry with one of them.
+func SupportedProtocolVersions(err error) ([]uint16, bool) {
+	data, ok := errorData[jsonrpc.UnsupportedProtocolVersionData](err, ErrorCodeUnsupportedProtocolVersion)
+	return data.Supported, ok
+}
+
+// errorData returns the data of err, a [RequestError] with the given code, as
+// a D: as built locally, or decoded from the JSON the peer sent.
+func errorData[D any](err error, code ErrorCode) (D, bool) {
+	var data D
+	reqErr, ok := errors.AsType[*RequestError](err)
+	if !ok || reqErr.Code != code {
+		return data, false
+	}
+	if local, ok := reqErr.Data.(D); ok {
+		return local, true
+	}
+	return data, reqErr.DecodeData(&data) == nil
+}

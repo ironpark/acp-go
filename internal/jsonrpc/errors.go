@@ -22,6 +22,9 @@ const (
 	CodeRequestCancelled ErrorCode = -32800
 	CodeAuthRequired     ErrorCode = -32000
 	CodeResourceNotFound ErrorCode = -32002
+	// CodeUnsupportedProtocolVersion is ACP's: initialize asked for a version
+	// below every one the agent supports.
+	CodeUnsupportedProtocolVersion ErrorCode = -32022
 )
 
 // RequestError is a JSON-RPC error object carried as a Go error.
@@ -126,6 +129,51 @@ func AuthRequired(detail string) *RequestError {
 // with [RequestError.WithData] when the peer should be able to read it.
 func ResourceNotFound(detail string) *RequestError {
 	return &RequestError{Code: CodeResourceNotFound, Message: message("Resource not found", detail)}
+}
+
+// SessionNotFoundData is the data of a resource-not-found error for a
+// session, as ACP defines it.
+type SessionNotFoundData struct {
+	SessionID string `json:"sessionId"`
+}
+
+// SessionNotFound reports a session-scoped request naming a session that does
+// not exist or is not active (-32002), with the session's id as data.
+func SessionNotFound(sessionID string) *RequestError {
+	return ResourceNotFound("session " + sessionID).WithData(SessionNotFoundData{SessionID: sessionID})
+}
+
+// UnsupportedProtocolVersionData is the data of an unsupported-protocol-
+// version error.
+type UnsupportedProtocolVersionData struct {
+	Requested uint16   `json:"requested"`
+	Supported []uint16 `json:"supported"`
+}
+
+// UnsupportedProtocolVersion reports an initialize request for a version
+// below every one the agent supports (-32022), listing them as data.
+func UnsupportedProtocolVersion(requested uint16, supported ...uint16) *RequestError {
+	return &RequestError{
+		Code:    CodeUnsupportedProtocolVersion,
+		Message: "Unsupported protocol version",
+		Data:    UnsupportedProtocolVersionData{Requested: requested, Supported: append([]uint16{}, supported...)},
+	}
+}
+
+// DecodeData decodes the error's data into out, whether the error was built
+// locally, with any Go value, or received from the peer as raw JSON.
+func (e *RequestError) DecodeData(out any) error {
+	if e.Data == nil {
+		return errors.New("jsonrpc: the error carries no data")
+	}
+	raw, ok := e.Data.(jsontext.Value)
+	if !ok {
+		var err error
+		if raw, err = json.Marshal(e.Data); err != nil {
+			return err
+		}
+	}
+	return json.Unmarshal(raw, out)
 }
 
 // wireError is the JSON-RPC error object as it appears on the wire.

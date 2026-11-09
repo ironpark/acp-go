@@ -133,6 +133,61 @@ replaying its history.`,
 			}},
 		},
 		{
+			Interface:    "SessionArchiver",
+			Capability:   "sessionCapabilities.archive",
+			Experimental: true,
+			Doc: `SessionArchiver handles session/archive and session/unarchive. An agent
+that advertises it also supports the archived filter on session/list and
+reports SessionInfo.Archived for every listed session, and must advertise sessionCapabilities.list.
+Archive state persists across connections; archiving a loaded session first
+cancels its work and frees it as session/close does. Archiving an archived
+session, or unarchiving one that is not, succeeds.`,
+			Methods: []Method{
+				{Wire: "session/archive", Name: "ArchiveSession", Params: "ArchiveSessionRequest", Response: "ArchiveSessionResponse",
+					CallDoc: `ArchiveSession hides a session from session/list's default view, closing it
+first if it is loaded.`},
+				{Wire: "session/unarchive", Name: "UnarchiveSession", Params: "UnarchiveSessionRequest", Response: "UnarchiveSessionResponse",
+					CallDoc: `UnarchiveSession restores an archived session. It does not load or resume it.`},
+			},
+		},
+		{
+			Interface:    "SessionStatusReader",
+			Capability:   "sessionCapabilities.status",
+			Experimental: true,
+			Doc: `SessionStatusReader handles session/status, which reports whether the agent
+holds a session in memory (open) or only in storage (saved).`,
+			Methods: []Method{{
+				Wire: "session/status", Name: "GetSessionStatus", Params: "SessionStatusRequest", Response: "SessionStatusResponse",
+				CallDoc: `GetSessionStatus reports whether the agent holds a session in memory. The
+answer is a snapshot; treat a status you do not recognize as saved.`,
+			}},
+		},
+		{
+			Interface:    "SessionTitleSetter",
+			Capability:   "sessionCapabilities.title",
+			Experimental: true,
+			Doc: `SessionTitleSetter handles session/set_title. Agents report titles through
+session/list and session_info_update without it; it lets the client set one.`,
+			Methods: []Method{{
+				Wire: "session/set_title", Name: "SetSessionTitle", Params: "SetSessionTitleRequest", Response: "SetSessionTitleResponse",
+				CallDoc: `SetSessionTitle renames a session. The response carries the title the agent
+stored, which may be normalized; display that one.`,
+			}},
+		},
+		{
+			Interface:    "AuthStatusReader",
+			Capability:   "auth.status",
+			Experimental: true,
+			Doc: `AuthStatusReader handles auth/status. An agent that advertises it may also
+send the auth/status_update notification whenever the status changes.`,
+			Methods: []Method{{
+				Wire: "auth/status", Name: "GetAuthStatus", Params: "AuthStatusRequest", Response: "AuthStatusResponse", CallVia: "getAuthStatus",
+				CallDoc: `GetAuthStatus reports whether the agent can start sessions without the user
+signing in first, and the accounts it has configured.
+[ClientSideConnection.AuthStatus] keeps the answer.`,
+			}},
+		},
+		{
 			Interface:    "SessionModeSetter",
 			NoCapability: true,
 			Doc: `SessionModeSetter handles session/set_mode.
@@ -289,6 +344,18 @@ MCP-over-ACP is an RFD-stage draft; the wire format may still change.`,
 					CallDoc: `MessageMCP sends one MCP request to a server the client provides and returns
 its outcome: the MCP result, or the MCP error, which is not an ACP error.`},
 			},
+		},
+		{
+			Interface:    "AuthStatusListener",
+			NoCapability: true,
+			Experimental: true,
+			Doc: `AuthStatusListener receives auth/status_update, which an agent advertising
+auth.status sends when its authentication status changes.`,
+			Methods: []Method{{
+				Wire: "auth/status_update", Name: "AuthStatusUpdate", Params: "AuthStatusUpdateNotification", Via: "authStatusUpdate",
+				CallDoc: `AuthStatusUpdate tells the client the agent's authentication status changed.
+Send it only when the status differs from the last one sent on the connection.`,
+			}},
 		},
 		{
 			Interface:  "ElicitationHandler",

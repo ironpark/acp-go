@@ -19,28 +19,22 @@ type AgentRequest struct {
 	Params AgentRequestParams `json:"params,omitzero"`
 }
 
+// RequestID is a JSON-RPC request ID: a string or an integer. Unlike base JSON-RPC, it MUST NOT be `null`.
+//
+// The receiver MUST reply with the same value in the response. Each side chooses IDs for its own
+// requests, so the same ID can be in use in both directions. A sender MUST NOT reuse an ID while
+// a request with it is still awaiting a response.
+//
 // RequestID preserves the complete JSON payload, including future variants.
 // Use [RequestID.As] to read one alternative and [NewRequestID] to build one.
-// The zero value holds no payload and encodes as null.
-//
-// # JSON RPC Request Id
-//
-// An identifier established by the Client that MUST contain a String, Number, or NULL value if included. If it is not included it is assumed to be a notification. The value SHOULD normally not be Null [1] and Numbers SHOULD NOT contain fractional parts [2]
-//
-// The Server MUST reply with the same value in the Response object if included. This member is used to correlate the context between the two objects.
-//
-// [1] The use of Null as a value for the id member in a Request object is discouraged, because this specification uses a value of Null for Responses with an unknown id. Also, because JSON-RPC 1.0 uses an id value of Null for Notifications this could cause confusion in handling.
-//
-// [2] Fractional parts may be problematic, since many decimal fractions cannot be represented exactly as binary fractions.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 type RequestID struct{ raw jsontext.Value }
 
 // RequestIDAlternative is the set of Go types RequestID can hold.
-type RequestIDAlternative interface {
-	jsontext.Value | int64 | string
-}
+type RequestIDAlternative interface{ int64 | string }
 
 var requestIDAlternatives = union.Table(
-	union.Alt[jsontext.Value](union.Rule{Null: true}),
 	union.Alt[int64](union.Rule{NonNull: true}),
 	union.Alt[string](union.Rule{NonNull: true}),
 )
@@ -66,7 +60,7 @@ func (v RequestID) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestID) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("RequestID: no value set; use NewRequestID")
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -95,7 +89,7 @@ type AgentResponseAlternative interface {
 }
 
 var agentResponseAlternatives = union.Table(
-	union.Alt[AgentResponseResult](union.Rule{NonNull: true, Required: []string{"id", "result"}}),
+	union.Alt[AgentResponseResult](union.Rule{NonNull: true, Required: []string{"id", "result"}, NotNull: []string{"id"}}),
 	union.Alt[AgentResponseError](union.Rule{NonNull: true, Required: []string{"id", "error"}, NotNull: []string{"error"}}),
 )
 
@@ -152,7 +146,11 @@ type Error struct {
 	Message string `json:"message"`
 	// Optional primitive or structured value that contains additional information about the error.
 	// This may include debugging information or context-specific details.
-	Data jsontext.Value `json:"data,omitzero"`
+	//
+	// Omitted and `null` are equivalent and mean no additional data is provided. Some codes
+	// define a shape: [UnsupportedProtocolVersionErrorData] for `-32022`, and
+	// [SessionNotFoundErrorData] for `-32002` when a session is not found.
+	Data ErrorData `json:"data,omitzero"`
 }
 
 // AgentNotification is a JSON-RPC notification object.
@@ -187,7 +185,7 @@ type ClientResponseAlternative interface {
 }
 
 var clientResponseAlternatives = union.Table(
-	union.Alt[ClientResponseResult](union.Rule{NonNull: true, Required: []string{"id", "result"}}),
+	union.Alt[ClientResponseResult](union.Rule{NonNull: true, Required: []string{"id", "result"}, NotNull: []string{"id"}}),
 	union.Alt[ClientResponseError](union.Rule{NonNull: true, Required: []string{"id", "error"}, NotNull: []string{"error"}}),
 )
 
@@ -233,14 +231,6 @@ type ClientNotification struct {
 	Method string `json:"method"`
 	// Method-specific notification parameters.
 	Params ClientNotificationParams `json:"params,omitzero"`
-}
-
-// ProtocolLevelNotification is a JSON-RPC notification object.
-type ProtocolLevelNotification struct {
-	// The notification method name.
-	Method string `json:"method"`
-	// Method-specific notification parameters.
-	Params *CancelRequestNotification `json:"params,omitzero"`
 }
 
 // AgentRequestParams preserves the complete JSON payload, including future variants.
@@ -305,7 +295,10 @@ type AgentResponseResult struct {
 
 type AgentResponseError struct {
 	// The id of the request this response answers.
-	ID RequestID `json:"id"`
+	//
+	// Required. `null` only when the request's id could not be determined, such as
+	// for a parse error or an invalid request.
+	ID *AgentResponseErrorID `json:"id"`
 	// Method-specific error data.
 	Error Error `json:"error"`
 }
@@ -317,12 +310,13 @@ type AgentNotificationParams struct{ raw jsontext.Value }
 
 // AgentNotificationParamsAlternative is the set of Go types AgentNotificationParams can hold.
 type AgentNotificationParamsAlternative interface {
-	UpdateSessionNotification | CompleteElicitationNotification | jsontext.Value
+	UpdateSessionNotification | CompleteElicitationNotification | AuthStatusUpdateNotification | jsontext.Value
 }
 
 var agentNotificationParamsAlternatives = union.Table(
 	union.Alt[UpdateSessionNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "update"}, NotNull: []string{"sessionId", "update"}}),
 	union.Alt[CompleteElicitationNotification](union.Rule{NonNull: true, Required: []string{"elicitationId"}, NotNull: []string{"elicitationId"}}),
+	union.Alt[AuthStatusUpdateNotification](union.Rule{NonNull: true, Required: []string{"state"}, NotNull: []string{"state", "accounts"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -369,7 +363,7 @@ type ClientRequestParams struct{ raw jsontext.Value }
 
 // ClientRequestParamsAlternative is the set of Go types ClientRequestParams can hold.
 type ClientRequestParamsAlternative interface {
-	InitializeRequest | LoginAuthRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutAuthRequest | NewSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionConfigOptionRequest | PromptRequest | jsontext.Value
+	InitializeRequest | LoginAuthRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutAuthRequest | AuthStatusRequest | NewSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ArchiveSessionRequest | UnarchiveSessionRequest | SessionStatusRequest | SetSessionTitleRequest | ResumeSessionRequest | CloseSessionRequest | CancelToolCallRequest | CancelTerminalRequest | SetSessionConfigOptionRequest | PromptRequest | jsontext.Value
 }
 
 var clientRequestParamsAlternatives = union.Table(
@@ -379,12 +373,19 @@ var clientRequestParamsAlternatives = union.Table(
 	union.Alt[SetProviderRequest](union.Rule{NonNull: true, Required: []string{"providerId", "apiType", "baseUrl"}, NotNull: []string{"providerId", "apiType", "baseUrl", "headers"}}),
 	union.Alt[DisableProviderRequest](union.Rule{NonNull: true, Required: []string{"providerId"}, NotNull: []string{"providerId"}}),
 	union.Alt[LogoutAuthRequest](union.Rule{NonNull: true}),
+	union.Alt[AuthStatusRequest](union.Rule{NonNull: true}),
 	union.Alt[NewSessionRequest](union.Rule{NonNull: true, Required: []string{"cwd"}, NotNull: []string{"cwd", "additionalDirectories", "mcpServers"}}),
 	union.Alt[ListSessionsRequest](union.Rule{NonNull: true}),
 	union.Alt[DeleteSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
 	union.Alt[ForkSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "cwd"}, NotNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}),
+	union.Alt[ArchiveSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[UnarchiveSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[SessionStatusRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[SetSessionTitleRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "title"}, NotNull: []string{"sessionId", "title"}}),
 	union.Alt[ResumeSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "cwd"}, NotNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}),
 	union.Alt[CloseSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[CancelToolCallRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "toolCallId"}, NotNull: []string{"sessionId", "toolCallId"}}),
+	union.Alt[CancelTerminalRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "terminalId"}, NotNull: []string{"sessionId", "terminalId"}}),
 	union.Alt[SetSessionConfigOptionRequest](union.Rule{NonNull: true}),
 	union.Alt[PromptRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "prompt"}, NotNull: []string{"sessionId", "prompt"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
@@ -435,7 +436,10 @@ type ClientResponseResult struct {
 
 type ClientResponseError struct {
 	// The id of the request this response answers.
-	ID RequestID `json:"id"`
+	//
+	// Required. `null` only when the request's id could not be determined, such as
+	// for a parse error or an invalid request.
+	ID *ClientResponseErrorID `json:"id"`
 	// Method-specific error data.
 	Error Error `json:"error"`
 }
@@ -499,7 +503,7 @@ type AgentResponseResultResult struct{ raw jsontext.Value }
 
 // AgentResponseResultResultAlternative is the set of Go types AgentResponseResultResult can hold.
 type AgentResponseResultResultAlternative interface {
-	InitializeResponse | LoginAuthResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutAuthResponse | NewSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ResumeSessionResponse | CloseSessionResponse | SetSessionConfigOptionResponse | PromptResponse | jsontext.Value
+	InitializeResponse | LoginAuthResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutAuthResponse | AuthStatusResponse | NewSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ArchiveSessionResponse | UnarchiveSessionResponse | SessionStatusResponse | SetSessionTitleResponse | ResumeSessionResponse | CloseSessionResponse | CancelToolCallResponse | CancelTerminalResponse | SetSessionConfigOptionResponse | PromptResponse | jsontext.Value
 }
 
 var agentResponseResultResultAlternatives = union.Table(
@@ -509,12 +513,19 @@ var agentResponseResultResultAlternatives = union.Table(
 	union.Alt[SetProviderResponse](union.Rule{NonNull: true}),
 	union.Alt[DisableProviderResponse](union.Rule{NonNull: true}),
 	union.Alt[LogoutAuthResponse](union.Rule{NonNull: true}),
+	union.Alt[AuthStatusResponse](union.Rule{NonNull: true, Required: []string{"state"}, NotNull: []string{"state", "accounts"}}),
 	union.Alt[NewSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId", "configOptions", "availableCommands"}}),
 	union.Alt[ListSessionsResponse](union.Rule{NonNull: true, Required: []string{"sessions"}, NotNull: []string{"sessions"}}),
 	union.Alt[DeleteSessionResponse](union.Rule{NonNull: true}),
 	union.Alt[ForkSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId", "configOptions", "availableCommands"}}),
+	union.Alt[ArchiveSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[UnarchiveSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[SessionStatusResponse](union.Rule{NonNull: true, Required: []string{"status"}, NotNull: []string{"status"}}),
+	union.Alt[SetSessionTitleResponse](union.Rule{NonNull: true, Required: []string{"title"}, NotNull: []string{"title"}}),
 	union.Alt[ResumeSessionResponse](union.Rule{NonNull: true, NotNull: []string{"configOptions", "availableCommands"}}),
 	union.Alt[CloseSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[CancelToolCallResponse](union.Rule{NonNull: true}),
+	union.Alt[CancelTerminalResponse](union.Rule{NonNull: true}),
 	union.Alt[SetSessionConfigOptionResponse](union.Rule{NonNull: true, Required: []string{"configOptions"}, NotNull: []string{"configOptions"}}),
 	union.Alt[PromptResponse](union.Rule{NonNull: true, Required: []string{"messageId"}, NotNull: []string{"messageId"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
@@ -548,6 +559,56 @@ func (v AgentResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AgentResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// AgentResponseErrorID preserves the complete JSON payload, including future variants.
+// Use [AgentResponseErrorID.As] to read one alternative and [NewAgentResponseErrorID] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
+type AgentResponseErrorID struct{ raw jsontext.Value }
+
+// AgentResponseErrorIDAlternative is the set of Go types AgentResponseErrorID can hold.
+type AgentResponseErrorIDAlternative interface{ int64 | string }
+
+var agentResponseErrorIDAlternatives = union.Table(
+	union.Alt[int64](union.Rule{NonNull: true}),
+	union.Alt[string](union.Rule{NonNull: true}),
+)
+
+// NewAgentResponseErrorID encodes value, one of the AgentResponseErrorIDAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewAgentResponseErrorID[T AgentResponseErrorIDAlternative](value T) (AgentResponseErrorID, error) {
+	raw, err := union.New("AgentResponseErrorID", agentResponseErrorIDAlternatives, value)
+	return AgentResponseErrorID{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v AgentResponseErrorID) As[T AgentResponseErrorIDAlternative]() (T, error) {
+	return union.As[T]("AgentResponseErrorID", agentResponseErrorIDAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v AgentResponseErrorID) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v AgentResponseErrorID) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v AgentResponseErrorID) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return errors.New("AgentResponseErrorID: no value set; use NewAgentResponseErrorID")
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *AgentResponseErrorID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -601,6 +662,56 @@ func (v ClientResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ClientResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	v.raw = raw.Clone()
+	return nil
+}
+
+// ClientResponseErrorID preserves the complete JSON payload, including future variants.
+// Use [ClientResponseErrorID.As] to read one alternative and [NewClientResponseErrorID] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
+type ClientResponseErrorID struct{ raw jsontext.Value }
+
+// ClientResponseErrorIDAlternative is the set of Go types ClientResponseErrorID can hold.
+type ClientResponseErrorIDAlternative interface{ int64 | string }
+
+var clientResponseErrorIDAlternatives = union.Table(
+	union.Alt[int64](union.Rule{NonNull: true}),
+	union.Alt[string](union.Rule{NonNull: true}),
+)
+
+// NewClientResponseErrorID encodes value, one of the ClientResponseErrorIDAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
+func NewClientResponseErrorID[T ClientResponseErrorIDAlternative](value T) (ClientResponseErrorID, error) {
+	raw, err := union.New("ClientResponseErrorID", clientResponseErrorIDAlternatives, value)
+	return ClientResponseErrorID{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ClientResponseErrorID) As[T ClientResponseErrorIDAlternative]() (T, error) {
+	return union.As[T]("ClientResponseErrorID", clientResponseErrorIDAlternatives, v.raw)
+}
+
+// RawJSON returns a copy of the payload as received or built.
+func (v ClientResponseErrorID) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ClientResponseErrorID) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ClientResponseErrorID) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if len(v.raw) == 0 {
+		return errors.New("ClientResponseErrorID: no value set; use NewClientResponseErrorID")
+	}
+	return enc.WriteValue(v.raw)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ClientResponseErrorID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err

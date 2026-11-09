@@ -128,6 +128,21 @@ func TestCallViaRoutesTheOutgoingCall(t *testing.T) {
 	}
 }
 
+func TestViaInAnOptionalGroupSkipsTheInterfaceCheck(t *testing.T) {
+	s := spec()
+	s.Agent[1].Methods[0].Via = "bye"
+	files, err := generate(t, s, parse(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	methods := string(files["methods.gen.go"])
+	// The hand-written method is reached without asserting the interface,
+	// so it sees the notification even when the agent lacks the group.
+	if want := "return acpconn.Notify(ctx, schema.Validated(), params, c.bye)"; !strings.Contains(methods, want) {
+		t.Errorf("methods.gen.go lacks %q\n%s", want, methods)
+	}
+}
+
 func TestValidationRejectsDrift(t *testing.T) {
 	cases := map[string]func(*Spec){
 		"uncovered method constant": func(s *Spec) { s.Unhandled = nil },
@@ -151,8 +166,6 @@ func TestValidationRejectsDrift(t *testing.T) {
 		"untimed CallVia": func(s *Spec) {
 			s.Agent[0].Methods[0].Untimed, s.Agent[0].Methods[0].CallVia = true, "ping"
 		},
-		"Via outside the required group":     func(s *Spec) { s.Agent[1].Methods[0].Via = "bye" },
-		"CallVia outside the required group": func(s *Spec) { s.Agent[1].Methods[0].CallVia = "bye" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {

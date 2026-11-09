@@ -19,7 +19,7 @@ func TestPinnedSDKGeneration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(s.Types) == 0 || len(s.Constants) != 4 || len(s.Validators) != len(s.Types) {
+		if len(s.Types) == 0 || len(s.Constants) != 5 || len(s.Validators) != len(s.Types) {
 			t.Fatalf("%s: unexpected snapshot: %d types, %d validators, %d constants", version, len(s.Types), len(s.Validators), len(s.Constants))
 		}
 		for _, d := range s.Types {

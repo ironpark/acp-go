@@ -43,7 +43,7 @@ type ReadTextFileRequest struct {
 //
 // See protocol docs: [Requesting Permission]
 //
-// [Requesting Permission]: https://agentclientprotocol.com/protocol/tool-calls#requesting-permission
+// [Requesting Permission]: https://agentclientprotocol.com/protocol/v1/draft/tool-calls#requesting-permission
 type RequestPermissionRequest struct {
 	// The session ID for this request.
 	SessionID SessionID `json:"sessionId"`
@@ -61,7 +61,7 @@ type RequestPermissionRequest struct {
 //
 // See protocol docs: [Updating]
 //
-// [Updating]: https://agentclientprotocol.com/protocol/tool-calls#updating
+// [Updating]: https://agentclientprotocol.com/protocol/v1/draft/tool-calls#updating
 type ToolCallUpdate struct {
 	// The ID of the tool call being updated.
 	ToolCallID ToolCallID `json:"toolCallId"`
@@ -127,11 +127,11 @@ type BlobResourceContents struct {
 //
 // See protocol docs: [Following the Agent]
 //
-// [Following the Agent]: https://agentclientprotocol.com/protocol/tool-calls#following-the-agent
+// [Following the Agent]: https://agentclientprotocol.com/protocol/v1/draft/tool-calls#following-the-agent
 type ToolCallLocation struct {
 	// The absolute file path being accessed or modified.
 	Path string `json:"path"`
-	// Optional line number within the file.
+	// Optional 1-based line number within the file.
 	Line *uint32 `json:"line,omitzero"`
 	Meta Meta    `json:"_meta,omitzero"`
 }
@@ -218,7 +218,7 @@ type KillTerminalRequest struct {
 
 // Session-scoped elicitation, optionally tied to a specific tool call.
 //
-// When `tool_call_id` is set, the elicitation is tied to a specific tool call.
+// When `toolCallId` is set, the elicitation is tied to a specific tool call.
 // This is useful when an agent receives an elicitation from an MCP server
 // during a tool call and needs to redirect it to the user.
 type ElicitationSessionScope struct {
@@ -308,7 +308,7 @@ type MessageMCPRequest struct {
 //
 // See protocol docs: [Extensibility]
 //
-// [Extensibility]: https://agentclientprotocol.com/protocol/extensibility
+// [Extensibility]: https://agentclientprotocol.com/protocol/v1/draft/extensibility
 type ExtRequest = jsontext.Value
 
 // InitializeResponse is a response to the `initialize` method.
@@ -317,7 +317,7 @@ type ExtRequest = jsontext.Value
 //
 // See protocol docs: [Initialization]
 //
-// [Initialization]: https://agentclientprotocol.com/protocol/initialization
+// [Initialization]: https://agentclientprotocol.com/protocol/v1/draft/initialization
 type InitializeResponse struct {
 	// The protocol version the client specified if supported by the agent,
 	// or the latest protocol version supported by the agent.
@@ -342,7 +342,7 @@ type InitializeResponse struct {
 //
 // See protocol docs: [Agent Capabilities]
 //
-// [Agent Capabilities]: https://agentclientprotocol.com/protocol/initialization#agent-capabilities
+// [Agent Capabilities]: https://agentclientprotocol.com/protocol/v1/draft/initialization#agent-capabilities
 type AgentCapabilities struct {
 	// Whether the agent supports `session/load`.
 	LoadSession *bool `json:"loadSession,omitzero"`
@@ -366,8 +366,8 @@ type AgentCapabilities struct {
 
 // Prompt capabilities supported by the agent in `session/prompt` requests.
 //
-// Baseline agent functionality requires support for [ContentBlockText]
-// and [ContentBlockResourceLink] in prompt requests.
+// Baseline agent functionality requires support for `text`
+// and `resource_link` content blocks in prompt requests.
 //
 // Other variants must be explicitly opted in to.
 // Capabilities for different types of content in prompt requests.
@@ -377,15 +377,15 @@ type AgentCapabilities struct {
 //
 // See protocol docs: [Prompt Capabilities]
 //
-// [Prompt Capabilities]: https://agentclientprotocol.com/protocol/initialization#prompt-capabilities
+// [Prompt Capabilities]: https://agentclientprotocol.com/protocol/v1/draft/initialization#prompt-capabilities
 type PromptCapabilities struct {
-	// Agent supports [ContentBlockImage].
+	// Agent supports `image` content blocks.
 	Image *bool `json:"image,omitzero"`
-	// Agent supports [ContentBlockAudio].
+	// Agent supports `audio` content blocks.
 	Audio *bool `json:"audio,omitzero"`
 	// Agent supports embedded context in `session/prompt` requests.
 	//
-	// When enabled, the Client is allowed to include [ContentBlockResource]
+	// When enabled, the Client is allowed to include `resource` content blocks
 	// in prompt requests for pieces of context that are referenced in the message.
 	EmbeddedContext *bool `json:"embeddedContext,omitzero"`
 	Meta            Meta  `json:"_meta,omitzero"`
@@ -393,11 +393,11 @@ type PromptCapabilities struct {
 
 // MCP capabilities supported by the agent
 type MCPCapabilities struct {
-	// Agent supports [MCPServerHTTP].
+	// Agent supports `http` MCP servers.
 	HTTP *bool `json:"http,omitzero"`
-	// Agent supports [MCPServerSSE].
+	// Agent supports `sse` MCP servers.
 	SSE *bool `json:"sse,omitzero"`
-	// Agent supports [MCPServerACP].
+	// Agent supports `acp` MCP servers.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	ACP  *bool `json:"acp,omitzero"`
@@ -410,11 +410,11 @@ type MCPCapabilities struct {
 //
 // Optionally, they **MAY** support other session methods and notifications by specifying additional capabilities.
 //
-// Note: `session/load` is still handled by the top-level `load_session` capability. This will be unified in future versions of the protocol.
+// Note: `session/load` is still handled by the top-level `loadSession` capability. This will be unified in future versions of the protocol.
 //
 // See protocol docs: [Session Capabilities]
 //
-// [Session Capabilities]: https://agentclientprotocol.com/protocol/initialization#session-capabilities
+// [Session Capabilities]: https://agentclientprotocol.com/protocol/v1/draft/initialization#session-capabilities
 type SessionCapabilities struct {
 	// Whether the agent supports `session/list`.
 	//
@@ -450,6 +450,31 @@ type SessionCapabilities struct {
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Fork *SessionForkCapabilities `json:"fork,omitzero"`
+	// Whether the agent supports `session/archive` and `session/unarchive`.
+	//
+	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports both methods, the `archived` filter on
+	// `session/list`, and `SessionInfo.archived`. Agents that advertise it MUST also advertise `sessionCapabilities.list`.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Archive *SessionArchiveCapabilities `json:"archive,omitzero"`
+	// Whether the agent supports `session/status`.
+	//
+	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports checking session status.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Status *SessionStatusCapabilities `json:"status,omitzero"`
+	// Whether the agent supports `session/set_title`.
+	//
+	// Agents report titles through `session/list` and `session_info_update` without this
+	// capability. It only advertises that Clients can set titles.
+	//
+	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports setting session titles.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Title *SessionTitleCapabilities `json:"title,omitzero"`
 	// Whether the agent supports `session/resume`.
 	//
 	// Optional. Omitted or `null` both mean the agent does not advertise support.
@@ -536,6 +561,35 @@ type SessionForkCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
+// Capabilities for `session/archive` and `session/unarchive`.
+//
+// Supplying `{}` means the agent supports both methods, the `archived` filter on
+// `session/list`, and `SessionInfo.archived`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionArchiveCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for the `session/status` method.
+//
+// Supplying `{}` means the agent supports checking session status.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatusCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for Client-set session titles.
+//
+// Supplying `{}` means the agent supports `session/set_title`. Agents report titles
+// through `session/list` and `session_info_update` without this capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionTitleCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
 // Capabilities for the `session/resume` method.
 //
 // Supplying `{}` means the agent supports resuming sessions.
@@ -552,12 +606,28 @@ type SessionCloseCapabilities struct {
 
 // Authentication-related capabilities supported by the agent.
 type AgentAuthCapabilities struct {
+	// Whether the agent supports the `auth/status` method.
+	//
+	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports the `auth/status` method.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Status *AuthStatusCapabilities `json:"status,omitzero"`
 	// Whether the agent supports the logout method.
 	//
 	// Optional. Omitted or `null` both mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports the logout method.
 	Logout *LogoutCapabilities `json:"logout,omitzero"`
 	Meta   Meta                `json:"_meta,omitzero"`
+}
+
+// Auth status capabilities supported by the agent.
+//
+// Supplying `{}` means the agent supports the `auth/status` method.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Logout capabilities supported by the agent.
@@ -584,7 +654,7 @@ type AuthMethodAgent struct {
 	ID AuthMethodID `json:"id"`
 	// Human-readable name of the authentication method.
 	Name string `json:"name"`
-	// Optional description providing more details about this authentication method.
+	// Optional human-readable description of this authentication method.
 	Description *string `json:"description,omitzero"`
 	Meta        Meta    `json:"_meta,omitzero"`
 }
@@ -594,9 +664,9 @@ type AuthMethodAgent struct {
 // title for UI representation.
 type Implementation struct {
 	// Intended for programmatic or logical use, but can be used as a display
-	// name fallback if title isn’t present.
+	// name fallback if title isn't present.
 	Name string `json:"name"`
-	// Intended for UI and end-user contexts — optimized to be human-readable
+	// Intended for UI and end-user contexts and optimized to be human-readable
 	// and easily understood.
 	//
 	// If not provided, the name should be used for display.
@@ -668,11 +738,62 @@ type LogoutResponse struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
+// AuthStatusResponse is a response to the `auth/status` method.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusResponse struct {
+	// Whether the agent can start sessions without the user signing in first.
+	//
+	// This is the only field clients should act on. Clients MUST treat values they
+	// do not recognize as `unknown`.
+	State AuthState `json:"state"`
+	// The accounts the agent has configured, for display.
+	//
+	// Optional. Omitted and empty are equivalent and mean no accounts are reported.
+	// Agents that hold credentials for several providers or accounts SHOULD list each
+	// of them and mark the ones in effect with `active`.
+	Accounts []AuthAccount `json:"accounts,omitzero"`
+	Meta     Meta          `json:"_meta,omitzero"`
+}
+
+// An account or credential the agent has configured, such as a signed-in user
+// account or an API key.
+//
+// All fields are display information only. Clients MUST NOT use them as stable
+// account identifiers, and SHOULD NOT log them or send them elsewhere, such as to
+// telemetry.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthAccount struct {
+	// Human-readable name for the account, suitable for display on its own,
+	// for example `Claude Max`, `OpenAI API key`, or `Vertex AI`.
+	Label string `json:"label"`
+	// Whether the agent currently uses this account by default.
+	//
+	// Several accounts MAY be active, for example one per provider.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent does not indicate whether this account is in effect.
+	Active *bool `json:"active,omitzero"`
+	// Display name of the user, such as a username or full name.
+	//
+	// Optional. Omitted and `null` are equivalent and mean no name is reported.
+	Name *string `json:"name,omitzero"`
+	// Email address of the user.
+	//
+	// Optional. Omitted and `null` are equivalent and mean no email is reported.
+	Email *string `json:"email,omitzero"`
+	// Display name of the organization, team, or workspace the account is using.
+	//
+	// Optional. Omitted and `null` are equivalent and mean no organization is reported.
+	Organization *string `json:"organization,omitzero"`
+	Meta         Meta    `json:"_meta,omitzero"`
+}
+
 // NewSessionResponse is a response from creating a new session.
 //
 // See protocol docs: [Creating a Session]
 //
-// [Creating a Session]: https://agentclientprotocol.com/protocol/session-setup#creating-a-session
+// [Creating a Session]: https://agentclientprotocol.com/protocol/v1/draft/session-setup#creating-a-session
 type NewSessionResponse struct {
 	// Unique identifier for the created session.
 	//
@@ -680,7 +801,7 @@ type NewSessionResponse struct {
 	SessionID SessionID `json:"sessionId"`
 	// Initial mode state if supported by the Agent
 	//
-	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
+	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/v1/draft/session-modes)
 	Modes *SessionModeState `json:"modes,omitzero"`
 	// Initial session configuration options if supported by the Agent.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
@@ -700,7 +821,7 @@ type SessionModeState struct {
 //
 // See protocol docs: [Session Modes]
 //
-// [Session Modes]: https://agentclientprotocol.com/protocol/session-modes
+// [Session Modes]: https://agentclientprotocol.com/protocol/v1/draft/session-modes
 type SessionMode struct {
 	// Stable identifier used to refer to this protocol object in later messages.
 	ID SessionModeID `json:"id"`
@@ -751,7 +872,7 @@ type SessionConfigBoolean struct {
 type LoadSessionResponse struct {
 	// Initial mode state if supported by the Agent
 	//
-	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
+	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/v1/draft/session-modes)
 	Modes *SessionModeState `json:"modes,omitzero"`
 	// Initial session configuration options if supported by the Agent.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
@@ -784,7 +905,14 @@ type SessionInfo struct {
 	Title *string `json:"title,omitzero"`
 	// ISO 8601 timestamp of last activity
 	UpdatedAt *string `json:"updatedAt,omitzero"`
-	Meta      Meta    `json:"_meta,omitzero"`
+	// Whether the session is archived.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the archive state is not reported.
+	// Agents that advertise the `sessionCapabilities.archive` capability MUST include it on every listed session.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Archived *bool `json:"archived,omitzero"`
+	Meta     Meta  `json:"_meta,omitzero"`
 }
 
 // DeleteSessionResponse is a response from deleting a session.
@@ -800,18 +928,58 @@ type ForkSessionResponse struct {
 	SessionID SessionID `json:"sessionId"`
 	// Initial mode state if supported by the Agent
 	//
-	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
+	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/v1/draft/session-modes)
 	Modes *SessionModeState `json:"modes,omitzero"`
 	// Initial session configuration options if supported by the Agent.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
 	Meta          Meta                  `json:"_meta,omitzero"`
 }
 
+// ArchiveSessionResponse is a response from archiving a session.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ArchiveSessionResponse struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// UnarchiveSessionResponse is a response from unarchiving a session.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type UnarchiveSessionResponse struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// SessionStatusResponse is a response from checking the status of a session.
+//
+// The result is a snapshot. A session reported `open` may be closed or evicted before
+// the Client's next request.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatusResponse struct {
+	// Whether the Agent has the session in memory.
+	//
+	// Required. Clients MUST treat a value they do not recognize as `saved`.
+	Status SessionStatus `json:"status"`
+	Meta   Meta          `json:"_meta,omitzero"`
+}
+
+// SetSessionTitleResponse is a response from setting the title of a session.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SetSessionTitleResponse struct {
+	// The title the Agent stored.
+	//
+	// This differs from the requested title if the Agent normalized it. Clients SHOULD
+	// display this value rather than the one they sent.
+	Title string `json:"title"`
+	Meta  Meta   `json:"_meta,omitzero"`
+}
+
 // ResumeSessionResponse is a response from resuming an existing session.
 type ResumeSessionResponse struct {
 	// Initial mode state if supported by the Agent
 	//
-	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
+	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/v1/draft/session-modes)
 	Modes *SessionModeState `json:"modes,omitzero"`
 	// Initial session configuration options if supported by the Agent.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
@@ -839,7 +1007,7 @@ type SetSessionConfigOptionResponse struct {
 //
 // See protocol docs: [Check for Completion]
 //
-// [Check for Completion]: https://agentclientprotocol.com/protocol/prompt-turn#4-check-for-completion
+// [Check for Completion]: https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#4-check-for-completion
 type PromptResponse struct {
 	// Indicates why the agent stopped processing the turn.
 	StopReason StopReason `json:"stopReason"`
@@ -869,13 +1037,13 @@ type Usage struct {
 	Meta              Meta    `json:"_meta,omitzero"`
 }
 
-// Allows for sending an arbitrary response to an [ExtRequest] that is not part of the ACP spec.
+// Allows for sending an arbitrary response to an extension request that is not part of the ACP spec.
 // Extension methods provide a way to add custom functionality while maintaining
 // protocol compatibility.
 //
 // See protocol docs: [Extensibility]
 //
-// [Extensibility]: https://agentclientprotocol.com/protocol/extensibility
+// [Extensibility]: https://agentclientprotocol.com/protocol/v1/draft/extensibility
 type ExtResponse = jsontext.Value
 
 // Notification containing a session update from the agent.
@@ -884,7 +1052,7 @@ type ExtResponse = jsontext.Value
 //
 // See protocol docs: [Agent Reports Output]
 //
-// [Agent Reports Output]: https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output
+// [Agent Reports Output]: https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#3-agent-reports-output
 type SessionNotification struct {
 	// The ID of the session this update pertains to.
 	SessionID SessionID `json:"sessionId"`
@@ -911,7 +1079,7 @@ type ContentChunk struct {
 // as part of fulfilling the user's request.
 // See protocol docs: [Plan Entries]
 //
-// [Plan Entries]: https://agentclientprotocol.com/protocol/agent-plan#plan-entries
+// [Plan Entries]: https://agentclientprotocol.com/protocol/v1/draft/agent-plan#plan-entries
 type PlanEntry struct {
 	// Human-readable description of what this task aims to accomplish.
 	Content string `json:"content"`
@@ -950,20 +1118,21 @@ type UnstructuredCommandInput struct {
 type Cost struct {
 	// Total cumulative cost for session.
 	Amount float64 `json:"amount"`
-	// ISO 4217 currency code (e.g., "USD", "EUR").
+	// Unit of `amount`: an ISO 4217 currency code (e.g., "USD", "EUR") for money, or another
+	// unit such as "credits".
 	Currency string `json:"currency"`
 	Meta     Meta   `json:"_meta,omitzero"`
 }
 
 // Client-initiated session mutations permitted for a specific subagent session.
 //
-// A mutation requires an explicit per-child capability; support for the method
+// A mutation requires an explicit per-child capability. Support for the method
 // on ordinary sessions does not grant support on a child.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SubagentSessionCapabilities struct {
 	// Permits the client to cancel this child's current work without ending
-	// the session. Omitted or `null` means unsupported; an object (including
+	// the session. Omitted or `null` means unsupported. An object (including
 	// `{}`) means supported.
 	Cancel *SessionCancelCapabilities `json:"cancel,omitzero"`
 	Meta   Meta                       `json:"_meta,omitzero"`
@@ -971,7 +1140,7 @@ type SubagentSessionCapabilities struct {
 
 // Capability to cancel work in a subagent session without ending that session.
 //
-// Supplying `{}` advertises support; an omitted or `null` `cancel` does not.
+// Supplying `{}` advertises support. An omitted or `null` `cancel` does not.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionCancelCapabilities struct {
@@ -997,13 +1166,35 @@ type CompleteElicitationNotification struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Allows the Agent to send an arbitrary notification that is not part of the ACP spec.
+// AuthStatusUpdateNotification is a notification sent by the agent when its authentication status changes.
+//
+// Carries the same fields as the `auth/status` response. Agents that advertise the
+// `auth.status` capability MAY send it at any time after `initialize`, and SHOULD only
+// send it when the reported status differs from the last one sent on the connection.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusUpdateNotification struct {
+	// Whether the agent can start sessions without the user signing in first.
+	//
+	// This is the only field clients should act on. Clients MUST treat values they
+	// do not recognize as `unknown`.
+	State AuthState `json:"state"`
+	// The accounts the agent has configured, for display.
+	//
+	// Optional. Omitted and empty are equivalent and mean no accounts are reported.
+	// Agents that hold credentials for several providers or accounts SHOULD list each
+	// of them and mark the ones in effect with `active`.
+	Accounts []AuthAccount `json:"accounts,omitzero"`
+	Meta     Meta          `json:"_meta,omitzero"`
+}
+
+// Allows either side to send an arbitrary notification that is not part of the ACP spec.
 // Extension notifications provide a way to send one-way messages for custom functionality
 // while maintaining protocol compatibility.
 //
 // See protocol docs: [Extensibility]
 //
-// [Extensibility]: https://agentclientprotocol.com/protocol/extensibility
+// [Extensibility]: https://agentclientprotocol.com/protocol/v1/draft/extensibility
 type ExtNotification = jsontext.Value
 
 // Request parameters for the initialize method.
@@ -1012,7 +1203,7 @@ type ExtNotification = jsontext.Value
 //
 // See protocol docs: [Initialization]
 //
-// [Initialization]: https://agentclientprotocol.com/protocol/initialization
+// [Initialization]: https://agentclientprotocol.com/protocol/v1/draft/initialization
 type InitializeRequest struct {
 	// The latest protocol version supported by the client.
 	ProtocolVersion ProtocolVersion `json:"protocolVersion"`
@@ -1032,7 +1223,7 @@ type InitializeRequest struct {
 //
 // See protocol docs: [Client Capabilities]
 //
-// [Client Capabilities]: https://agentclientprotocol.com/protocol/initialization#client-capabilities
+// [Client Capabilities]: https://agentclientprotocol.com/protocol/v1/draft/initialization#client-capabilities
 type ClientCapabilities struct {
 	// File system capabilities supported by the client.
 	// Determines which file operations the agent can request.
@@ -1077,7 +1268,7 @@ type ClientCapabilities struct {
 //
 // See protocol docs: [FileSystem]
 //
-// [FileSystem]: https://agentclientprotocol.com/protocol/initialization#filesystem
+// [FileSystem]: https://agentclientprotocol.com/protocol/v1/draft/initialization#filesystem
 type FileSystemCapabilities struct {
 	// Whether the Client supports `fs/read_text_file` requests.
 	ReadTextFile *bool `json:"readTextFile,omitzero"`
@@ -1089,7 +1280,7 @@ type FileSystemCapabilities struct {
 // Session-related capabilities supported by the client.
 type ClientSessionCapabilities struct {
 	// Support for ID-addressed context compaction updates. Omitted or `null`
-	// means unsupported; `{}` advertises the complete compaction contract.
+	// means unsupported. `{}` advertises the complete compaction contract.
 	Compaction *CompactionCapabilities `json:"compaction,omitzero"`
 	// Config option capabilities supported by the client.
 	//
@@ -1246,11 +1437,23 @@ type LogoutRequest struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
+// Request parameters for the `auth/status` method.
+//
+// Queries the agent's current authentication state without changing it.
+//
+// Agents MUST NOT reject it with `auth_required` (`-32000`), since Clients call it to learn
+// whether authentication is required.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthStatusRequest struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
 // Request parameters for creating a new session.
 //
 // See protocol docs: [Creating a Session]
 //
-// [Creating a Session]: https://agentclientprotocol.com/protocol/session-setup#creating-a-session
+// [Creating a Session]: https://agentclientprotocol.com/protocol/v1/draft/session-setup#creating-a-session
 type NewSessionRequest struct {
 	// The working directory for this session. Must be an absolute path.
 	Cwd string `json:"cwd"`
@@ -1307,17 +1510,18 @@ type MCPServerStdio struct {
 type SystemPrompt struct {
 	// How the Agent combines `content` with its own instructions.
 	//
-	// Required on the wire, so every request states its mode. In Rust,
-	// SystemPrompt.New starts it as [SystemPromptModeAppend]. Unknown
-	// values parse as SystemPromptMode.Other; Agents MUST return an error
-	// for modes they do not support.
+	// Required. Agents MUST return an error for a mode they do not support rather than
+	// treating it as `append` or `override`.
 	Mode SystemPromptMode `json:"mode"`
 	// The system prompt content.
 	//
-	// Agents advertising the capability MUST accept [ContentBlockText].
+	// Agents advertising the capability MUST accept `text` content blocks.
 	// Clients MUST NOT send other content block types until a future
 	// capability allows them, and Agents MUST return an error for content
 	// blocks they do not support.
+	//
+	// Clients MUST NOT send an empty array. Agents MAY reject one with
+	// `-32602` without creating, loading, resuming, or forking the session.
 	Content []ContentBlock `json:"content"`
 	Meta    Meta           `json:"_meta,omitzero"`
 }
@@ -1328,7 +1532,7 @@ type SystemPrompt struct {
 //
 // See protocol docs: [Loading Sessions]
 //
-// [Loading Sessions]: https://agentclientprotocol.com/protocol/session-setup#loading-sessions
+// [Loading Sessions]: https://agentclientprotocol.com/protocol/v1/draft/session-setup#loading-sessions
 type LoadSessionRequest struct {
 	// List of MCP servers to connect to for this session.
 	MCPServers []MCPServer `json:"mcpServers"`
@@ -1345,7 +1549,7 @@ type LoadSessionRequest struct {
 	SessionID SessionID `json:"sessionId"`
 	// System-level instructions for the loaded session.
 	//
-	// Optional. Omitted and `null` are equivalent; the Agent may then keep a
+	// Optional. Omitted and `null` are equivalent. The Agent may then keep a
 	// system prompt it stored with the session or use its default instructions.
 	// Clients MUST only send this when the Agent advertises
 	// `sessionCapabilities.systemPrompt`, and SHOULD send the same value they used
@@ -1364,7 +1568,15 @@ type ListSessionsRequest struct {
 	Cwd *string `json:"cwd,omitzero"`
 	// Opaque cursor token from a previous response's nextCursor field for cursor-based pagination
 	Cursor *string `json:"cursor,omitzero"`
-	Meta   Meta    `json:"_meta,omitzero"`
+	// Filter sessions by archive state.
+	//
+	// Optional. Omitted and `null` are equivalent and mean `exclude`. Only send this when
+	// the Agent advertises the `sessionCapabilities.archive` capability. The filter combines with `cwd` and
+	// applies before pagination. Clients keep the same value when following `nextCursor`.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Archived *SessionArchiveFilter `json:"archived,omitzero"`
+	Meta     Meta                  `json:"_meta,omitzero"`
 }
 
 // Request parameters for deleting an existing session from `session/list`.
@@ -1399,7 +1611,7 @@ type ForkSessionRequest struct {
 	MCPServers []MCPServer `json:"mcpServers,omitzero"`
 	// System-level instructions for the forked session.
 	//
-	// Optional. Omitted and `null` are equivalent; the Agent may then keep a
+	// Optional. Omitted and `null` are equivalent. The Agent may then keep a
 	// system prompt it stored with the source session or use its default
 	// instructions. Clients MUST only send this when the Agent advertises
 	// `sessionCapabilities.systemPrompt`, and SHOULD send the same value they used
@@ -1408,6 +1620,78 @@ type ForkSessionRequest struct {
 	// Experimental: not part of the spec yet; it may change or be removed.
 	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
 	Meta         Meta          `json:"_meta,omitzero"`
+}
+
+// Request parameters for archiving a session.
+//
+// Only available if the Agent supports the `sessionCapabilities.archive` capability.
+//
+// Archiving hides the session from default `session/list` results. It keeps the session ID
+// and saved history. If the session is active, the Agent MUST cancel any ongoing work and
+// free the session's resources as if `session/close` had been called, then archive it.
+// Archiving an archived session succeeds. A session that does not exist gets `-32002`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ArchiveSessionRequest struct {
+	// The ID of the session to archive.
+	SessionID SessionID `json:"sessionId"`
+	Meta      Meta      `json:"_meta,omitzero"`
+}
+
+// Request parameters for unarchiving a session.
+//
+// Only available if the Agent supports the `sessionCapabilities.archive` capability.
+//
+// Unarchiving returns the session to default `session/list` results with the same ID and
+// saved history. It never loads or resumes the session. Clients that want to continue an
+// archived session SHOULD unarchive it before calling `session/load` or `session/resume`.
+// Unarchiving a session that is not archived succeeds. A session that does not exist
+// gets `-32002`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type UnarchiveSessionRequest struct {
+	// The ID of the session to unarchive.
+	SessionID SessionID `json:"sessionId"`
+	Meta      Meta      `json:"_meta,omitzero"`
+}
+
+// Request parameters for checking the status of a session.
+//
+// Only available if the Agent supports the `sessionCapabilities.status` capability.
+//
+// `session/status` MUST NOT have side effects. The Agent does not load, resume, create,
+// close, or change the session, and does not attach the requesting connection to it.
+// A session the Agent does not know gets `-32002` with the requested `sessionId` in `data`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatusRequest struct {
+	// The ID of the session to check.
+	SessionID SessionID `json:"sessionId"`
+	Meta      Meta      `json:"_meta,omitzero"`
+}
+
+// Request parameters for setting the title of a session.
+//
+// Only available if the Agent supports the `sessionCapabilities.title` capability.
+//
+// The session does not need to be active on the connection. Any session the Agent would
+// return from `session/list` can be retitled. A session that does not exist gets `-32002`.
+//
+// The Agent responds only after it has stored the title. After a successful response, the
+// Agent SHOULD NOT replace the title with one it generates automatically.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SetSessionTitleRequest struct {
+	// The ID of the session to retitle.
+	SessionID SessionID `json:"sessionId"`
+	// The new title for the session.
+	//
+	// Required and non-null. Omission and explicit `null` are both invalid. The Agent MAY
+	// normalize the title before storing it, for example by trimming whitespace or
+	// truncating it. The Agent rejects a title that fails its validation, including one
+	// that is empty after normalization, with `-32602`.
+	Title string `json:"title"`
+	Meta  Meta   `json:"_meta,omitzero"`
 }
 
 // Request parameters for resuming an existing session.
@@ -1432,7 +1716,7 @@ type ResumeSessionRequest struct {
 	MCPServers []MCPServer `json:"mcpServers,omitzero"`
 	// System-level instructions for the resumed session.
 	//
-	// Optional. Omitted and `null` are equivalent; the Agent may then keep a
+	// Optional. Omitted and `null` are equivalent. The Agent may then keep a
 	// system prompt it stored with the session or use its default instructions.
 	// Clients MUST only send this when the Agent advertises
 	// `sessionCapabilities.systemPrompt`, and SHOULD send the same value they used
@@ -1471,21 +1755,21 @@ type SetSessionModeRequest struct {
 //
 // See protocol docs: [User Message]
 //
-// [User Message]: https://agentclientprotocol.com/protocol/prompt-turn#1-user-message
+// [User Message]: https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#1-user-message
 type PromptRequest struct {
 	// The ID of the session to send this user message to
 	SessionID SessionID `json:"sessionId"`
 	// The blocks of content that compose the user's message.
 	//
-	// As a baseline, the Agent MUST support [ContentBlockText] and [ContentBlockResourceLink],
-	// while other variants are optionally enabled via [PromptCapabilities].
+	// As a baseline, the Agent MUST support `text` and `resource_link` content blocks,
+	// while other variants are optionally enabled via `PromptCapabilities`.
 	//
-	// The Client MUST adapt its interface according to [PromptCapabilities].
+	// The Client MUST adapt its interface according to `PromptCapabilities`.
 	//
 	// The client MAY include referenced pieces of context as either
-	// [ContentBlockResource] or [ContentBlockResourceLink].
+	// `resource` or `resource_link` content blocks.
 	//
-	// When available, [ContentBlockResource] is preferred
+	// When available, `resource` is preferred
 	// as it avoids extra round-trips and allows the message to include
 	// pieces of context from sources the agent may not have access to.
 	Prompt []ContentBlock `json:"prompt"`
@@ -1565,16 +1849,16 @@ type ElicitationAcceptAction struct {
 
 // MCPError is an inner MCP error, distinct from an outer ACP binding or runtime error.
 //
-// `code` and `message` are required and non-null. `data` is optional;
-// explicit `null` is preserved separately from an omitted key.
+// `code` and `message` are required and non-null. `data` is optional.
+// Explicit `null` is preserved separately from an omitted key.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MCPError struct {
-	// Inner MCP error code; never an ACP error code.
+	// Inner MCP error code. Never an ACP error code.
 	Code int32 `json:"code"`
 	// Inner MCP error message.
 	Message string `json:"message"`
-	// Optional error data; explicit null is retained.
+	// Optional error data. Explicit null is retained.
 	Data                 jsontext.Value            `json:"data,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
@@ -1583,7 +1867,7 @@ type MCPError struct {
 //
 // See protocol docs: [Cancellation]
 //
-// [Cancellation]: https://agentclientprotocol.com/protocol/prompt-turn#cancellation
+// [Cancellation]: https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#cancellation
 type CancelNotification struct {
 	// The ID of the session to cancel operations for.
 	SessionID SessionID `json:"sessionId"`
@@ -1593,7 +1877,7 @@ type CancelNotification struct {
 // Notification parameters for `mcp/message`.
 //
 // Sent by the provider to the consumer for an active request (including
-// subscription acknowledgements and updates); the outer envelope has no `id`.
+// subscription acknowledgements and updates). The outer envelope has no `id`.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type MessageMCPNotification struct {
@@ -1614,11 +1898,115 @@ type MessageMCPNotification struct {
 //
 // See protocol docs: [Cancellation]
 //
-// [Cancellation]: https://agentclientprotocol.com/protocol/cancellation
+// [Cancellation]: https://agentclientprotocol.com/protocol/v1/draft/cancellation
 type CancelRequestNotification struct {
 	// The ID of the request to cancel.
 	RequestID RequestID `json:"requestId"`
 	Meta      Meta      `json:"_meta,omitzero"`
+}
+
+// ProxyRequest is a JSON-RPC request object.
+type ProxyRequest struct {
+	// The request id used to correlate the matching response.
+	ID RequestID `json:"id"`
+	// The method name to invoke.
+	Method string `json:"method"`
+	// Method-specific request parameters.
+	Params ProxyRequestParams `json:"params,omitzero"`
+}
+
+// Request parameters for `proxy/initialize`.
+//
+// A conductor sends `proxy/initialize` instead of `initialize` to every component that has a
+// successor, which tells the component to run as a proxy. The params and the response are
+// the same as for `initialize`. A conductor sends `initialize` to the final agent.
+//
+// The params carry the protocol version the conductor selected: the client's requested
+// version, unless the conductor supports only a lower one. Before answering successfully,
+// the proxy MUST forward an `initialize` request to its successor through `proxy/successor`.
+//
+// See the [Proxy Chains RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Proxy Chains RFD]: https://agentclientprotocol.com/rfds/proxy-chains
+type InitializeProxyRequest = InitializeRequest
+
+// Parameters of a `proxy/successor` request.
+//
+// A proxy sends it to forward a message to its successor, and the conductor sends it to
+// deliver a message from the successor to the proxy. The envelope wraps one request: `method`
+// and `params` are the wrapped request's method and params.
+//
+// The result or error of the wrapped request is returned unchanged, as the same JSON value,
+// as the result or error of the `proxy/successor` request. Errors the conductor returns
+// itself, for example because the successor has exited, are not wrapped results.
+//
+// To cancel it, the sender sends `$/cancel_request` with the ID of this `proxy/successor`
+// request on the same connection. Cancellation is never forwarded to another hop.
+//
+// See the [Proxy Chains RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Proxy Chains RFD]: https://agentclientprotocol.com/rfds/proxy-chains
+type ProxySuccessorRequest struct {
+	// Method name of the wrapped request.
+	Method string `json:"method"`
+	// Params of the wrapped request, forwarded unchanged.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the wrapped request has no params.
+	// When present, it MUST be a JSON object or array, as JSON-RPC requires.
+	// The wrapped request's own `_meta` stays inside these params.
+	Params jsontext.Value `json:"params,omitzero"`
+	// Metadata for the `proxy/successor` envelope itself, separate from the wrapped message's `_meta`. It is hop-local: the conductor does not copy it into the message it unwraps.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// InitializeProxyResponse is a response to `proxy/initialize`.
+//
+// The same as the `initialize` response. The proxy builds it from its successor's
+// `initialize` response and answers with the capabilities of the chain from itself onward.
+// It MUST NOT change `protocolVersion`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type InitializeProxyResponse = InitializeResponse
+
+// Result of a `proxy/successor` request: the wrapped request's result, forwarded unchanged.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ProxySuccessorResponse = jsontext.Value
+
+// ProxyNotification is a JSON-RPC notification object.
+type ProxyNotification struct {
+	// The notification method name.
+	Method string `json:"method"`
+	// Method-specific notification parameters.
+	Params *ProxySuccessorNotification `json:"params,omitzero"`
+}
+
+// Parameters of a `proxy/successor` notification.
+//
+// A proxy sends it to forward a message to its successor, and the conductor sends it to
+// deliver a message from the successor to the proxy. The envelope wraps one notification: `method`
+// and `params` are the wrapped notification's method and params.
+//
+// See the [Proxy Chains RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Proxy Chains RFD]: https://agentclientprotocol.com/rfds/proxy-chains
+type ProxySuccessorNotification struct {
+	// Method name of the wrapped notification.
+	Method string `json:"method"`
+	// Params of the wrapped notification, forwarded unchanged.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the wrapped notification has no params.
+	// When present, it MUST be a JSON object or array, as JSON-RPC requires.
+	// The wrapped notification's own `_meta` stays inside these params.
+	Params jsontext.Value `json:"params,omitzero"`
+	// Metadata for the `proxy/successor` envelope itself, separate from the wrapped message's `_meta`. It is hop-local: the conductor does not copy it into the message it unwraps.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 type CreateElicitationRequestFormSession struct {
@@ -1806,6 +2194,20 @@ type MessageMCPResponseError struct {
 	Error MCPError `json:"error"`
 	// Optional ACP carrier metadata.
 	Meta Meta `json:"_meta,omitzero"`
+}
+
+type ProxyResponseResult struct {
+	// The id of the request this response answers.
+	ID RequestID `json:"id"`
+	// Method-specific response data.
+	Result ProxyResponseResultResult `json:"result"`
+}
+
+type ProxyResponseError struct {
+	// The id of the request this response answers.
+	ID RequestID `json:"id"`
+	// Method-specific error data.
+	Error Error `json:"error"`
 }
 
 // Meta is the _meta extension object reserved on protocol messages.

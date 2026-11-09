@@ -150,8 +150,8 @@ export const CreateElicitationRequest = {
  * Property schema for elicitation form fields.
  *
  * Each variant corresponds to a JSON Schema `"type"` value.
- * Single-select enums use the `String` variant with `enum` or `oneOf` set.
- * Multi-select enums use the `Array` variant.
+ * Single-select enums use `type: "string"` with `enum` or `oneOf` set.
+ * Multi-select enums use `type: "array"`.
  */
 export type ElicitationPropertySchema = types.ElicitationPropertySchema;
 /**
@@ -300,8 +300,8 @@ export const MultiSelectItems = {
  *
  * Current foreground-work state of a reusable child session.
  *
- * Each update is a whole-object snapshot. Idle does not terminate the child;
- * the parent can message it again, transitioning it back to running.
+ * Each update is a whole-object snapshot. Idle does not terminate the child.
+ * The parent can message it again, transitioning it back to running.
  * Background activity may still emit other session updates while idle.
  *
  * @experimental

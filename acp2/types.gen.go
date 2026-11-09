@@ -21,17 +21,25 @@ type (
 	SetProviderResponse             = schema.SetProviderResponse
 	DisableProviderResponse         = schema.DisableProviderResponse
 	LogoutAuthResponse              = schema.LogoutAuthResponse
+	AuthStatusResponse              = schema.AuthStatusResponse
 	NewSessionResponse              = schema.NewSessionResponse
 	ListSessionsResponse            = schema.ListSessionsResponse
 	DeleteSessionResponse           = schema.DeleteSessionResponse
 	ForkSessionResponse             = schema.ForkSessionResponse
+	ArchiveSessionResponse          = schema.ArchiveSessionResponse
+	UnarchiveSessionResponse        = schema.UnarchiveSessionResponse
+	SessionStatusResponse           = schema.SessionStatusResponse
+	SetSessionTitleResponse         = schema.SetSessionTitleResponse
 	ResumeSessionResponse           = schema.ResumeSessionResponse
 	CloseSessionResponse            = schema.CloseSessionResponse
+	CancelToolCallResponse          = schema.CancelToolCallResponse
+	CancelTerminalResponse          = schema.CancelTerminalResponse
 	SetSessionConfigOptionResponse  = schema.SetSessionConfigOptionResponse
 	PromptResponse                  = schema.PromptResponse
 	ExtResponse                     = schema.ExtResponse
 	UpdateSessionNotification       = schema.UpdateSessionNotification
 	CompleteElicitationNotification = schema.CompleteElicitationNotification
+	AuthStatusUpdateNotification    = schema.AuthStatusUpdateNotification
 	ExtNotification                 = schema.ExtNotification
 	InitializeRequest               = schema.InitializeRequest
 	LoginAuthRequest                = schema.LoginAuthRequest
@@ -39,12 +47,19 @@ type (
 	SetProviderRequest              = schema.SetProviderRequest
 	DisableProviderRequest          = schema.DisableProviderRequest
 	LogoutAuthRequest               = schema.LogoutAuthRequest
+	AuthStatusRequest               = schema.AuthStatusRequest
 	NewSessionRequest               = schema.NewSessionRequest
 	ListSessionsRequest             = schema.ListSessionsRequest
 	DeleteSessionRequest            = schema.DeleteSessionRequest
 	ForkSessionRequest              = schema.ForkSessionRequest
+	ArchiveSessionRequest           = schema.ArchiveSessionRequest
+	UnarchiveSessionRequest         = schema.UnarchiveSessionRequest
+	SessionStatusRequest            = schema.SessionStatusRequest
+	SetSessionTitleRequest          = schema.SetSessionTitleRequest
 	ResumeSessionRequest            = schema.ResumeSessionRequest
 	CloseSessionRequest             = schema.CloseSessionRequest
+	CancelToolCallRequest           = schema.CancelToolCallRequest
+	CancelTerminalRequest           = schema.CancelTerminalRequest
 	SetSessionConfigOptionRequest   = schema.SetSessionConfigOptionRequest
 	PromptRequest                   = schema.PromptRequest
 	RequestPermissionResponse       = schema.RequestPermissionResponse
@@ -53,6 +68,14 @@ type (
 	CancelSessionNotification       = schema.CancelSessionNotification
 	MessageMCPNotification          = schema.MessageMCPNotification
 	CancelRequestNotification       = schema.CancelRequestNotification
+	ProxyRequest                    = schema.ProxyRequest
+	InitializeProxyRequest          = schema.InitializeProxyRequest
+	ProxySuccessorRequest           = schema.ProxySuccessorRequest
+	ProxyResponse                   = schema.ProxyResponse
+	InitializeProxyResponse         = schema.InitializeProxyResponse
+	ProxySuccessorResponse          = schema.ProxySuccessorResponse
+	ProxyNotification               = schema.ProxyNotification
+	ProxySuccessorNotification      = schema.ProxySuccessorNotification
 )
 
 // Every type those payloads reach, with the constants and constructors
@@ -63,7 +86,7 @@ type (
 	AgentAuthCapabilities                    = schema.AgentAuthCapabilities
 	AgentCapabilities                        = schema.AgentCapabilities
 	Annotations                              = schema.Annotations
-	AuthCapabilities                         = schema.AuthCapabilities
+	AuthAccount                              = schema.AuthAccount
 	AuthMethod                               = schema.AuthMethod
 	AuthMethodAgent                          = schema.AuthMethodAgent
 	AuthMethodCustom                         = schema.AuthMethodCustom
@@ -71,13 +94,27 @@ type (
 	AuthMethodTerminal                       = schema.AuthMethodTerminal
 	AuthMethodVariant                        = schema.AuthMethodVariant
 	AuthMethodVariants                       = schema.AuthMethodVariants
+	AuthState                                = schema.AuthState
+	AuthStatusCapabilities                   = schema.AuthStatusCapabilities
 	AvailableCommand                         = schema.AvailableCommand
+	AvailableCommandCommand                  = schema.AvailableCommandCommand
+	AvailableCommandCustom                   = schema.AvailableCommandCustom
 	AvailableCommandInput                    = schema.AvailableCommandInput
 	AvailableCommandInputCustom              = schema.AvailableCommandInputCustom
 	AvailableCommandInputText                = schema.AvailableCommandInputText
 	AvailableCommandInputVariant             = schema.AvailableCommandInputVariant
 	AvailableCommandInputVariants            = schema.AvailableCommandInputVariants
+	AvailableCommandVariant                  = schema.AvailableCommandVariant
+	AvailableCommandVariants                 = schema.AvailableCommandVariants
+	BackgroundWork                           = schema.BackgroundWork
+	BackgroundWorkCustom                     = schema.BackgroundWorkCustom
+	BackgroundWorkSubagent                   = schema.BackgroundWorkSubagent
+	BackgroundWorkTerminal                   = schema.BackgroundWorkTerminal
+	BackgroundWorkToolCall                   = schema.BackgroundWorkToolCall
+	BackgroundWorkVariant                    = schema.BackgroundWorkVariant
+	BackgroundWorkVariants                   = schema.BackgroundWorkVariants
 	BlobResourceContents                     = schema.BlobResourceContents
+	ClientAuthCapabilities                   = schema.ClientAuthCapabilities
 	ClientCapabilities                       = schema.ClientCapabilities
 	CompactionID                             = schema.CompactionID
 	CompactionStatus                         = schema.CompactionStatus
@@ -139,6 +176,8 @@ type (
 	EnvVariable                              = schema.EnvVariable
 	Error                                    = schema.Error
 	ErrorCode                                = schema.ErrorCode
+	ErrorData                                = schema.ErrorData
+	ErrorDataAlternative                     = schema.ErrorDataAlternative
 	HTTPHeader                               = schema.HTTPHeader
 	Icon                                     = schema.Icon
 	IconTheme                                = schema.IconTheme
@@ -203,6 +242,15 @@ type (
 	ProviderID                               = schema.ProviderID
 	ProviderInfo                             = schema.ProviderInfo
 	ProvidersCapabilities                    = schema.ProvidersCapabilities
+	ProxyRequestParams                       = schema.ProxyRequestParams
+	ProxyRequestParamsAlternative            = schema.ProxyRequestParamsAlternative
+	ProxyResponseAlternative                 = schema.ProxyResponseAlternative
+	ProxyResponseError                       = schema.ProxyResponseError
+	ProxyResponseErrorID                     = schema.ProxyResponseErrorID
+	ProxyResponseErrorIDAlternative          = schema.ProxyResponseErrorIDAlternative
+	ProxyResponseResult                      = schema.ProxyResponseResult
+	ProxyResponseResultResult                = schema.ProxyResponseResultResult
+	ProxyResponseResultResultAlternative     = schema.ProxyResponseResultResultAlternative
 	ReplayFrom                               = schema.ReplayFrom
 	ReplayFromCustom                         = schema.ReplayFromCustom
 	ReplayFromStart                          = schema.ReplayFromStart
@@ -224,6 +272,8 @@ type (
 	RequestPermissionSubjectVariants         = schema.RequestPermissionSubjectVariants
 	Role                                     = schema.Role
 	SessionAdditionalDirectoriesCapabilities = schema.SessionAdditionalDirectoriesCapabilities
+	SessionArchiveCapabilities               = schema.SessionArchiveCapabilities
+	SessionArchiveFilter                     = schema.SessionArchiveFilter
 	SessionCancelCapabilities                = schema.SessionCancelCapabilities
 	SessionCapabilities                      = schema.SessionCapabilities
 	SessionConfigGroupID                     = schema.SessionConfigGroupID
@@ -245,9 +295,13 @@ type (
 	SessionID                                = schema.SessionID
 	SessionInfo                              = schema.SessionInfo
 	SessionListCursor                        = schema.SessionListCursor
+	SessionNotFoundErrorData                 = schema.SessionNotFoundErrorData
+	SessionStatus                            = schema.SessionStatus
+	SessionStatusCapabilities                = schema.SessionStatusCapabilities
 	SessionSystemPromptCapabilities          = schema.SessionSystemPromptCapabilities
 	SessionSystemPromptModeCapabilities      = schema.SessionSystemPromptModeCapabilities
 	SessionSystemPromptOverrideCapabilities  = schema.SessionSystemPromptOverrideCapabilities
+	SessionTitleCapabilities                 = schema.SessionTitleCapabilities
 	SessionUpdate                            = schema.SessionUpdate
 	SessionUpdateAgentMessage                = schema.SessionUpdateAgentMessage
 	SessionUpdateAgentMessageChunk           = schema.SessionUpdateAgentMessageChunk
@@ -293,11 +347,16 @@ type (
 	SystemPrompt                             = schema.SystemPrompt
 	SystemPromptMode                         = schema.SystemPromptMode
 	TerminalAuthCapabilities                 = schema.TerminalAuthCapabilities
+	TerminalCancelCapabilities               = schema.TerminalCancelCapabilities
+	TerminalCapabilities                     = schema.TerminalCapabilities
 	TerminalExitStatus                       = schema.TerminalExitStatus
 	TerminalID                               = schema.TerminalID
 	TerminalOutput                           = schema.TerminalOutput
+	TerminalSize                             = schema.TerminalSize
 	TextResourceContents                     = schema.TextResourceContents
 	TitledMultiSelectItems                   = schema.TitledMultiSelectItems
+	ToolCallCancelCapabilities               = schema.ToolCallCancelCapabilities
+	ToolCallCapabilities                     = schema.ToolCallCapabilities
 	ToolCallContent                          = schema.ToolCallContent
 	ToolCallContentContent                   = schema.ToolCallContentContent
 	ToolCallContentCustom                    = schema.ToolCallContentCustom
@@ -310,10 +369,15 @@ type (
 	ToolCallStatus                           = schema.ToolCallStatus
 	ToolCallUpdate                           = schema.ToolCallUpdate
 	ToolKind                                 = schema.ToolKind
+	UnsupportedProtocolVersionErrorData      = schema.UnsupportedProtocolVersionErrorData
 	Usage                                    = schema.Usage
 )
 
 const (
+	AuthStateAuthenticated                  = schema.AuthStateAuthenticated
+	AuthStateUnauthenticated                = schema.AuthStateUnauthenticated
+	AuthStateNotRequired                    = schema.AuthStateNotRequired
+	AuthStateUnknown                        = schema.AuthStateUnknown
 	CompactionStatusInProgress              = schema.CompactionStatusInProgress
 	CompactionStatusCompleted               = schema.CompactionStatusCompleted
 	CompactionStatusFailed                  = schema.CompactionStatusFailed
@@ -332,6 +396,7 @@ const (
 	ErrorCodeRequestCancelled               = schema.ErrorCodeRequestCancelled
 	ErrorCodeAuthenticationRequired         = schema.ErrorCodeAuthenticationRequired
 	ErrorCodeResourceNotFound               = schema.ErrorCodeResourceNotFound
+	ErrorCodeValue32022                     = schema.ErrorCodeValue32022
 	IconThemeLight                          = schema.IconThemeLight
 	IconThemeDark                           = schema.IconThemeDark
 	LLMProtocolAnthropic                    = schema.LLMProtocolAnthropic
@@ -355,10 +420,15 @@ const (
 	PlanEntryStatusCancelled                = schema.PlanEntryStatusCancelled
 	RoleAssistant                           = schema.RoleAssistant
 	RoleUser                                = schema.RoleUser
+	SessionArchiveFilterExclude             = schema.SessionArchiveFilterExclude
+	SessionArchiveFilterInclude             = schema.SessionArchiveFilterInclude
+	SessionArchiveFilterOnly                = schema.SessionArchiveFilterOnly
 	SessionConfigOptionCategoryMode         = schema.SessionConfigOptionCategoryMode
 	SessionConfigOptionCategoryModel        = schema.SessionConfigOptionCategoryModel
 	SessionConfigOptionCategoryModelConfig  = schema.SessionConfigOptionCategoryModelConfig
 	SessionConfigOptionCategoryThoughtLevel = schema.SessionConfigOptionCategoryThoughtLevel
+	SessionStatusOpen                       = schema.SessionStatusOpen
+	SessionStatusSaved                      = schema.SessionStatusSaved
 	StringFormatEmail                       = schema.StringFormatEmail
 	StringFormatURI                         = schema.StringFormatURI
 	StringFormatDate                        = schema.StringFormatDate
@@ -367,6 +437,7 @@ const (
 	SystemPromptModeOverride                = schema.SystemPromptModeOverride
 	ToolCallStatusPending                   = schema.ToolCallStatusPending
 	ToolCallStatusInProgress                = schema.ToolCallStatusInProgress
+	ToolCallStatusPaused                    = schema.ToolCallStatusPaused
 	ToolCallStatusCompleted                 = schema.ToolCallStatusCompleted
 	ToolCallStatusFailed                    = schema.ToolCallStatusFailed
 	ToolCallStatusCancelled                 = schema.ToolCallStatusCancelled
@@ -385,9 +456,19 @@ const (
 // NewAuthMethod wraps a variant.
 func NewAuthMethod[T AuthMethodVariants](v T) AuthMethod { return schema.NewAuthMethod(v) }
 
+// NewAvailableCommand wraps a variant.
+func NewAvailableCommand[T AvailableCommandVariants](v T) AvailableCommand {
+	return schema.NewAvailableCommand(v)
+}
+
 // NewAvailableCommandInput wraps a variant.
 func NewAvailableCommandInput[T AvailableCommandInputVariants](v T) AvailableCommandInput {
 	return schema.NewAvailableCommandInput(v)
+}
+
+// NewBackgroundWork wraps a variant.
+func NewBackgroundWork[T BackgroundWorkVariants](v T) BackgroundWork {
+	return schema.NewBackgroundWork(v)
 }
 
 // NewContentBlock wraps a variant.
@@ -421,6 +502,11 @@ func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T)
 	return schema.NewEmbeddedResourceResource(value)
 }
 
+// NewErrorData encodes value, one of the ErrorDataAlternative types.
+func NewErrorData[T ErrorDataAlternative](value T) (ErrorData, error) {
+	return schema.NewErrorData(value)
+}
+
 // NewIdleStateUpdate wraps a variant.
 func NewIdleStateUpdate[T IdleStateUpdateVariants](v T) IdleStateUpdate {
 	return schema.NewIdleStateUpdate(v)
@@ -442,6 +528,26 @@ func NewMultiSelectItems[T MultiSelectItemsVariants](v T) MultiSelectItems {
 // NewPlanUpdateContent wraps a variant.
 func NewPlanUpdateContent[T PlanUpdateContentVariants](v T) PlanUpdateContent {
 	return schema.NewPlanUpdateContent(v)
+}
+
+// NewProxyRequestParams encodes value, one of the ProxyRequestParamsAlternative types.
+func NewProxyRequestParams[T ProxyRequestParamsAlternative](value T) (ProxyRequestParams, error) {
+	return schema.NewProxyRequestParams(value)
+}
+
+// NewProxyResponse encodes value, one of the ProxyResponseAlternative types.
+func NewProxyResponse[T ProxyResponseAlternative](value T) (ProxyResponse, error) {
+	return schema.NewProxyResponse(value)
+}
+
+// NewProxyResponseErrorID encodes value, one of the ProxyResponseErrorIDAlternative types.
+func NewProxyResponseErrorID[T ProxyResponseErrorIDAlternative](value T) (ProxyResponseErrorID, error) {
+	return schema.NewProxyResponseErrorID(value)
+}
+
+// NewProxyResponseResultResult encodes value, one of the ProxyResponseResultResultAlternative types.
+func NewProxyResponseResultResult[T ProxyResponseResultResultAlternative](value T) (ProxyResponseResultResult, error) {
+	return schema.NewProxyResponseResultResult(value)
 }
 
 // NewReplayFrom wraps a variant.

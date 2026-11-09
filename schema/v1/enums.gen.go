@@ -4,12 +4,12 @@ package schema
 
 // SessionID is a unique identifier for a conversation session between a client and agent.
 //
-// Sessions maintain their own context, conversation history, and state,
-// allowing multiple independent interactions with the same agent.
+// Each session has its own context, conversation history, and state, so one
+// agent can run several independent sessions.
 //
 // See protocol docs: [Session ID]
 //
-// [Session ID]: https://agentclientprotocol.com/protocol/session-setup#session-id
+// [Session ID]: https://agentclientprotocol.com/protocol/v1/draft/session-setup#session-id
 type SessionID string
 
 // ToolCallID is a unique identifier for a tool call within a session.
@@ -22,7 +22,7 @@ type ToolCallID string
 //
 // See protocol docs: [Creating]
 //
-// [Creating]: https://agentclientprotocol.com/protocol/tool-calls#creating
+// [Creating]: https://agentclientprotocol.com/protocol/v1/draft/tool-calls#creating
 type ToolKind string
 
 const (
@@ -44,7 +44,7 @@ const (
 //
 // See protocol docs: [Status]
 //
-// [Status]: https://agentclientprotocol.com/protocol/tool-calls#status
+// [Status]: https://agentclientprotocol.com/protocol/v1/draft/tool-calls#status
 type ToolCallStatus string
 
 const (
@@ -159,6 +159,29 @@ func (v LLMProtocol) Known() bool {
 	return false
 }
 
+// AuthState is the agent's overall authentication state.
+//
+// AuthState also accepts values outside the listed constants; use [AuthState.Known] to check.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthState string
+
+const (
+	AuthStateAuthenticated   AuthState = "authenticated"
+	AuthStateUnauthenticated AuthState = "unauthenticated"
+	AuthStateNotRequired     AuthState = "not_required"
+	AuthStateUnknown         AuthState = "unknown"
+)
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v AuthState) Known() bool {
+	switch v {
+	case AuthStateAuthenticated, AuthStateUnauthenticated, AuthStateNotRequired, AuthStateUnknown:
+		return true
+	}
+	return false
+}
+
 // SessionModeID is a unique identifier for a Session Mode.
 type SessionModeID string
 
@@ -200,11 +223,32 @@ type SessionConfigValueID string
 // SessionConfigGroupID is a unique identifier for a session configuration option value group.
 type SessionConfigGroupID string
 
+// SessionStatus also accepts values outside the listed constants; use [SessionStatus.Known] to check.
+//
+// Whether the Agent has a session in memory, as reported by `session/status`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatus string
+
+const (
+	SessionStatusOpen  SessionStatus = "open"
+	SessionStatusSaved SessionStatus = "saved"
+)
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v SessionStatus) Known() bool {
+	switch v {
+	case SessionStatusOpen, SessionStatusSaved:
+		return true
+	}
+	return false
+}
+
 // Reasons why an agent stops processing a prompt turn.
 //
 // See protocol docs: [Stop Reasons]
 //
-// [Stop Reasons]: https://agentclientprotocol.com/protocol/prompt-turn#stop-reasons
+// [Stop Reasons]: https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#stop-reasons
 type StopReason string
 
 const (
@@ -219,8 +263,9 @@ const (
 //
 // Predefined error codes for common JSON-RPC and ACP-specific errors.
 //
-// These codes follow the JSON-RPC 2.0 specification for standard errors
-// and use the reserved range (-32000 to -32099) for protocol-specific errors.
+// Standard errors use the JSON-RPC 2.0 codes. ACP-specific errors use the JSON-RPC
+// server-error range (-32000 to -32099), and request cancellation uses -32800 from the
+// range LSP reserves (-32899 to -32800).
 type ErrorCode int32
 
 const (
@@ -252,7 +297,7 @@ type MessageID string
 // tasks in the execution plan.
 // See protocol docs: [Plan Entries]
 //
-// [Plan Entries]: https://agentclientprotocol.com/protocol/agent-plan#plan-entries
+// [Plan Entries]: https://agentclientprotocol.com/protocol/v1/draft/agent-plan#plan-entries
 type PlanEntryPriority string
 
 const (
@@ -266,7 +311,7 @@ const (
 // Tracks the lifecycle of each task from planning through completion.
 // See protocol docs: [Plan Entries]
 //
-// [Plan Entries]: https://agentclientprotocol.com/protocol/agent-plan#plan-entries
+// [Plan Entries]: https://agentclientprotocol.com/protocol/v1/draft/agent-plan#plan-entries
 type PlanEntryStatus string
 
 const (
@@ -328,7 +373,7 @@ func (v CompactionStatus) Known() bool {
 //
 // How the Agent combines a client-provided system prompt with its own instructions.
 //
-// Unknown modes parse as SystemPromptMode.Other so they can be stored,
+// Unknown modes are preserved so they can be stored,
 // proxied, or forwarded. An Agent MUST return an error for a mode it does not
 // support rather than treating it as `append` or `override`.
 //
@@ -344,6 +389,31 @@ const (
 func (v SystemPromptMode) Known() bool {
 	switch v {
 	case SystemPromptModeAppend, SystemPromptModeOverride:
+		return true
+	}
+	return false
+}
+
+// SessionArchiveFilter also accepts values outside the listed constants; use [SessionArchiveFilter.Known] to check.
+//
+// Which sessions `session/list` returns based on their archive state.
+//
+// Unknown values are preserved so they can be stored, proxied, or forwarded. An Agent MUST
+// return `-32602` for a value it does not support rather than treating it as `exclude`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionArchiveFilter string
+
+const (
+	SessionArchiveFilterExclude SessionArchiveFilter = "exclude"
+	SessionArchiveFilterInclude SessionArchiveFilter = "include"
+	SessionArchiveFilterOnly    SessionArchiveFilter = "only"
+)
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v SessionArchiveFilter) Known() bool {
+	switch v {
+	case SessionArchiveFilterExclude, SessionArchiveFilterInclude, SessionArchiveFilterOnly:
 		return true
 	}
 	return false

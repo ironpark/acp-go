@@ -10,34 +10,45 @@ import (
 	"github.com/ironpark/acp-go/schema/internal/zod"
 
 	"reflect"
-	"regexp"
 )
 
 // Rule subtrees that repeat across the schemas, written and allocated once.
 var (
+	zodArrayRef_055edd25               = &zod.Rule{Kind: zod.KindArray, Inner: zodRefBackgroundWork}
 	zodArrayRef_330b9e09               = &zod.Rule{Kind: zod.KindArray, Inner: zodRefContentBlock}
 	zodArrayRef_895584ff               = &zod.Rule{Kind: zod.KindArray, Inner: zodRefEnumOption}
 	zodArrayRef_bdad3a7e               = &zod.Rule{Kind: zod.KindArray, Inner: zodRefEnvVariable}
 	zodArrayRef_cfb10be1               = &zod.Rule{Kind: zod.KindArray, Inner: zodRefAbsolutePath}
 	zodArrayRef_dc6468d5               = &zod.Rule{Kind: zod.KindArray, Inner: zodRefMcpServer}
 	zodArrayString_f734ce1d            = &zod.Rule{Kind: zod.KindArray, Inner: &zod.Rule{Kind: zod.KindString}}
+	zodCatchNullishArray_38a4855f      = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishArrayRef_2afb3026}
+	zodCatchNullishBoolean_5ae5faab    = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishBoolean_64b5aecd}
 	zodCatchNullishDateTime_b850c59c   = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishDateTime_9f7747d0}
-	zodCatchNullishMax_254e37c3        = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishMaxGte_311fa1f4}
-	zodCatchNullishNumber_dd7e4aff     = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishNumber_b3313da2}
+	zodCatchNullishGte_69915baa        = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishGteWideInt_7f2634f1}
 	zodCatchNullishRecord_e9d5f1a4     = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRecordUnknown_94861910}
 	zodCatchNullishRef_1f13ad50        = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRef_a3459448}
 	zodCatchNullishRef_1fdd8a5d        = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRef_74ebbb76}
+	zodCatchNullishRef_463673b2        = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRef_8e8ea896}
+	zodCatchNullishRef_5befc08c        = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRef_ce9d4eb5}
 	zodCatchNullishRef_9e9fd681        = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRef_6985b5ea}
 	zodCatchNullishRef_d2349e8c        = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRef_f87da672}
 	zodCatchNullishSkipArray_6bb35f3a  = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishSkipArrayString_22981316}
 	zodCatchNullishSkipArray_f37dd930  = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishSkipArrayRef_4bd58a55}
 	zodCatchNullishString_3d5fc11d     = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishString_bffa66f1}
+	zodCatchNullishWideInt_2623e866    = &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishWideInt_4dc3f5a4}
 	zodCatchOptionalSkipArray_bca03624 = &zod.Rule{Kind: zod.KindCatch, Inner: zodOptionalSkipArrayRef_fd41da99, Value: jsontext.Value(`[]`)}
+	zodCatchOptionalSkipArray_da08c151 = &zod.Rule{Kind: zod.KindCatch, Inner: zodOptionalSkipArrayRef_a80ce2c5, Value: jsontext.Value(`[]`)}
 	zodCatchOptionalSkipArray_f1b7f5ff = &zod.Rule{Kind: zod.KindCatch, Inner: zodOptionalSkipArrayRef_8868c7ad, Value: jsontext.Value(`[]`)}
 	zodCatchOptionalUnknown_35dcb8da   = &zod.Rule{Kind: zod.KindCatch, Inner: zodOptionalUnknown_f05342de}
 	zodDateTime_d16d55b8               = &zod.Rule{Kind: zod.KindDateTime, Offset: true}
-	zodGteInt_1095e09f                 = &zod.Rule{Kind: zod.KindGte, Inner: &zod.Rule{Kind: zod.KindInt}, Value: jsontext.Value(`0`)}
-	zodIntersection_0024e362           = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+	zodExactlyOne_d9c777ed             = &zod.Rule{Kind: zod.KindExactlyOne, Members: []*zod.Rule{
+		zodRefElicitationSessionScope,
+		zodRefElicitationRequestScope,
+	}, Keys: [][]string{{"sessionId"}, {"requestId"}}}
+	zodGteInt_1095e09f       = &zod.Rule{Kind: zod.KindGte, Inner: &zod.Rule{Kind: zod.KindInt}, Value: jsontext.Value(`0`)}
+	zodGteInt_3bc9f47f       = &zod.Rule{Kind: zod.KindGte, Inner: &zod.Rule{Kind: zod.KindInt}, Value: jsontext.Value(`1`)}
+	zodGteWideInt_2d0d28a6   = &zod.Rule{Kind: zod.KindGte, Inner: &zod.Rule{Kind: zod.KindWideInt}, Value: jsontext.Value(`0`)}
+	zodIntersection_0024e362 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		zodRefIntegerPropertySchema,
 		zodObject_4a6cde53,
 	}}
@@ -137,6 +148,10 @@ var (
 		zodRefRunningStateUpdate,
 		zodObject_e53989bc,
 	}}
+	zodIntersection_9298706d = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+		zodRefBackgroundSubagent,
+		zodObject_16154c36,
+	}}
 	zodIntersection_97a286f5 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		zodRefAgentThought,
 		zodObject_935a0a3a,
@@ -160,6 +175,10 @@ var (
 	zodIntersection_a3ae0eed = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		zodRefCompactionUpdate,
 		zodObject_93b35145,
+	}}
+	zodIntersection_a8813a4d = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+		zodRefBackgroundTerminal,
+		zodObject_2c7008fa,
 	}}
 	zodIntersection_b1ecfc51 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		zodRefCommandPermissionSubject,
@@ -189,9 +208,21 @@ var (
 		zodRefPlanRemoved,
 		zodObject_82170b70,
 	}}
+	zodIntersection_d1a09f49 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+		zodRefBackgroundToolCall,
+		zodObject_f47d5a05,
+	}}
+	zodIntersection_d240114c = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+		zodRefCommand,
+		zodObject_b777c9a9,
+	}}
 	zodIntersection_d3a9483a = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		zodRefDiff,
 		zodObject_04166e4d,
+	}}
+	zodIntersection_df3a46e9 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+		zodRefCancelledPermissionOutcome,
+		zodObject_3b5e6e0c,
 	}}
 	zodIntersection_e8fbdfaf = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		zodRefPlanUpdate,
@@ -266,6 +297,7 @@ var (
 	zodLiteral_9acccb84                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"delete"`)}
 	zodLiteral_a98e70b0                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"user_message"`)}
 	zodLiteral_ab2b6162                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"command"`)}
+	zodLiteral_ada44c02                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"subagent"`)}
 	zodLiteral_aec9c3a7                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"session_info_update"`)}
 	zodLiteral_b14b0ad2                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"array"`)}
 	zodLiteral_b345cabc                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"usage_update"`)}
@@ -282,12 +314,21 @@ var (
 	zodLiteral_eaba3971                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"http"`)}
 	zodLiteral_eb037b71                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"plan_removed"`)}
 	zodLiteral_f9080db3                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"in_progress"`)}
+	zodLteGteInt_3b8fc0cf              = &zod.Rule{Kind: zod.KindLte, Inner: zodGteInt_3bc9f47f, Value: jsontext.Value(`65535`)}
 	zodMaxGteInt_09783036              = &zod.Rule{Kind: zod.KindMax, Inner: zodGteInt_1095e09f, Value: jsontext.Value(`4294967295`)}
 	zodMaxMinInt_423fd9b1              = &zod.Rule{Kind: zod.KindMax, Inner: zodMinInt_0ddc91d5, Value: jsontext.Value(`2147483647`)}
 	zodMinArrayRef_bc7791c3            = &zod.Rule{Kind: zod.KindMin, Inner: zodArrayRef_895584ff, Value: jsontext.Value(`1`)}
 	zodMinArrayString_3091117a         = &zod.Rule{Kind: zod.KindMin, Inner: zodArrayString_f734ce1d, Value: jsontext.Value(`1`)}
 	zodMinInt_0ddc91d5                 = &zod.Rule{Kind: zod.KindMin, Inner: &zod.Rule{Kind: zod.KindInt}, Value: jsontext.Value(`-2147483648`)}
+	zodNullDefaultArrayRef_2d755093    = &zod.Rule{Kind: zod.KindNullDefault, Inner: zodArrayRef_dc6468d5, Value: jsontext.Value(`[]`)}
+	zodNullDefaultArrayRef_60886f3d    = &zod.Rule{Kind: zod.KindNullDefault, Inner: zodArrayRef_cfb10be1, Value: jsontext.Value(`[]`)}
+	zodNullDefaultArrayRef_626f7296    = &zod.Rule{Kind: zod.KindNullDefault, Inner: zodArrayRef_bdad3a7e, Value: jsontext.Value(`[]`)}
+	zodNullDefaultArrayString_b8f0c34c = &zod.Rule{Kind: zod.KindNullDefault, Inner: zodArrayString_f734ce1d, Value: jsontext.Value(`[]`)}
+	zodNullableUnion_e2c142b7          = &zod.Rule{Kind: zod.KindNullable, Inner: zodUnion_cac45881}
+	zodNullishArrayRef_2afb3026        = &zod.Rule{Kind: zod.KindNullish, Inner: zodArrayRef_055edd25}
+	zodNullishBoolean_64b5aecd         = &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindBoolean}}
 	zodNullishDateTime_9f7747d0        = &zod.Rule{Kind: zod.KindNullish, Inner: zodDateTime_d16d55b8}
+	zodNullishGteWideInt_7f2634f1      = &zod.Rule{Kind: zod.KindNullish, Inner: zodGteWideInt_2d0d28a6}
 	zodNullishMaxGte_311fa1f4          = &zod.Rule{Kind: zod.KindNullish, Inner: zodMaxGteInt_09783036}
 	zodNullishNumber_b3313da2          = &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindNumber}}
 	zodNullishRecordUnknown_94861910   = &zod.Rule{Kind: zod.KindNullish, Inner: zodRecordUnknown_2330b53d}
@@ -295,20 +336,29 @@ var (
 	zodNullishRef_44205b72             = &zod.Rule{Kind: zod.KindNullish, Inner: zodRefAbsolutePath}
 	zodNullishRef_6985b5ea             = &zod.Rule{Kind: zod.KindNullish, Inner: zodRefMediaType}
 	zodNullishRef_74ebbb76             = &zod.Rule{Kind: zod.KindNullish, Inner: zodRefToolCallId}
+	zodNullishRef_8e8ea896             = &zod.Rule{Kind: zod.KindNullish, Inner: zodRefStateUpdate}
 	zodNullishRef_a3459448             = &zod.Rule{Kind: zod.KindNullish, Inner: zodRefAnnotations}
+	zodNullishRef_ce9d4eb5             = &zod.Rule{Kind: zod.KindNullish, Inner: zodRefMessageId}
 	zodNullishRef_dbb58bbe             = &zod.Rule{Kind: zod.KindNullish, Inner: zodRefSystemPrompt}
 	zodNullishRef_f87da672             = &zod.Rule{Kind: zod.KindNullish, Inner: zodRefSessionId}
 	zodNullishSkipArrayRef_4bd58a55    = &zod.Rule{Kind: zod.KindNullish, Inner: zodSkipArrayRef_fb668b22}
 	zodNullishSkipArrayString_22981316 = &zod.Rule{Kind: zod.KindNullish, Inner: zodSkipArrayString_77562b8a}
 	zodNullishString_bffa66f1          = &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindString}}
+	zodNullishWideInt_4dc3f5a4         = &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindWideInt}}
 	zodObject_04092bf4                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_59129908}}}
 	zodObject_04166e4d                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_768c61d2}}}
 	zodObject_05cc27b6                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_e8f2035f}}}
-	zodObject_17f90ac7                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_dea1f098}}}
-	zodObject_1cb11045                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_8dd62d4e}}}
-	zodObject_1cd1a34b                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_c622e416}}}
-	zodObject_1e739c23                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_db852327}}}
-	zodObject_224974ec                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+	zodObject_15662cb5                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "messageId", Schema: zodRefMessageId},
+		{Name: "content", Schema: zodRefContentBlock},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}}
+	zodObject_16154c36 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_ada44c02}}}
+	zodObject_17f90ac7 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_dea1f098}}}
+	zodObject_1cb11045 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_8dd62d4e}}}
+	zodObject_1cd1a34b = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_c622e416}}}
+	zodObject_1e739c23 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_db852327}}}
+	zodObject_224974ec = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessionId", Schema: zodRefSessionId},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}}
@@ -320,24 +370,18 @@ var (
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}}
 	zodObject_26c33fd4 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_21650fd5}}}
+	zodObject_297b6d8c = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "state", Schema: zodRefAuthState},
+		{Name: "accounts", Schema: zodCatchOptionalSkipArray_da08c151},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}}
 	zodObject_2c7008fa = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_32fb44a3}}}
 	zodObject_2d3e2ee4 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_4ac8862e}}}
 	zodObject_32f49320 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_2d5302af}}}
 	zodObject_332ea74c = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_be3cbb93}}}
 	zodObject_3b1454a8 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_17c2ea33}}}
-	zodObject_3f3bd971 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "title", Schema: zodCatchNullishString_3d5fc11d},
-		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
-		{Name: "minimum", Schema: zodNullishNumber_b3313da2},
-		{Name: "maximum", Schema: zodNullishNumber_b3313da2},
-		{Name: "default", Schema: zodCatchNullishNumber_dd7e4aff},
-		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
-	}}
+	zodObject_3b5e6e0c = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "outcome", Schema: zodLiteral_3138d618}}}
 	zodObject_4a6cde53 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_5c1c19d9}}}
-	zodObject_58c28cdd = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "configOptions", Schema: zodRequiredCatchSkipArrayRef_c0f9914f},
-		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
-	}}
 	zodObject_5a0172e4 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "state", Schema: zodLiteral_6c1f95b5}}}
 	zodObject_5d7fcfdf = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_a98e70b0}}}
 	zodObject_6bdf90d2 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_79ccb42b}}}
@@ -349,6 +393,10 @@ var (
 	}}
 	zodObject_6ea93cec = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_c8301104}}}
 	zodObject_75f7bfc7 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_bbeb7d38}}}
+	zodObject_7742982f = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "configOptions", Schema: zodSkipArrayRef_e7dac6bd},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}}
 	zodObject_77f395dc = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_eaba3971}}}
 	zodObject_783ec697 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_cbffe3a1}}}
 	zodObject_7f814d8c = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_b345cabc}}}
@@ -367,6 +415,10 @@ var (
 	zodObject_93b35145 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_cd5e9763}}}
 	zodObject_9c07be2f = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_0bb90d82}}}
 	zodObject_a216e4c1 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: &zod.Rule{Kind: zod.KindString}}}}
+	zodObject_ab18d7b3 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "id", Schema: zodNullableUnion_e2c142b7},
+		{Name: "error", Schema: zodRefError},
+	}}
 	zodObject_b3e0bbc7 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_1f44828a}}}
 	zodObject_b57cba8a = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_4b52b717}}}
 	zodObject_b777c9a9 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_ab2b6162}}}
@@ -375,136 +427,159 @@ var (
 		{Name: "value", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}}
+	zodObject_c7ca43bf = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "terminalId", Schema: zodRefTerminalId},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}}
+	zodObject_c7e8cec3 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "background", Schema: zodCatchNullishArray_38a4855f},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}}
 	zodObject_cb39d645 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_210ec6dc}}}
 	zodObject_d1186e2e = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4}}}
 	zodObject_d3ba3ef9 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_15e6e3d6}}}
 	zodObject_dd19ef42 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_e0e1feea}}}
-	zodObject_e228f89b = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_6221d27f}}}
-	zodObject_e53989bc = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "state", Schema: zodLiteral_69a8b4fc}}}
-	zodObject_efa07e54 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_aec9c3a7}}}
-	zodObject_f3565808 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_1462f3b5}}}
-	zodObject_f3c1c3f7 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "outcome", Schema: zodLiteral_163c37c5}}}
-	zodObject_f47d5a05 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_1efcb427}}}
-	zodObject_f992cfad = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_8d4d760a}}}
-	zodObject_f9d387f1 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "state", Schema: zodLiteral_6380b3e6}}}
-	zodObject_ff283a35 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "id", Schema: zodRefRequestId},
-		{Name: "error", Schema: zodRefError},
+	zodObject_de44f442 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "method", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "params", Schema: zodOptionalUnknown_f05342de},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}}
-	zodOptionalArrayRef_4342050e          = &zod.Rule{Kind: zod.KindOptional, Inner: zodArrayRef_dc6468d5}
-	zodOptionalArrayRef_64d8e2c8          = &zod.Rule{Kind: zod.KindOptional, Inner: zodArrayRef_cfb10be1}
-	zodOptionalArrayRef_f5931609          = &zod.Rule{Kind: zod.KindOptional, Inner: zodArrayRef_bdad3a7e}
-	zodOptionalArrayString_db768623       = &zod.Rule{Kind: zod.KindOptional, Inner: zodArrayString_f734ce1d}
-	zodOptionalSkipArrayRef_8868c7ad      = &zod.Rule{Kind: zod.KindOptional, Inner: zodSkipArrayRef_749413a7}
-	zodOptionalSkipArrayRef_fd41da99      = &zod.Rule{Kind: zod.KindOptional, Inner: zodSkipArrayRef_e7dac6bd}
-	zodOptionalUnknown_f05342de           = &zod.Rule{Kind: zod.KindOptional, Inner: &zod.Rule{Kind: zod.KindUnknown}}
-	zodRecordUnknown_2330b53d             = &zod.Rule{Kind: zod.KindRecord, Inner: &zod.Rule{Kind: zod.KindUnknown}, Key: &zod.Rule{Kind: zod.KindString}}
-	zodRefAbsolutePath                    = &zod.Rule{Kind: zod.KindRef, Ref: "zAbsolutePath"}
-	zodRefAgentMessage                    = &zod.Rule{Kind: zod.KindRef, Ref: "zAgentMessage"}
-	zodRefAgentThought                    = &zod.Rule{Kind: zod.KindRef, Ref: "zAgentThought"}
-	zodRefAnnotations                     = &zod.Rule{Kind: zod.KindRef, Ref: "zAnnotations"}
-	zodRefAudioContent                    = &zod.Rule{Kind: zod.KindRef, Ref: "zAudioContent"}
-	zodRefAuthMethodAgent                 = &zod.Rule{Kind: zod.KindRef, Ref: "zAuthMethodAgent"}
-	zodRefAuthMethodId                    = &zod.Rule{Kind: zod.KindRef, Ref: "zAuthMethodId"}
-	zodRefAuthMethodTerminal              = &zod.Rule{Kind: zod.KindRef, Ref: "zAuthMethodTerminal"}
-	zodRefAvailableCommand                = &zod.Rule{Kind: zod.KindRef, Ref: "zAvailableCommand"}
-	zodRefAvailableCommandsUpdate         = &zod.Rule{Kind: zod.KindRef, Ref: "zAvailableCommandsUpdate"}
-	zodRefBooleanPropertySchema           = &zod.Rule{Kind: zod.KindRef, Ref: "zBooleanPropertySchema"}
-	zodRefCommandPermissionSubject        = &zod.Rule{Kind: zod.KindRef, Ref: "zCommandPermissionSubject"}
-	zodRefCompactionId                    = &zod.Rule{Kind: zod.KindRef, Ref: "zCompactionId"}
-	zodRefCompactionSummaryChunk          = &zod.Rule{Kind: zod.KindRef, Ref: "zCompactionSummaryChunk"}
-	zodRefCompactionUpdate                = &zod.Rule{Kind: zod.KindRef, Ref: "zCompactionUpdate"}
-	zodRefConfigOptionUpdate              = &zod.Rule{Kind: zod.KindRef, Ref: "zConfigOptionUpdate"}
-	zodRefContent                         = &zod.Rule{Kind: zod.KindRef, Ref: "zContent"}
-	zodRefContentBlock                    = &zod.Rule{Kind: zod.KindRef, Ref: "zContentBlock"}
-	zodRefContentChunk                    = &zod.Rule{Kind: zod.KindRef, Ref: "zContentChunk"}
-	zodRefDiff                            = &zod.Rule{Kind: zod.KindRef, Ref: "zDiff"}
-	zodRefDiffPathChange                  = &zod.Rule{Kind: zod.KindRef, Ref: "zDiffPathChange"}
-	zodRefDiffPathPairChange              = &zod.Rule{Kind: zod.KindRef, Ref: "zDiffPathPairChange"}
-	zodRefElicitationId                   = &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationId"}
-	zodRefElicitationRequestScope         = &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationRequestScope"}
-	zodRefElicitationSessionScope         = &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationSessionScope"}
-	zodRefEmbeddedResource                = &zod.Rule{Kind: zod.KindRef, Ref: "zEmbeddedResource"}
-	zodRefEnumOption                      = &zod.Rule{Kind: zod.KindRef, Ref: "zEnumOption"}
-	zodRefEnvVariable                     = &zod.Rule{Kind: zod.KindRef, Ref: "zEnvVariable"}
-	zodRefError                           = &zod.Rule{Kind: zod.KindRef, Ref: "zError"}
-	zodRefExtNotification                 = &zod.Rule{Kind: zod.KindRef, Ref: "zExtNotification"}
-	zodRefExtRequest                      = &zod.Rule{Kind: zod.KindRef, Ref: "zExtRequest"}
-	zodRefExtResponse                     = &zod.Rule{Kind: zod.KindRef, Ref: "zExtResponse"}
-	zodRefImageContent                    = &zod.Rule{Kind: zod.KindRef, Ref: "zImageContent"}
-	zodRefImplementation                  = &zod.Rule{Kind: zod.KindRef, Ref: "zImplementation"}
-	zodRefIntegerPropertySchema           = &zod.Rule{Kind: zod.KindRef, Ref: "zIntegerPropertySchema"}
-	zodRefLlmProtocol                     = &zod.Rule{Kind: zod.KindRef, Ref: "zLlmProtocol"}
-	zodRefMcpRequestId                    = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpRequestId"}
-	zodRefMcpServer                       = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServer"}
-	zodRefMcpServerAcp                    = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServerAcp"}
-	zodRefMcpServerAcpId                  = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServerAcpId"}
-	zodRefMcpServerHttp                   = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServerHttp"}
-	zodRefMcpServerStdio                  = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServerStdio"}
-	zodRefMediaType                       = &zod.Rule{Kind: zod.KindRef, Ref: "zMediaType"}
-	zodRefMessageId                       = &zod.Rule{Kind: zod.KindRef, Ref: "zMessageId"}
-	zodRefMultiSelectPropertySchema       = &zod.Rule{Kind: zod.KindRef, Ref: "zMultiSelectPropertySchema"}
-	zodRefNotice                          = &zod.Rule{Kind: zod.KindRef, Ref: "zNotice"}
-	zodRefNumberPropertySchema            = &zod.Rule{Kind: zod.KindRef, Ref: "zNumberPropertySchema"}
-	zodRefPermissionOptionId              = &zod.Rule{Kind: zod.KindRef, Ref: "zPermissionOptionId"}
-	zodRefPlanFile                        = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanFile"}
-	zodRefPlanId                          = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanId"}
-	zodRefPlanItems                       = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanItems"}
-	zodRefPlanMarkdown                    = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanMarkdown"}
-	zodRefPlanRemoved                     = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanRemoved"}
-	zodRefPlanUpdate                      = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanUpdate"}
-	zodRefProtocolVersion                 = &zod.Rule{Kind: zod.KindRef, Ref: "zProtocolVersion"}
-	zodRefProviderId                      = &zod.Rule{Kind: zod.KindRef, Ref: "zProviderId"}
-	zodRefReplayFromStart                 = &zod.Rule{Kind: zod.KindRef, Ref: "zReplayFromStart"}
-	zodRefRequestId                       = &zod.Rule{Kind: zod.KindRef, Ref: "zRequestId"}
-	zodRefRequiresActionStateUpdate       = &zod.Rule{Kind: zod.KindRef, Ref: "zRequiresActionStateUpdate"}
-	zodRefResourceLink                    = &zod.Rule{Kind: zod.KindRef, Ref: "zResourceLink"}
-	zodRefRunningStateUpdate              = &zod.Rule{Kind: zod.KindRef, Ref: "zRunningStateUpdate"}
-	zodRefSelectedPermissionOutcome       = &zod.Rule{Kind: zod.KindRef, Ref: "zSelectedPermissionOutcome"}
-	zodRefSessionConfigId                 = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigId"}
-	zodRefSessionConfigOption             = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigOption"}
-	zodRefSessionConfigSelectOption       = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigSelectOption"}
-	zodRefSessionConfigValueId            = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigValueId"}
-	zodRefSessionId                       = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionId"}
-	zodRefSessionInfoUpdate               = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionInfoUpdate"}
-	zodRefSessionListCursor               = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionListCursor"}
-	zodRefSessionMessage                  = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionMessage"}
-	zodRefSessionMessageChunk             = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionMessageChunk"}
-	zodRefStateUpdate                     = &zod.Rule{Kind: zod.KindRef, Ref: "zStateUpdate"}
-	zodRefStringMultiSelectItems          = &zod.Rule{Kind: zod.KindRef, Ref: "zStringMultiSelectItems"}
-	zodRefStringPropertySchema            = &zod.Rule{Kind: zod.KindRef, Ref: "zStringPropertySchema"}
-	zodRefSubagentUpdate                  = &zod.Rule{Kind: zod.KindRef, Ref: "zSubagentUpdate"}
-	zodRefSystemPrompt                    = &zod.Rule{Kind: zod.KindRef, Ref: "zSystemPrompt"}
-	zodRefTerminal                        = &zod.Rule{Kind: zod.KindRef, Ref: "zTerminal"}
-	zodRefTerminalId                      = &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalId"}
-	zodRefTerminalOutputChunk             = &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalOutputChunk"}
-	zodRefTerminalUpdate                  = &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalUpdate"}
-	zodRefTextCommandInput                = &zod.Rule{Kind: zod.KindRef, Ref: "zTextCommandInput"}
-	zodRefTextContent                     = &zod.Rule{Kind: zod.KindRef, Ref: "zTextContent"}
-	zodRefToolCallContent                 = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallContent"}
-	zodRefToolCallContentChunk            = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallContentChunk"}
-	zodRefToolCallId                      = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallId"}
-	zodRefToolCallPermissionSubject       = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallPermissionSubject"}
-	zodRefToolCallUpdate                  = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallUpdate"}
-	zodRefUnknownStateUpdate              = &zod.Rule{Kind: zod.KindRef, Ref: "zUnknownStateUpdate"}
-	zodRefUsageUpdate                     = &zod.Rule{Kind: zod.KindRef, Ref: "zUsageUpdate"}
-	zodRefUserMessage                     = &zod.Rule{Kind: zod.KindRef, Ref: "zUserMessage"}
-	zodRequiredCatchSkipArrayRef_c0f9914f = &zod.Rule{Kind: zod.KindRequiredCatch, Inner: zodSkipArrayRef_e7dac6bd, Value: jsontext.Value(`[]`)}
-	zodSkipArrayRef_749413a7              = &zod.Rule{Kind: zod.KindSkipArray, Inner: zodRefAvailableCommand}
-	zodSkipArrayRef_e7dac6bd              = &zod.Rule{Kind: zod.KindSkipArray, Inner: zodRefSessionConfigOption}
-	zodSkipArrayRef_fb668b22              = &zod.Rule{Kind: zod.KindSkipArray, Inner: zodRefContentBlock}
-	zodSkipArrayString_77562b8a           = &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindString}}
-	zodUnion_678dfa06                     = &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
-		zodRefElicitationSessionScope,
-		zodRefElicitationRequestScope,
+	zodObject_e228f89b                   = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_6221d27f}}}
+	zodObject_e53989bc                   = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "state", Schema: zodLiteral_69a8b4fc}}}
+	zodObject_efa07e54                   = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_aec9c3a7}}}
+	zodObject_f3565808                   = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_1462f3b5}}}
+	zodObject_f3c1c3f7                   = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "outcome", Schema: zodLiteral_163c37c5}}}
+	zodObject_f47d5a05                   = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_1efcb427}}}
+	zodObject_f992cfad                   = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_8d4d760a}}}
+	zodObject_f9d387f1                   = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "state", Schema: zodLiteral_6380b3e6}}}
+	zodOptionalNullDefaultArray_236b6e4a = &zod.Rule{Kind: zod.KindOptional, Inner: zodNullDefaultArrayString_b8f0c34c}
+	zodOptionalNullDefaultArray_8720e35a = &zod.Rule{Kind: zod.KindOptional, Inner: zodNullDefaultArrayRef_60886f3d}
+	zodOptionalNullDefaultArray_a3164124 = &zod.Rule{Kind: zod.KindOptional, Inner: zodNullDefaultArrayRef_626f7296}
+	zodOptionalNullDefaultArray_e967276a = &zod.Rule{Kind: zod.KindOptional, Inner: zodNullDefaultArrayRef_2d755093}
+	zodOptionalSkipArrayRef_8868c7ad     = &zod.Rule{Kind: zod.KindOptional, Inner: zodSkipArrayRef_749413a7}
+	zodOptionalSkipArrayRef_a80ce2c5     = &zod.Rule{Kind: zod.KindOptional, Inner: zodSkipArrayRef_45e04498}
+	zodOptionalSkipArrayRef_fd41da99     = &zod.Rule{Kind: zod.KindOptional, Inner: zodSkipArrayRef_e7dac6bd}
+	zodOptionalUnknown_f05342de          = &zod.Rule{Kind: zod.KindOptional, Inner: &zod.Rule{Kind: zod.KindUnknown}}
+	zodRecordUnknown_2330b53d            = &zod.Rule{Kind: zod.KindRecord, Inner: &zod.Rule{Kind: zod.KindUnknown}, Key: &zod.Rule{Kind: zod.KindString}}
+	zodRefAbsolutePath                   = &zod.Rule{Kind: zod.KindRef, Ref: "zAbsolutePath"}
+	zodRefAgentMessage                   = &zod.Rule{Kind: zod.KindRef, Ref: "zAgentMessage"}
+	zodRefAgentThought                   = &zod.Rule{Kind: zod.KindRef, Ref: "zAgentThought"}
+	zodRefAnnotations                    = &zod.Rule{Kind: zod.KindRef, Ref: "zAnnotations"}
+	zodRefAudioContent                   = &zod.Rule{Kind: zod.KindRef, Ref: "zAudioContent"}
+	zodRefAuthAccount                    = &zod.Rule{Kind: zod.KindRef, Ref: "zAuthAccount"}
+	zodRefAuthMethodAgent                = &zod.Rule{Kind: zod.KindRef, Ref: "zAuthMethodAgent"}
+	zodRefAuthMethodId                   = &zod.Rule{Kind: zod.KindRef, Ref: "zAuthMethodId"}
+	zodRefAuthMethodTerminal             = &zod.Rule{Kind: zod.KindRef, Ref: "zAuthMethodTerminal"}
+	zodRefAuthState                      = &zod.Rule{Kind: zod.KindRef, Ref: "zAuthState"}
+	zodRefAvailableCommand               = &zod.Rule{Kind: zod.KindRef, Ref: "zAvailableCommand"}
+	zodRefAvailableCommandsUpdate        = &zod.Rule{Kind: zod.KindRef, Ref: "zAvailableCommandsUpdate"}
+	zodRefBackgroundSubagent             = &zod.Rule{Kind: zod.KindRef, Ref: "zBackgroundSubagent"}
+	zodRefBackgroundTerminal             = &zod.Rule{Kind: zod.KindRef, Ref: "zBackgroundTerminal"}
+	zodRefBackgroundToolCall             = &zod.Rule{Kind: zod.KindRef, Ref: "zBackgroundToolCall"}
+	zodRefBackgroundWork                 = &zod.Rule{Kind: zod.KindRef, Ref: "zBackgroundWork"}
+	zodRefBooleanPropertySchema          = &zod.Rule{Kind: zod.KindRef, Ref: "zBooleanPropertySchema"}
+	zodRefCancelledPermissionOutcome     = &zod.Rule{Kind: zod.KindRef, Ref: "zCancelledPermissionOutcome"}
+	zodRefCommand                        = &zod.Rule{Kind: zod.KindRef, Ref: "zCommand"}
+	zodRefCommandPermissionSubject       = &zod.Rule{Kind: zod.KindRef, Ref: "zCommandPermissionSubject"}
+	zodRefCompactionId                   = &zod.Rule{Kind: zod.KindRef, Ref: "zCompactionId"}
+	zodRefCompactionSummaryChunk         = &zod.Rule{Kind: zod.KindRef, Ref: "zCompactionSummaryChunk"}
+	zodRefCompactionUpdate               = &zod.Rule{Kind: zod.KindRef, Ref: "zCompactionUpdate"}
+	zodRefConfigOptionUpdate             = &zod.Rule{Kind: zod.KindRef, Ref: "zConfigOptionUpdate"}
+	zodRefContent                        = &zod.Rule{Kind: zod.KindRef, Ref: "zContent"}
+	zodRefContentBlock                   = &zod.Rule{Kind: zod.KindRef, Ref: "zContentBlock"}
+	zodRefContentChunk                   = &zod.Rule{Kind: zod.KindRef, Ref: "zContentChunk"}
+	zodRefDiff                           = &zod.Rule{Kind: zod.KindRef, Ref: "zDiff"}
+	zodRefDiffPathChange                 = &zod.Rule{Kind: zod.KindRef, Ref: "zDiffPathChange"}
+	zodRefDiffPathPairChange             = &zod.Rule{Kind: zod.KindRef, Ref: "zDiffPathPairChange"}
+	zodRefElicitationId                  = &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationId"}
+	zodRefElicitationRequestScope        = &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationRequestScope"}
+	zodRefElicitationSessionScope        = &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationSessionScope"}
+	zodRefEmbeddedResource               = &zod.Rule{Kind: zod.KindRef, Ref: "zEmbeddedResource"}
+	zodRefEnumOption                     = &zod.Rule{Kind: zod.KindRef, Ref: "zEnumOption"}
+	zodRefEnvVariable                    = &zod.Rule{Kind: zod.KindRef, Ref: "zEnvVariable"}
+	zodRefError                          = &zod.Rule{Kind: zod.KindRef, Ref: "zError"}
+	zodRefExtNotification                = &zod.Rule{Kind: zod.KindRef, Ref: "zExtNotification"}
+	zodRefExtRequest                     = &zod.Rule{Kind: zod.KindRef, Ref: "zExtRequest"}
+	zodRefExtResponse                    = &zod.Rule{Kind: zod.KindRef, Ref: "zExtResponse"}
+	zodRefImageContent                   = &zod.Rule{Kind: zod.KindRef, Ref: "zImageContent"}
+	zodRefImplementation                 = &zod.Rule{Kind: zod.KindRef, Ref: "zImplementation"}
+	zodRefInitializeRequest              = &zod.Rule{Kind: zod.KindRef, Ref: "zInitializeRequest"}
+	zodRefInitializeResponse             = &zod.Rule{Kind: zod.KindRef, Ref: "zInitializeResponse"}
+	zodRefIntegerPropertySchema          = &zod.Rule{Kind: zod.KindRef, Ref: "zIntegerPropertySchema"}
+	zodRefLlmProtocol                    = &zod.Rule{Kind: zod.KindRef, Ref: "zLlmProtocol"}
+	zodRefMcpRequestId                   = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpRequestId"}
+	zodRefMcpServer                      = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServer"}
+	zodRefMcpServerAcp                   = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServerAcp"}
+	zodRefMcpServerAcpId                 = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServerAcpId"}
+	zodRefMcpServerHttp                  = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServerHttp"}
+	zodRefMcpServerStdio                 = &zod.Rule{Kind: zod.KindRef, Ref: "zMcpServerStdio"}
+	zodRefMediaType                      = &zod.Rule{Kind: zod.KindRef, Ref: "zMediaType"}
+	zodRefMessageId                      = &zod.Rule{Kind: zod.KindRef, Ref: "zMessageId"}
+	zodRefMultiSelectPropertySchema      = &zod.Rule{Kind: zod.KindRef, Ref: "zMultiSelectPropertySchema"}
+	zodRefNotice                         = &zod.Rule{Kind: zod.KindRef, Ref: "zNotice"}
+	zodRefNumberPropertySchema           = &zod.Rule{Kind: zod.KindRef, Ref: "zNumberPropertySchema"}
+	zodRefPermissionOptionId             = &zod.Rule{Kind: zod.KindRef, Ref: "zPermissionOptionId"}
+	zodRefPlanFile                       = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanFile"}
+	zodRefPlanId                         = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanId"}
+	zodRefPlanItems                      = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanItems"}
+	zodRefPlanMarkdown                   = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanMarkdown"}
+	zodRefPlanRemoved                    = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanRemoved"}
+	zodRefPlanUpdate                     = &zod.Rule{Kind: zod.KindRef, Ref: "zPlanUpdate"}
+	zodRefProtocolVersion                = &zod.Rule{Kind: zod.KindRef, Ref: "zProtocolVersion"}
+	zodRefProviderId                     = &zod.Rule{Kind: zod.KindRef, Ref: "zProviderId"}
+	zodRefReplayFromStart                = &zod.Rule{Kind: zod.KindRef, Ref: "zReplayFromStart"}
+	zodRefRequestId                      = &zod.Rule{Kind: zod.KindRef, Ref: "zRequestId"}
+	zodRefRequiresActionStateUpdate      = &zod.Rule{Kind: zod.KindRef, Ref: "zRequiresActionStateUpdate"}
+	zodRefResourceLink                   = &zod.Rule{Kind: zod.KindRef, Ref: "zResourceLink"}
+	zodRefRunningStateUpdate             = &zod.Rule{Kind: zod.KindRef, Ref: "zRunningStateUpdate"}
+	zodRefSelectedPermissionOutcome      = &zod.Rule{Kind: zod.KindRef, Ref: "zSelectedPermissionOutcome"}
+	zodRefSessionConfigId                = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigId"}
+	zodRefSessionConfigOption            = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigOption"}
+	zodRefSessionConfigSelectOption      = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigSelectOption"}
+	zodRefSessionConfigValueId           = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigValueId"}
+	zodRefSessionId                      = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionId"}
+	zodRefSessionInfoUpdate              = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionInfoUpdate"}
+	zodRefSessionListCursor              = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionListCursor"}
+	zodRefSessionMessage                 = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionMessage"}
+	zodRefSessionMessageChunk            = &zod.Rule{Kind: zod.KindRef, Ref: "zSessionMessageChunk"}
+	zodRefStateUpdate                    = &zod.Rule{Kind: zod.KindRef, Ref: "zStateUpdate"}
+	zodRefStringMultiSelectItems         = &zod.Rule{Kind: zod.KindRef, Ref: "zStringMultiSelectItems"}
+	zodRefStringPropertySchema           = &zod.Rule{Kind: zod.KindRef, Ref: "zStringPropertySchema"}
+	zodRefSubagentUpdate                 = &zod.Rule{Kind: zod.KindRef, Ref: "zSubagentUpdate"}
+	zodRefSystemPrompt                   = &zod.Rule{Kind: zod.KindRef, Ref: "zSystemPrompt"}
+	zodRefTerminal                       = &zod.Rule{Kind: zod.KindRef, Ref: "zTerminal"}
+	zodRefTerminalId                     = &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalId"}
+	zodRefTerminalOutputChunk            = &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalOutputChunk"}
+	zodRefTerminalUpdate                 = &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalUpdate"}
+	zodRefTextCommandInput               = &zod.Rule{Kind: zod.KindRef, Ref: "zTextCommandInput"}
+	zodRefTextContent                    = &zod.Rule{Kind: zod.KindRef, Ref: "zTextContent"}
+	zodRefToolCallContent                = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallContent"}
+	zodRefToolCallContentChunk           = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallContentChunk"}
+	zodRefToolCallId                     = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallId"}
+	zodRefToolCallPermissionSubject      = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallPermissionSubject"}
+	zodRefToolCallUpdate                 = &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallUpdate"}
+	zodRefUnknownStateUpdate             = &zod.Rule{Kind: zod.KindRef, Ref: "zUnknownStateUpdate"}
+	zodRefUsageUpdate                    = &zod.Rule{Kind: zod.KindRef, Ref: "zUsageUpdate"}
+	zodRefUserMessage                    = &zod.Rule{Kind: zod.KindRef, Ref: "zUserMessage"}
+	zodSkipArrayRef_45e04498             = &zod.Rule{Kind: zod.KindSkipArray, Inner: zodRefAuthAccount}
+	zodSkipArrayRef_749413a7             = &zod.Rule{Kind: zod.KindSkipArray, Inner: zodRefAvailableCommand}
+	zodSkipArrayRef_e7dac6bd             = &zod.Rule{Kind: zod.KindSkipArray, Inner: zodRefSessionConfigOption}
+	zodSkipArrayRef_fb668b22             = &zod.Rule{Kind: zod.KindSkipArray, Inner: zodRefContentBlock}
+	zodSkipArrayString_77562b8a          = &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindString}}
+	zodUnion_cac45881                    = &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		&zod.Rule{Kind: zod.KindWideInt},
+		&zod.Rule{Kind: zod.KindString},
 	}}
 )
 
 // zodSchemas holds the SDK Zod rules; one rule tree per schema name, linked
 // once for evaluation.
 var zodSchemas = zod.Link(zod.Registry{
-	"zAbsolutePath":          &zod.Rule{Kind: zod.KindString},
-	"zAgentAuthCapabilities": zodObject_d1186e2e,
+	"zAbsolutePath": &zod.Rule{Kind: zod.KindString},
+	"zAgentAuthCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "status", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zAuthStatusCapabilities"}}}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zAgentCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "session", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionCapabilities"}}}},
 		{Name: "auth", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zAgentAuthCapabilities"}}}},
@@ -517,6 +592,7 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "params", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 			&zod.Rule{Kind: zod.KindRef, Ref: "zUpdateSessionNotification"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zCompleteElicitationNotification"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zAuthStatusUpdateNotification"},
 			zodRefExtNotification,
 		}}}},
 	}},
@@ -534,40 +610,53 @@ var zodSchemas = zod.Link(zod.Registry{
 		&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 			{Name: "id", Schema: zodRefRequestId},
 			{Name: "result", Schema: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
-				&zod.Rule{Kind: zod.KindRef, Ref: "zInitializeResponse"},
+				zodRefInitializeResponse,
 				&zod.Rule{Kind: zod.KindRef, Ref: "zLoginAuthResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zListProvidersResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zSetProviderResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zDisableProviderResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zLogoutAuthResponse"},
+				&zod.Rule{Kind: zod.KindRef, Ref: "zAuthStatusResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zNewSessionResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zListSessionsResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zDeleteSessionResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zForkSessionResponse"},
+				&zod.Rule{Kind: zod.KindRef, Ref: "zArchiveSessionResponse"},
+				&zod.Rule{Kind: zod.KindRef, Ref: "zUnarchiveSessionResponse"},
+				&zod.Rule{Kind: zod.KindRef, Ref: "zSessionStatusResponse"},
+				&zod.Rule{Kind: zod.KindRef, Ref: "zSetSessionTitleResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zResumeSessionResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zCloseSessionResponse"},
+				&zod.Rule{Kind: zod.KindRef, Ref: "zCancelToolCallResponse"},
+				&zod.Rule{Kind: zod.KindRef, Ref: "zCancelTerminalResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zSetSessionConfigOptionResponse"},
 				&zod.Rule{Kind: zod.KindRef, Ref: "zPromptResponse"},
 				zodRefExtResponse,
 			}}},
 		}},
-		zodObject_ff283a35,
+		zodObject_ab18d7b3,
 	}},
 	"zAgentThought": zodObject_6d770b73,
 	"zAnnotations": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "audience", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zRole"}}}}},
-		{Name: "lastModified", Schema: zodCatchNullishDateTime_b850c59c},
+		{Name: "lastModified", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "priority", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindLte, Inner: &zod.Rule{Kind: zod.KindGte, Inner: &zod.Rule{Kind: zod.KindNumber}, Value: jsontext.Value(`0`)}, Value: jsontext.Value(`1`)}}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
+	"zArchiveSessionRequest":  zodObject_224974ec,
+	"zArchiveSessionResponse": zodObject_d1186e2e,
 	"zAudioContent": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "data", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "mimeType", Schema: zodRefMediaType},
 		{Name: "annotations", Schema: zodCatchNullishRef_1f13ad50},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
-	"zAuthCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "terminal", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalAuthCapabilities"}}}},
+	"zAuthAccount": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "label", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "active", Schema: zodCatchNullishBoolean_5ae5faab},
+		{Name: "name", Schema: zodCatchNullishString_3d5fc11d},
+		{Name: "email", Schema: zodCatchNullishString_3d5fc11d},
+		{Name: "organization", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zAuthMethod": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
@@ -577,8 +666,6 @@ var zodSchemas = zod.Link(zod.Registry{
 			{Name: "type", Schema: &zod.Rule{Kind: zod.KindString}},
 			{Name: "methodId", Schema: zodRefAuthMethodId},
 			{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
-			{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
-			{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 		}}, Tag: "type", Tags: []string{"agent", "terminal"}},
 	}}, Tag: "type", Tags: []string{"agent", "terminal"}},
 	"zAuthMethodAgent": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -592,24 +679,49 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "methodId", Schema: zodRefAuthMethodId},
 		{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
-		{Name: "args", Schema: zodOptionalArrayString_db768623},
-		{Name: "env", Schema: zodOptionalArrayRef_f5931609},
+		{Name: "args", Schema: zodOptionalNullDefaultArray_236b6e4a},
+		{Name: "env", Schema: zodOptionalNullDefaultArray_a3164124},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
-	"zAvailableCommand": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
-		{Name: "description", Schema: &zod.Rule{Kind: zod.KindString}},
-		{Name: "input", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zAvailableCommandInput"}}}},
-		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	"zAuthState": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"authenticated"`)},
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"unauthenticated"`)},
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"not_required"`)},
+		zodLiteral_6380b3e6,
+		&zod.Rule{Kind: zod.KindString},
 	}},
+	"zAuthStatusCapabilities":       zodObject_d1186e2e,
+	"zAuthStatusRequest":            zodObject_d1186e2e,
+	"zAuthStatusResponse":           zodObject_297b6d8c,
+	"zAuthStatusUpdateNotification": zodObject_297b6d8c,
+	"zAvailableCommand": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		zodIntersection_d240114c,
+		&zod.Rule{Kind: zod.KindExcludeTags, Inner: &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+			{Name: "type", Schema: &zod.Rule{Kind: zod.KindString}},
+			{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
+			{Name: "description", Schema: &zod.Rule{Kind: zod.KindString}},
+		}}, Tag: "type", Tags: []string{"command"}},
+	}}, Tag: "type", Tags: []string{"command"}},
 	"zAvailableCommandInput": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		zodIntersection_bc4ac6cc,
 		&zod.Rule{Kind: zod.KindExcludeTags, Inner: zodObject_a216e4c1, Tag: "type", Tags: []string{"text"}},
 	}}, Tag: "type", Tags: []string{"text"}},
 	"zAvailableCommandsUpdate": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "availableCommands", Schema: &zod.Rule{Kind: zod.KindRequiredCatch, Inner: zodSkipArrayRef_749413a7, Value: jsontext.Value(`[]`)}},
+		{Name: "availableCommands", Schema: zodSkipArrayRef_749413a7},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
+	"zBackgroundSubagent": zodObject_224974ec,
+	"zBackgroundTerminal": zodObject_c7ca43bf,
+	"zBackgroundToolCall": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "toolCallId", Schema: zodRefToolCallId},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zBackgroundWork": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		zodIntersection_a8813a4d,
+		zodIntersection_d1a09f49,
+		zodIntersection_9298706d,
+		&zod.Rule{Kind: zod.KindExcludeTags, Inner: zodObject_a216e4c1, Tag: "type", Tags: []string{"subagent", "terminal", "tool_call"}},
+	}}, Tag: "type", Tags: []string{"subagent", "terminal", "tool_call"}},
 	"zBlobResourceContents": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "blob", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "uri", Schema: &zod.Rule{Kind: zod.KindURL}},
@@ -619,7 +731,7 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zBooleanPropertySchema": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "title", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
-		{Name: "default", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindBoolean}}}},
+		{Name: "default", Schema: zodCatchNullishBoolean_5ae5faab},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zCancelRequestNotification": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -627,8 +739,25 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zCancelSessionNotification": zodObject_224974ec,
+	"zCancelTerminalRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "sessionId", Schema: zodRefSessionId},
+		{Name: "terminalId", Schema: zodRefTerminalId},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zCancelTerminalResponse": zodObject_d1186e2e,
+	"zCancelToolCallRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "sessionId", Schema: zodRefSessionId},
+		{Name: "toolCallId", Schema: zodRefToolCallId},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zCancelToolCallResponse":     zodObject_d1186e2e,
+	"zCancelledPermissionOutcome": zodObject_d1186e2e,
+	"zClientAuthCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "terminal", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalAuthCapabilities"}}}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zClientCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "auth", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zAuthCapabilities"}}}},
+		{Name: "auth", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zClientAuthCapabilities"}}}},
 		{Name: "elicitation", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationCapabilities"}}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
@@ -644,18 +773,25 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "id", Schema: zodRefRequestId},
 		{Name: "method", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "params", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
-			&zod.Rule{Kind: zod.KindRef, Ref: "zInitializeRequest"},
+			zodRefInitializeRequest,
 			&zod.Rule{Kind: zod.KindRef, Ref: "zLoginAuthRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zListProvidersRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zSetProviderRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zDisableProviderRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zLogoutAuthRequest"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zAuthStatusRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zNewSessionRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zListSessionsRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zDeleteSessionRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zForkSessionRequest"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zArchiveSessionRequest"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zUnarchiveSessionRequest"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zSessionStatusRequest"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zSetSessionTitleRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zResumeSessionRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zCloseSessionRequest"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zCancelToolCallRequest"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zCancelTerminalRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zSetSessionConfigOptionRequest"},
 			&zod.Rule{Kind: zod.KindRef, Ref: "zPromptRequest"},
 			zodRefExtRequest,
@@ -671,10 +807,16 @@ var zodSchemas = zod.Link(zod.Registry{
 				zodRefExtResponse,
 			}}},
 		}},
-		zodObject_ff283a35,
+		zodObject_ab18d7b3,
 	}},
 	"zCloseSessionRequest":  zodObject_224974ec,
 	"zCloseSessionResponse": zodObject_d1186e2e,
+	"zCommand": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "description", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "input", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zAvailableCommandInput"}}}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zCommandPermissionSubject": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "command", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "cwd", Schema: zodRefAbsolutePath},
@@ -706,7 +848,7 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "elicitationId", Schema: zodRefElicitationId},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
-	"zConfigOptionUpdate": zodObject_58c28cdd,
+	"zConfigOptionUpdate": zodObject_7742982f,
 	"zContent": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "content", Schema: zodRefContentBlock},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
@@ -719,14 +861,10 @@ var zodSchemas = zod.Link(zod.Registry{
 		zodIntersection_054b1f8b,
 		&zod.Rule{Kind: zod.KindExcludeTags, Inner: zodObject_a216e4c1, Tag: "type", Tags: []string{"audio", "image", "resource", "resource_link", "text"}},
 	}}, Tag: "type", Tags: []string{"audio", "image", "resource", "resource_link", "text"}},
-	"zContentChunk": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "messageId", Schema: zodRefMessageId},
-		{Name: "content", Schema: zodRefContentBlock},
-		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
-	}},
+	"zContentChunk": zodObject_15662cb5,
 	"zCost": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "amount", Schema: &zod.Rule{Kind: zod.KindNumber}},
-		{Name: "currency", Schema: &zod.Rule{Kind: zod.KindRegex, Inner: &zod.Rule{Kind: zod.KindString}, Regexp: regexp.MustCompile(`^[A-Z]{3}$`)}},
+		{Name: "currency", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zCreateElicitationRequest": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
@@ -740,7 +878,7 @@ var zodSchemas = zod.Link(zod.Registry{
 				&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "mode", Schema: &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"url"`)}}}},
 			}},
 			&zod.Rule{Kind: zod.KindExcludeTags, Inner: &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
-				zodUnion_678dfa06,
+				zodExactlyOne_d9c777ed,
 				&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "mode", Schema: &zod.Rule{Kind: zod.KindString}}}},
 			}}, Tag: "mode", Tags: []string{"form", "url"}},
 		}},
@@ -808,6 +946,7 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zDiffPatch": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "format", Schema: &zod.Rule{Kind: zod.KindRef, Ref: "zDiffPatchFormat"}},
 		{Name: "text", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zDiffPatchFormat": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"git_patch"`)},
@@ -831,14 +970,15 @@ var zodSchemas = zod.Link(zod.Registry{
 	}},
 	"zElicitationContentValue": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		&zod.Rule{Kind: zod.KindString},
-		&zod.Rule{Kind: zod.KindNumber},
+		&zod.Rule{Kind: zod.KindWideInt},
 		&zod.Rule{Kind: zod.KindNumber},
 		&zod.Rule{Kind: zod.KindBoolean},
 		zodArrayString_f734ce1d,
+		&zod.Rule{Kind: zod.KindUnknown},
 	}},
 	"zElicitationFormCapabilities": zodObject_d1186e2e,
 	"zElicitationFormMode": &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
-		zodUnion_678dfa06,
+		zodExactlyOne_d9c777ed,
 		&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "requestedSchema", Schema: &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationSchema"}}}},
 	}},
 	"zElicitationId": &zod.Rule{Kind: zod.KindString},
@@ -852,9 +992,9 @@ var zodSchemas = zod.Link(zod.Registry{
 	}}, Tag: "type", Tags: []string{"array", "boolean", "integer", "number", "string"}},
 	"zElicitationRequestScope": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "requestId", Schema: zodRefRequestId}}},
 	"zElicitationSchema": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "type", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindDefault, Inner: &zod.Rule{Kind: zod.KindOptional, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationSchemaType"}}, Value: jsontext.Value(`"object"`)}, Value: jsontext.Value(`"object"`)}},
+		{Name: "type", Schema: &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationSchemaType"}},
 		{Name: "title", Schema: zodCatchNullishString_3d5fc11d},
-		{Name: "properties", Schema: &zod.Rule{Kind: zod.KindDefault, Inner: &zod.Rule{Kind: zod.KindOptional, Inner: &zod.Rule{Kind: zod.KindRecord, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationPropertySchema"}, Key: &zod.Rule{Kind: zod.KindString}}}, Value: jsontext.Value(`{}`)}},
+		{Name: "properties", Schema: &zod.Rule{Kind: zod.KindRecord, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zElicitationPropertySchema"}, Key: &zod.Rule{Kind: zod.KindString}}},
 		{Name: "required", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: zodArrayString_f734ce1d}},
 		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
@@ -866,7 +1006,7 @@ var zodSchemas = zod.Link(zod.Registry{
 	}},
 	"zElicitationUrlCapabilities": zodObject_d1186e2e,
 	"zElicitationUrlMode": &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
-		zodUnion_678dfa06,
+		zodExactlyOne_d9c777ed,
 		&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 			{Name: "elicitationId", Schema: zodRefElicitationId},
 			{Name: "url", Schema: &zod.Rule{Kind: zod.KindURL}},
@@ -891,7 +1031,7 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zError": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "code", Schema: &zod.Rule{Kind: zod.KindRef, Ref: "zErrorCode"}},
 		{Name: "message", Schema: &zod.Rule{Kind: zod.KindString}},
-		{Name: "data", Schema: zodCatchOptionalUnknown_35dcb8da},
+		{Name: "data", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zErrorData"}}}},
 	}},
 	"zErrorCode": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`-32700`)},
@@ -902,7 +1042,13 @@ var zodSchemas = zod.Link(zod.Registry{
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`-32800`)},
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`-32000`)},
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`-32002`)},
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`-32022`)},
 		zodMaxMinInt_423fd9b1,
+	}},
+	"zErrorData": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		&zod.Rule{Kind: zod.KindRef, Ref: "zUnsupportedProtocolVersionErrorData"},
+		&zod.Rule{Kind: zod.KindRef, Ref: "zSessionNotFoundErrorData"},
+		&zod.Rule{Kind: zod.KindUnknown},
 	}},
 	"zErrorStopReason": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "error", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: zodRefError}}}}},
 	"zExtNotification": &zod.Rule{Kind: zod.KindUnknown},
@@ -911,8 +1057,8 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zForkSessionRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessionId", Schema: zodRefSessionId},
 		{Name: "cwd", Schema: zodRefAbsolutePath},
-		{Name: "additionalDirectories", Schema: zodOptionalArrayRef_64d8e2c8},
-		{Name: "mcpServers", Schema: zodOptionalArrayRef_4342050e},
+		{Name: "additionalDirectories", Schema: zodOptionalNullDefaultArray_8720e35a},
+		{Name: "mcpServers", Schema: zodOptionalNullDefaultArray_e967276a},
 		{Name: "systemPrompt", Schema: zodNullishRef_dbb58bbe},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
@@ -923,6 +1069,7 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "mimeType", Schema: zodCatchNullishRef_9e9fd681},
 		{Name: "sizes", Schema: zodCatchNullishSkipArray_6bb35f3a},
 		{Name: "theme", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zIconTheme"}}}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zIconTheme": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"light"`)},
@@ -945,6 +1092,7 @@ var zodSchemas = zod.Link(zod.Registry{
 		}},
 		&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 			{Name: "usage", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zUsage"}}}},
+			{Name: "background", Schema: zodCatchNullishArray_38a4855f},
 			{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 			{Name: "stopReason", Schema: zodCatchNullishString_3d5fc11d},
 		}},
@@ -962,6 +1110,8 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "version", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
+	"zInitializeProxyRequest":  zodRefInitializeRequest,
+	"zInitializeProxyResponse": zodRefInitializeResponse,
 	"zInitializeRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "protocolVersion", Schema: zodRefProtocolVersion},
 		{Name: "info", Schema: zodRefImplementation},
@@ -975,8 +1125,15 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "authMethods", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindOptional, Inner: &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zAuthMethod"}}}, Value: jsontext.Value(`[]`)}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
-	"zIntegerPropertySchema": zodObject_3f3bd971,
-	"zListProvidersRequest":  zodObject_d1186e2e,
+	"zIntegerPropertySchema": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "title", Schema: zodCatchNullishString_3d5fc11d},
+		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
+		{Name: "minimum", Schema: zodNullishWideInt_4dc3f5a4},
+		{Name: "maximum", Schema: zodNullishWideInt_4dc3f5a4},
+		{Name: "default", Schema: zodCatchNullishWideInt_2623e866},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zListProvidersRequest": zodObject_d1186e2e,
 	"zListProvidersResponse": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "providers", Schema: &zod.Rule{Kind: zod.KindArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zProviderInfo"}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
@@ -984,11 +1141,12 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zListSessionsRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "cwd", Schema: zodNullishRef_44205b72},
 		{Name: "cursor", Schema: zodNullishRef_2377fb0d},
+		{Name: "archived", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionArchiveFilter"}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zListSessionsResponse": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessions", Schema: &zod.Rule{Kind: zod.KindRequiredCatch, Inner: &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionInfo"}}, Value: jsontext.Value(`[]`)}},
-		{Name: "nextCursor", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRef_2377fb0d}},
+		{Name: "nextCursor", Schema: zodNullishRef_2377fb0d},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zLlmProtocol": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
@@ -1035,14 +1193,14 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zMcpServerHttp": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "url", Schema: &zod.Rule{Kind: zod.KindURL}},
-		{Name: "headers", Schema: &zod.Rule{Kind: zod.KindOptional, Inner: &zod.Rule{Kind: zod.KindArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zHttpHeader"}}}},
+		{Name: "headers", Schema: &zod.Rule{Kind: zod.KindOptional, Inner: &zod.Rule{Kind: zod.KindNullDefault, Inner: &zod.Rule{Kind: zod.KindArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zHttpHeader"}}, Value: jsontext.Value(`[]`)}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zMcpServerStdio": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "command", Schema: zodRefAbsolutePath},
-		{Name: "args", Schema: zodOptionalArrayString_db768623},
-		{Name: "env", Schema: zodOptionalArrayRef_f5931609},
+		{Name: "args", Schema: zodOptionalNullDefaultArray_236b6e4a},
+		{Name: "env", Schema: zodOptionalNullDefaultArray_a3164124},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zMcpStdioCapabilities":   zodObject_d1186e2e,
@@ -1068,16 +1226,16 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zMultiSelectPropertySchema": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "title", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
-		{Name: "minItems", Schema: zodNullishNumber_b3313da2},
-		{Name: "maxItems", Schema: zodNullishNumber_b3313da2},
+		{Name: "minItems", Schema: zodNullishGteWideInt_7f2634f1},
+		{Name: "maxItems", Schema: zodNullishGteWideInt_7f2634f1},
 		{Name: "items", Schema: &zod.Rule{Kind: zod.KindRef, Ref: "zMultiSelectItems"}},
 		{Name: "default", Schema: zodCatchNullishSkipArray_6bb35f3a},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zNewSessionRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "cwd", Schema: zodRefAbsolutePath},
-		{Name: "additionalDirectories", Schema: zodOptionalArrayRef_64d8e2c8},
-		{Name: "mcpServers", Schema: zodOptionalArrayRef_4342050e},
+		{Name: "additionalDirectories", Schema: zodOptionalNullDefaultArray_8720e35a},
+		{Name: "mcpServers", Schema: zodOptionalNullDefaultArray_e967276a},
 		{Name: "systemPrompt", Schema: zodNullishRef_dbb58bbe},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
@@ -1094,7 +1252,14 @@ var zodSchemas = zod.Link(zod.Registry{
 		zodLiteral_20267d47,
 		&zod.Rule{Kind: zod.KindString},
 	}},
-	"zNumberPropertySchema": zodObject_3f3bd971,
+	"zNumberPropertySchema": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "title", Schema: zodCatchNullishString_3d5fc11d},
+		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
+		{Name: "minimum", Schema: zodNullishNumber_b3313da2},
+		{Name: "maximum", Schema: zodNullishNumber_b3313da2},
+		{Name: "default", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishNumber_b3313da2}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zPermissionOption": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "optionId", Schema: zodRefPermissionOptionId},
 		{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
@@ -1136,7 +1301,7 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zPlanId": &zod.Rule{Kind: zod.KindString},
 	"zPlanItems": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "planId", Schema: zodRefPlanId},
-		{Name: "entries", Schema: &zod.Rule{Kind: zod.KindRequiredCatch, Inner: &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zPlanEntry"}}, Value: jsontext.Value(`[]`)}},
+		{Name: "entries", Schema: &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zPlanEntry"}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zPlanMarkdown": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -1172,16 +1337,12 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zPromptImageCapabilities":           zodObject_d1186e2e,
 	"zPromptRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessionId", Schema: zodRefSessionId},
-		{Name: "prompt", Schema: zodArrayRef_330b9e09},
+		{Name: "prompt", Schema: &zod.Rule{Kind: zod.KindMin, Inner: zodArrayRef_330b9e09, Value: jsontext.Value(`1`)}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zPromptResponse": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "messageId", Schema: zodRefMessageId},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
-	}},
-	"zProtocolLevelNotification": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "method", Schema: &zod.Rule{Kind: zod.KindString}},
-		{Name: "params", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zCancelRequestNotification"}}},
 	}},
 	"zProtocolVersion": &zod.Rule{Kind: zod.KindLte, Inner: zodGteInt_1095e09f, Value: jsontext.Value(`65535`)},
 	"zProviderCurrentConfig": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -1198,20 +1359,39 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zProvidersCapabilities": zodObject_d1186e2e,
+	"zProxyNotification": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "method", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "params", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zProxySuccessorNotification"}}},
+	}},
+	"zProxyRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "id", Schema: zodRefRequestId},
+		{Name: "method", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "params", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+			&zod.Rule{Kind: zod.KindRef, Ref: "zInitializeProxyRequest"},
+			&zod.Rule{Kind: zod.KindRef, Ref: "zProxySuccessorRequest"},
+		}}}},
+	}},
+	"zProxyResponse": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+			{Name: "id", Schema: zodRefRequestId},
+			{Name: "result", Schema: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+				&zod.Rule{Kind: zod.KindRef, Ref: "zInitializeProxyResponse"},
+				&zod.Rule{Kind: zod.KindRef, Ref: "zProxySuccessorResponse"},
+			}}},
+		}},
+		zodObject_ab18d7b3,
+	}},
+	"zProxySuccessorNotification": zodObject_de44f442,
+	"zProxySuccessorRequest":      zodObject_de44f442,
+	"zProxySuccessorResponse":     &zod.Rule{Kind: zod.KindUnknown},
 	"zReplayFrom": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		zodIntersection_577dad5a,
-		&zod.Rule{Kind: zod.KindExcludeTags, Inner: &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-			{Name: "type", Schema: &zod.Rule{Kind: zod.KindString}},
-			{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
-		}}, Tag: "type", Tags: []string{"start"}},
+		&zod.Rule{Kind: zod.KindExcludeTags, Inner: zodObject_a216e4c1, Tag: "type", Tags: []string{"start"}},
 	}}, Tag: "type", Tags: []string{"start"}},
 	"zReplayFromStart": zodObject_d1186e2e,
-	"zRequestId": &zod.Rule{Kind: zod.KindNullable, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
-		&zod.Rule{Kind: zod.KindNumber},
-		&zod.Rule{Kind: zod.KindString},
-	}}},
+	"zRequestId":       zodUnion_cac45881,
 	"zRequestPermissionOutcome": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
-		&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "outcome", Schema: zodLiteral_3138d618}}},
+		zodIntersection_df3a46e9,
 		zodIntersection_fc2ae370,
 		&zod.Rule{Kind: zod.KindExcludeTags, Inner: &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "outcome", Schema: &zod.Rule{Kind: zod.KindString}}}}, Tag: "outcome", Tags: []string{"cancelled", "selected"}},
 	}}, Tag: "outcome", Tags: []string{"cancelled", "selected"}},
@@ -1232,7 +1412,7 @@ var zodSchemas = zod.Link(zod.Registry{
 		zodIntersection_b1ecfc51,
 		&zod.Rule{Kind: zod.KindExcludeTags, Inner: zodObject_a216e4c1, Tag: "type", Tags: []string{"command", "tool_call"}},
 	}}, Tag: "type", Tags: []string{"command", "tool_call"}},
-	"zRequiresActionStateUpdate": zodObject_d1186e2e,
+	"zRequiresActionStateUpdate": zodObject_c7e8cec3,
 	"zResourceLink": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "name", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "uri", Schema: &zod.Rule{Kind: zod.KindURL}},
@@ -1240,15 +1420,15 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "icons", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zIcon"}}}}},
 		{Name: "mimeType", Schema: zodCatchNullishRef_9e9fd681},
-		{Name: "size", Schema: zodCatchNullishNumber_dd7e4aff},
+		{Name: "size", Schema: zodCatchNullishGte_69915baa},
 		{Name: "annotations", Schema: zodCatchNullishRef_1f13ad50},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zResumeSessionRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessionId", Schema: zodRefSessionId},
 		{Name: "cwd", Schema: zodRefAbsolutePath},
-		{Name: "additionalDirectories", Schema: zodOptionalArrayRef_64d8e2c8},
-		{Name: "mcpServers", Schema: zodOptionalArrayRef_4342050e},
+		{Name: "additionalDirectories", Schema: zodOptionalNullDefaultArray_8720e35a},
+		{Name: "mcpServers", Schema: zodOptionalNullDefaultArray_e967276a},
 		{Name: "replayFrom", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zReplayFrom"}}},
 		{Name: "systemPrompt", Schema: zodNullishRef_dbb58bbe},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
@@ -1263,13 +1443,20 @@ var zodSchemas = zod.Link(zod.Registry{
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"user"`)},
 		&zod.Rule{Kind: zod.KindString},
 	}},
-	"zRunningStateUpdate": zodObject_d1186e2e,
+	"zRunningStateUpdate": zodObject_c7e8cec3,
 	"zSelectedPermissionOutcome": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "optionId", Schema: zodRefPermissionOptionId},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zSessionAdditionalDirectoriesCapabilities": zodObject_d1186e2e,
-	"zSessionCancelCapabilities":                zodObject_d1186e2e,
+	"zSessionArchiveCapabilities":               zodObject_d1186e2e,
+	"zSessionArchiveFilter": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"exclude"`)},
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"include"`)},
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"only"`)},
+		&zod.Rule{Kind: zod.KindString},
+	}},
+	"zSessionCancelCapabilities": zodObject_d1186e2e,
 	"zSessionCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "prompt", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zPromptCapabilities"}}}},
 		{Name: "mcp", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zMcpCapabilities"}}}},
@@ -1277,6 +1464,9 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "additionalDirectories", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionAdditionalDirectoriesCapabilities"}}}},
 		{Name: "systemPrompt", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionSystemPromptCapabilities"}}}},
 		{Name: "fork", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionForkCapabilities"}}}},
+		{Name: "archive", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionArchiveCapabilities"}}}},
+		{Name: "status", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionStatusCapabilities"}}}},
+		{Name: "title", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionTitleCapabilities"}}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zSessionConfigBoolean": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "currentValue", Schema: &zod.Rule{Kind: zod.KindBoolean}}}},
@@ -1326,8 +1516,8 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zSessionConfigSelectOptions": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
-		&zod.Rule{Kind: zod.KindArray, Inner: zodRefSessionConfigSelectOption},
-		&zod.Rule{Kind: zod.KindArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigSelectGroup"}},
+		&zod.Rule{Kind: zod.KindMin, Inner: &zod.Rule{Kind: zod.KindArray, Inner: zodRefSessionConfigSelectOption}, Value: jsontext.Value(`1`)},
+		&zod.Rule{Kind: zod.KindMin, Inner: &zod.Rule{Kind: zod.KindArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionConfigSelectGroup"}}, Value: jsontext.Value(`1`)},
 	}},
 	"zSessionConfigValueId":      &zod.Rule{Kind: zod.KindString},
 	"zSessionDeleteCapabilities": zodObject_d1186e2e,
@@ -1336,9 +1526,10 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zSessionInfo": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessionId", Schema: zodRefSessionId},
 		{Name: "cwd", Schema: zodRefAbsolutePath},
-		{Name: "additionalDirectories", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindOptional, Inner: &zod.Rule{Kind: zod.KindSkipArray, Inner: zodRefAbsolutePath}}, Value: jsontext.Value(`[]`)}},
+		{Name: "additionalDirectories", Schema: zodOptionalNullDefaultArray_8720e35a},
 		{Name: "title", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "updatedAt", Schema: zodCatchNullishDateTime_b850c59c},
+		{Name: "archived", Schema: zodCatchNullishBoolean_5ae5faab},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zSessionInfoUpdate": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -1351,14 +1542,23 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "messageId", Schema: zodRefMessageId},
 		{Name: "senderSessionId", Schema: zodCatchNullishRef_d2349e8c},
 		{Name: "recipientSessionId", Schema: zodCatchNullishRef_d2349e8c},
+		{Name: "senderMessageId", Schema: zodCatchNullishRef_5befc08c},
+		{Name: "recipientMessageId", Schema: zodCatchNullishRef_5befc08c},
 		{Name: "content", Schema: zodCatchNullishSkipArray_f37dd930},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
-	"zSessionMessageChunk": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "messageId", Schema: zodRefMessageId},
-		{Name: "senderSessionId", Schema: zodCatchNullishRef_d2349e8c},
-		{Name: "recipientSessionId", Schema: zodCatchNullishRef_d2349e8c},
-		{Name: "content", Schema: zodRefContentBlock},
+	"zSessionMessageChunk":      zodObject_15662cb5,
+	"zSessionNotFoundErrorData": zodObject_224974ec,
+	"zSessionStatus": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"open"`)},
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"saved"`)},
+		&zod.Rule{Kind: zod.KindString},
+	}},
+	"zSessionStatusCapabilities": zodObject_d1186e2e,
+	"zSessionStatusRequest":      zodObject_224974ec,
+	"zSessionStatusResponse": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "status", Schema: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionStatus"}},
+		{Name: "state", Schema: zodCatchNullishRef_463673b2},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zSessionSystemPromptCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -1370,6 +1570,7 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zSessionSystemPromptOverrideCapabilities": zodObject_d1186e2e,
+	"zSessionTitleCapabilities":                zodObject_d1186e2e,
 	"zSessionUpdate": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		&zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 			zodRefContentChunk,
@@ -1422,12 +1623,12 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zSetSessionConfigOptionRequest": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		&zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 			&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-				{Name: "value", Schema: zodRefSessionConfigValueId},
 				{Name: "type", Schema: &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"id"`)}},
+				{Name: "value", Schema: zodRefSessionConfigValueId},
 			}},
 			&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-				{Name: "value", Schema: &zod.Rule{Kind: zod.KindBoolean}},
 				{Name: "type", Schema: zodLiteral_e0e1feea},
+				{Name: "value", Schema: &zod.Rule{Kind: zod.KindBoolean}},
 			}},
 			&zod.Rule{Kind: zod.KindExcludeTags, Inner: &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 				{Name: "type", Schema: &zod.Rule{Kind: zod.KindString}},
@@ -1440,7 +1641,16 @@ var zodSchemas = zod.Link(zod.Registry{
 			{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 		}},
 	}}, Tag: "type", Tags: []string{"boolean", "id"}},
-	"zSetSessionConfigOptionResponse": zodObject_58c28cdd,
+	"zSetSessionConfigOptionResponse": zodObject_7742982f,
+	"zSetSessionTitleRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "sessionId", Schema: zodRefSessionId},
+		{Name: "title", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zSetSessionTitleResponse": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "title", Schema: &zod.Rule{Kind: zod.KindString}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zStateUpdate": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		zodIntersection_7f35c661,
 		&zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
@@ -1483,7 +1693,9 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "title", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "capabilities", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zSubagentSessionCapabilities"}}}},
-		{Name: "state", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: zodRefStateUpdate}}},
+		{Name: "state", Schema: zodCatchNullishRef_463673b2},
+		{Name: "cwd", Schema: zodNullishRef_44205b72},
+		{Name: "additionalDirectories", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: zodArrayRef_cfb10be1}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zSystemPrompt": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -1496,13 +1708,15 @@ var zodSchemas = zod.Link(zod.Registry{
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"override"`)},
 		&zod.Rule{Kind: zod.KindString},
 	}},
-	"zTerminal": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "terminalId", Schema: zodRefTerminalId},
+	"zTerminal":                   zodObject_c7ca43bf,
+	"zTerminalAuthCapabilities":   zodObject_d1186e2e,
+	"zTerminalCancelCapabilities": zodObject_d1186e2e,
+	"zTerminalCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "cancel", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalCancelCapabilities"}}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
-	"zTerminalAuthCapabilities": zodObject_d1186e2e,
 	"zTerminalExitStatus": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "exitCode", Schema: zodCatchNullishMax_254e37c3},
+		{Name: "exitCode", Schema: zodCatchNullishWideInt_2623e866},
 		{Name: "signal", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
@@ -1516,12 +1730,19 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "data", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
+	"zTerminalSize": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "cols", Schema: zodLteGteInt_3b8fc0cf},
+		{Name: "rows", Schema: zodLteGteInt_3b8fc0cf},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zTerminalUpdate": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "terminalId", Schema: zodRefTerminalId},
 		{Name: "command", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "cwd", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: zodNullishRef_44205b72}},
 		{Name: "output", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalOutput"}}}},
 		{Name: "exitStatus", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalExitStatus"}}}},
+		{Name: "size", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalSize"}}}},
+		{Name: "capabilities", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zTerminalCapabilities"}}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zTextCommandInput": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -1543,6 +1764,11 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "anyOf", Schema: zodMinArrayRef_bc7791c3},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
+	"zToolCallCancelCapabilities": zodObject_d1186e2e,
+	"zToolCallCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "cancel", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallCancelCapabilities"}}}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zToolCallContent": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		zodIntersection_629c4f30,
 		zodIntersection_d3a9483a,
@@ -1557,13 +1783,17 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zToolCallId": &zod.Rule{Kind: zod.KindString},
 	"zToolCallLocation": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "path", Schema: zodRefAbsolutePath},
-		{Name: "line", Schema: zodCatchNullishMax_254e37c3},
+		{Name: "line", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindMax, Inner: zodGteInt_3bc9f47f, Value: jsontext.Value(`4294967295`)}}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
-	"zToolCallPermissionSubject": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "toolCall", Schema: zodRefToolCallUpdate}}},
+	"zToolCallPermissionSubject": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "toolCall", Schema: zodRefToolCallUpdate},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zToolCallStatus": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 		zodLiteral_230368a7,
 		zodLiteral_f9080db3,
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"paused"`)},
 		zodLiteral_358614b7,
 		zodLiteral_784273fb,
 		zodLiteral_3138d618,
@@ -1579,6 +1809,7 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "locations", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindSkipArray, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallLocation"}}}}},
 		{Name: "rawInput", Schema: zodCatchOptionalUnknown_35dcb8da},
 		{Name: "rawOutput", Schema: zodCatchOptionalUnknown_35dcb8da},
+		{Name: "capabilities", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zToolCallCapabilities"}}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zToolKind": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
@@ -1594,24 +1825,31 @@ var zodSchemas = zod.Link(zod.Registry{
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"other"`)},
 		&zod.Rule{Kind: zod.KindString},
 	}},
-	"zUnknownStateUpdate": zodObject_d1186e2e,
+	"zUnarchiveSessionRequest":  zodObject_224974ec,
+	"zUnarchiveSessionResponse": zodObject_d1186e2e,
+	"zUnknownStateUpdate":       zodObject_c7e8cec3,
+	"zUnsupportedProtocolVersionErrorData": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "requested", Schema: zodRefProtocolVersion},
+		{Name: "supported", Schema: &zod.Rule{Kind: zod.KindArray, Inner: zodRefProtocolVersion}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zUpdateSessionNotification": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessionId", Schema: zodRefSessionId},
 		{Name: "update", Schema: &zod.Rule{Kind: zod.KindRef, Ref: "zSessionUpdate"}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zUsage": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "totalTokens", Schema: &zod.Rule{Kind: zod.KindNumber}},
-		{Name: "inputTokens", Schema: &zod.Rule{Kind: zod.KindNumber}},
-		{Name: "outputTokens", Schema: &zod.Rule{Kind: zod.KindNumber}},
-		{Name: "thoughtTokens", Schema: zodCatchNullishNumber_dd7e4aff},
-		{Name: "cachedReadTokens", Schema: zodCatchNullishNumber_dd7e4aff},
-		{Name: "cachedWriteTokens", Schema: zodCatchNullishNumber_dd7e4aff},
+		{Name: "totalTokens", Schema: zodGteWideInt_2d0d28a6},
+		{Name: "inputTokens", Schema: zodGteWideInt_2d0d28a6},
+		{Name: "outputTokens", Schema: zodGteWideInt_2d0d28a6},
+		{Name: "thoughtTokens", Schema: zodCatchNullishGte_69915baa},
+		{Name: "cachedReadTokens", Schema: zodCatchNullishGte_69915baa},
+		{Name: "cachedWriteTokens", Schema: zodCatchNullishGte_69915baa},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zUsageUpdate": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
-		{Name: "used", Schema: &zod.Rule{Kind: zod.KindNumber}},
-		{Name: "size", Schema: &zod.Rule{Kind: zod.KindNumber}},
+		{Name: "used", Schema: zodGteWideInt_2d0d28a6},
+		{Name: "size", Schema: zodGteWideInt_2d0d28a6},
 		{Name: "cost", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zCost"}}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
@@ -1622,7 +1860,12 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zAuthMethodAgent&type=\"agent\"":                                      zodIntersection_fa969725,
 	"zAuthMethodTerminal&type=\"terminal\"":                                zodIntersection_f11eb5b3,
 	"zAvailableCommandsUpdate&sessionUpdate=\"available_commands_update\"": zodIntersection_0e97fa2e,
+	"zBackgroundSubagent&type=\"subagent\"":                                zodIntersection_9298706d,
+	"zBackgroundTerminal&type=\"terminal\"":                                zodIntersection_a8813a4d,
+	"zBackgroundToolCall&type=\"tool_call\"":                               zodIntersection_d1a09f49,
 	"zBooleanPropertySchema&type=\"boolean\"":                              zodIntersection_9bed169e,
+	"zCancelledPermissionOutcome&outcome=\"cancelled\"":                    zodIntersection_df3a46e9,
+	"zCommand&type=\"command\"":                                            zodIntersection_d240114c,
 	"zCommandPermissionSubject&type=\"command\"":                           zodIntersection_b1ecfc51,
 	"zCompactionSummaryChunk&sessionUpdate=\"compaction_summary_chunk\"":   zodIntersection_bf527b4c,
 	"zCompactionUpdate&sessionUpdate=\"compaction_update\"":                zodIntersection_a3ae0eed,
@@ -1676,14 +1919,27 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[AgentRequest]():                             "zAgentRequest",
 	reflect.TypeFor[AgentResponse]():                            "zAgentResponse",
 	reflect.TypeFor[Annotations]():                              "zAnnotations",
-	reflect.TypeFor[AuthCapabilities]():                         "zAuthCapabilities",
+	reflect.TypeFor[ArchiveSessionRequest]():                    "zArchiveSessionRequest",
+	reflect.TypeFor[ArchiveSessionResponse]():                   "zArchiveSessionResponse",
+	reflect.TypeFor[AuthAccount]():                              "zAuthAccount",
 	reflect.TypeFor[AuthMethod]():                               "zAuthMethod",
 	reflect.TypeFor[AuthMethodID]():                             "zAuthMethodId",
+	reflect.TypeFor[AuthState]():                                "zAuthState",
+	reflect.TypeFor[AuthStatusCapabilities]():                   "zAuthStatusCapabilities",
+	reflect.TypeFor[AuthStatusRequest]():                        "zAuthStatusRequest",
+	reflect.TypeFor[AuthStatusResponse]():                       "zAuthStatusResponse",
+	reflect.TypeFor[AuthStatusUpdateNotification]():             "zAuthStatusUpdateNotification",
 	reflect.TypeFor[AvailableCommand]():                         "zAvailableCommand",
 	reflect.TypeFor[AvailableCommandInput]():                    "zAvailableCommandInput",
+	reflect.TypeFor[BackgroundWork]():                           "zBackgroundWork",
 	reflect.TypeFor[BlobResourceContents]():                     "zBlobResourceContents",
 	reflect.TypeFor[CancelRequestNotification]():                "zCancelRequestNotification",
 	reflect.TypeFor[CancelSessionNotification]():                "zCancelSessionNotification",
+	reflect.TypeFor[CancelTerminalRequest]():                    "zCancelTerminalRequest",
+	reflect.TypeFor[CancelTerminalResponse]():                   "zCancelTerminalResponse",
+	reflect.TypeFor[CancelToolCallRequest]():                    "zCancelToolCallRequest",
+	reflect.TypeFor[CancelToolCallResponse]():                   "zCancelToolCallResponse",
+	reflect.TypeFor[ClientAuthCapabilities]():                   "zClientAuthCapabilities",
 	reflect.TypeFor[ClientCapabilities]():                       "zClientCapabilities",
 	reflect.TypeFor[ClientNotification]():                       "zClientNotification",
 	reflect.TypeFor[ClientRequest]():                            "zClientRequest",
@@ -1726,6 +1982,7 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[EnvVariable]():                              "zEnvVariable",
 	reflect.TypeFor[Error]():                                    "zError",
 	reflect.TypeFor[ErrorCode]():                                "zErrorCode",
+	reflect.TypeFor[ErrorData]():                                "zErrorData",
 	reflect.TypeFor[ErrorStopReason]():                          "zErrorStopReason",
 	reflect.TypeFor[ForkSessionRequest]():                       "zForkSessionRequest",
 	reflect.TypeFor[ForkSessionResponse]():                      "zForkSessionResponse",
@@ -1776,12 +2033,16 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[PromptImageCapabilities]():                  "zPromptImageCapabilities",
 	reflect.TypeFor[PromptRequest]():                            "zPromptRequest",
 	reflect.TypeFor[PromptResponse]():                           "zPromptResponse",
-	reflect.TypeFor[ProtocolLevelNotification]():                "zProtocolLevelNotification",
 	reflect.TypeFor[ProtocolVersion]():                          "zProtocolVersion",
 	reflect.TypeFor[ProviderCurrentConfig]():                    "zProviderCurrentConfig",
 	reflect.TypeFor[ProviderID]():                               "zProviderId",
 	reflect.TypeFor[ProviderInfo]():                             "zProviderInfo",
 	reflect.TypeFor[ProvidersCapabilities]():                    "zProvidersCapabilities",
+	reflect.TypeFor[ProxyNotification]():                        "zProxyNotification",
+	reflect.TypeFor[ProxyRequest]():                             "zProxyRequest",
+	reflect.TypeFor[ProxyResponse]():                            "zProxyResponse",
+	reflect.TypeFor[ProxySuccessorNotification]():               "zProxySuccessorNotification",
+	reflect.TypeFor[ProxySuccessorRequest]():                    "zProxySuccessorRequest",
 	reflect.TypeFor[ReplayFrom]():                               "zReplayFrom",
 	reflect.TypeFor[RequestID]():                                "zRequestId",
 	reflect.TypeFor[RequestPermissionOutcome]():                 "zRequestPermissionOutcome",
@@ -1792,6 +2053,8 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[ResumeSessionResponse]():                    "zResumeSessionResponse",
 	reflect.TypeFor[Role]():                                     "zRole",
 	reflect.TypeFor[SessionAdditionalDirectoriesCapabilities](): "zSessionAdditionalDirectoriesCapabilities",
+	reflect.TypeFor[SessionArchiveCapabilities]():               "zSessionArchiveCapabilities",
+	reflect.TypeFor[SessionArchiveFilter]():                     "zSessionArchiveFilter",
 	reflect.TypeFor[SessionCancelCapabilities]():                "zSessionCancelCapabilities",
 	reflect.TypeFor[SessionCapabilities]():                      "zSessionCapabilities",
 	reflect.TypeFor[SessionConfigBoolean]():                     "zSessionConfigBoolean",
@@ -1809,31 +2072,47 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[SessionID]():                                "zSessionId",
 	reflect.TypeFor[SessionInfo]():                              "zSessionInfo",
 	reflect.TypeFor[SessionListCursor]():                        "zSessionListCursor",
+	reflect.TypeFor[SessionNotFoundErrorData]():                 "zSessionNotFoundErrorData",
+	reflect.TypeFor[SessionStatus]():                            "zSessionStatus",
+	reflect.TypeFor[SessionStatusCapabilities]():                "zSessionStatusCapabilities",
+	reflect.TypeFor[SessionStatusRequest]():                     "zSessionStatusRequest",
+	reflect.TypeFor[SessionStatusResponse]():                    "zSessionStatusResponse",
 	reflect.TypeFor[SessionSystemPromptCapabilities]():          "zSessionSystemPromptCapabilities",
 	reflect.TypeFor[SessionSystemPromptModeCapabilities]():      "zSessionSystemPromptModeCapabilities",
 	reflect.TypeFor[SessionSystemPromptOverrideCapabilities]():  "zSessionSystemPromptOverrideCapabilities",
+	reflect.TypeFor[SessionTitleCapabilities]():                 "zSessionTitleCapabilities",
 	reflect.TypeFor[SessionUpdate]():                            "zSessionUpdate",
 	reflect.TypeFor[SetProviderRequest]():                       "zSetProviderRequest",
 	reflect.TypeFor[SetProviderResponse]():                      "zSetProviderResponse",
 	reflect.TypeFor[SetSessionConfigOptionRequest]():            "zSetSessionConfigOptionRequest",
 	reflect.TypeFor[SetSessionConfigOptionResponse]():           "zSetSessionConfigOptionResponse",
+	reflect.TypeFor[SetSessionTitleRequest]():                   "zSetSessionTitleRequest",
+	reflect.TypeFor[SetSessionTitleResponse]():                  "zSetSessionTitleResponse",
 	reflect.TypeFor[StateUpdate]():                              "zStateUpdate",
 	reflect.TypeFor[StringFormat]():                             "zStringFormat",
 	reflect.TypeFor[SubagentSessionCapabilities]():              "zSubagentSessionCapabilities",
 	reflect.TypeFor[SystemPrompt]():                             "zSystemPrompt",
 	reflect.TypeFor[SystemPromptMode]():                         "zSystemPromptMode",
 	reflect.TypeFor[TerminalAuthCapabilities]():                 "zTerminalAuthCapabilities",
+	reflect.TypeFor[TerminalCancelCapabilities]():               "zTerminalCancelCapabilities",
+	reflect.TypeFor[TerminalCapabilities]():                     "zTerminalCapabilities",
 	reflect.TypeFor[TerminalExitStatus]():                       "zTerminalExitStatus",
 	reflect.TypeFor[TerminalID]():                               "zTerminalId",
 	reflect.TypeFor[TerminalOutput]():                           "zTerminalOutput",
+	reflect.TypeFor[TerminalSize]():                             "zTerminalSize",
 	reflect.TypeFor[TextResourceContents]():                     "zTextResourceContents",
 	reflect.TypeFor[TitledMultiSelectItems]():                   "zTitledMultiSelectItems",
+	reflect.TypeFor[ToolCallCancelCapabilities]():               "zToolCallCancelCapabilities",
+	reflect.TypeFor[ToolCallCapabilities]():                     "zToolCallCapabilities",
 	reflect.TypeFor[ToolCallContent]():                          "zToolCallContent",
 	reflect.TypeFor[ToolCallID]():                               "zToolCallId",
 	reflect.TypeFor[ToolCallLocation]():                         "zToolCallLocation",
 	reflect.TypeFor[ToolCallStatus]():                           "zToolCallStatus",
 	reflect.TypeFor[ToolCallUpdate]():                           "zToolCallUpdate",
 	reflect.TypeFor[ToolKind]():                                 "zToolKind",
+	reflect.TypeFor[UnarchiveSessionRequest]():                  "zUnarchiveSessionRequest",
+	reflect.TypeFor[UnarchiveSessionResponse]():                 "zUnarchiveSessionResponse",
+	reflect.TypeFor[UnsupportedProtocolVersionErrorData]():      "zUnsupportedProtocolVersionErrorData",
 	reflect.TypeFor[UpdateSessionNotification]():                "zUpdateSessionNotification",
 	reflect.TypeFor[Usage]():                                    "zUsage",
 	reflect.TypeFor[SessionUpdateAgentMessage]():                "zAgentMessage&sessionUpdate=\"agent_message\"",
@@ -1842,7 +2121,12 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[AuthMethodAgent]():                          "zAuthMethodAgent&type=\"agent\"",
 	reflect.TypeFor[AuthMethodTerminal]():                       "zAuthMethodTerminal&type=\"terminal\"",
 	reflect.TypeFor[SessionUpdateAvailableCommandsUpdate]():     "zAvailableCommandsUpdate&sessionUpdate=\"available_commands_update\"",
+	reflect.TypeFor[BackgroundWorkSubagent]():                   "zBackgroundSubagent&type=\"subagent\"",
+	reflect.TypeFor[BackgroundWorkTerminal]():                   "zBackgroundTerminal&type=\"terminal\"",
+	reflect.TypeFor[BackgroundWorkToolCall]():                   "zBackgroundToolCall&type=\"tool_call\"",
 	reflect.TypeFor[ElicitationPropertySchemaBoolean]():         "zBooleanPropertySchema&type=\"boolean\"",
+	reflect.TypeFor[RequestPermissionOutcomeCancelled]():        "zCancelledPermissionOutcome&outcome=\"cancelled\"",
+	reflect.TypeFor[AvailableCommandCommand]():                  "zCommand&type=\"command\"",
 	reflect.TypeFor[RequestPermissionSubjectCommand]():          "zCommandPermissionSubject&type=\"command\"",
 	reflect.TypeFor[SessionUpdateCompactionSummaryChunk]():      "zCompactionSummaryChunk&sessionUpdate=\"compaction_summary_chunk\"",
 	reflect.TypeFor[SessionUpdateCompactionUpdate]():            "zCompactionUpdate&sessionUpdate=\"compaction_update\"",
@@ -1902,14 +2186,27 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[AgentRequest](zodSchemas, "zAgentRequest"),
 	zod.Unmarshaler[AgentResponse](zodSchemas, "zAgentResponse"),
 	zod.Unmarshaler[Annotations](zodSchemas, "zAnnotations"),
-	zod.Unmarshaler[AuthCapabilities](zodSchemas, "zAuthCapabilities"),
+	zod.Unmarshaler[ArchiveSessionRequest](zodSchemas, "zArchiveSessionRequest"),
+	zod.Unmarshaler[ArchiveSessionResponse](zodSchemas, "zArchiveSessionResponse"),
+	zod.Unmarshaler[AuthAccount](zodSchemas, "zAuthAccount"),
 	zod.Unmarshaler[AuthMethod](zodSchemas, "zAuthMethod"),
 	zod.Unmarshaler[AuthMethodID](zodSchemas, "zAuthMethodId"),
+	zod.Unmarshaler[AuthState](zodSchemas, "zAuthState"),
+	zod.Unmarshaler[AuthStatusCapabilities](zodSchemas, "zAuthStatusCapabilities"),
+	zod.Unmarshaler[AuthStatusRequest](zodSchemas, "zAuthStatusRequest"),
+	zod.Unmarshaler[AuthStatusResponse](zodSchemas, "zAuthStatusResponse"),
+	zod.Unmarshaler[AuthStatusUpdateNotification](zodSchemas, "zAuthStatusUpdateNotification"),
 	zod.Unmarshaler[AvailableCommand](zodSchemas, "zAvailableCommand"),
 	zod.Unmarshaler[AvailableCommandInput](zodSchemas, "zAvailableCommandInput"),
+	zod.Unmarshaler[BackgroundWork](zodSchemas, "zBackgroundWork"),
 	zod.Unmarshaler[BlobResourceContents](zodSchemas, "zBlobResourceContents"),
 	zod.Unmarshaler[CancelRequestNotification](zodSchemas, "zCancelRequestNotification"),
 	zod.Unmarshaler[CancelSessionNotification](zodSchemas, "zCancelSessionNotification"),
+	zod.Unmarshaler[CancelTerminalRequest](zodSchemas, "zCancelTerminalRequest"),
+	zod.Unmarshaler[CancelTerminalResponse](zodSchemas, "zCancelTerminalResponse"),
+	zod.Unmarshaler[CancelToolCallRequest](zodSchemas, "zCancelToolCallRequest"),
+	zod.Unmarshaler[CancelToolCallResponse](zodSchemas, "zCancelToolCallResponse"),
+	zod.Unmarshaler[ClientAuthCapabilities](zodSchemas, "zClientAuthCapabilities"),
 	zod.Unmarshaler[ClientCapabilities](zodSchemas, "zClientCapabilities"),
 	zod.Unmarshaler[ClientNotification](zodSchemas, "zClientNotification"),
 	zod.Unmarshaler[ClientRequest](zodSchemas, "zClientRequest"),
@@ -1952,6 +2249,7 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[EnvVariable](zodSchemas, "zEnvVariable"),
 	zod.Unmarshaler[Error](zodSchemas, "zError"),
 	zod.Unmarshaler[ErrorCode](zodSchemas, "zErrorCode"),
+	zod.Unmarshaler[ErrorData](zodSchemas, "zErrorData"),
 	zod.Unmarshaler[ErrorStopReason](zodSchemas, "zErrorStopReason"),
 	zod.Unmarshaler[ForkSessionRequest](zodSchemas, "zForkSessionRequest"),
 	zod.Unmarshaler[ForkSessionResponse](zodSchemas, "zForkSessionResponse"),
@@ -2002,12 +2300,16 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[PromptImageCapabilities](zodSchemas, "zPromptImageCapabilities"),
 	zod.Unmarshaler[PromptRequest](zodSchemas, "zPromptRequest"),
 	zod.Unmarshaler[PromptResponse](zodSchemas, "zPromptResponse"),
-	zod.Unmarshaler[ProtocolLevelNotification](zodSchemas, "zProtocolLevelNotification"),
 	zod.Unmarshaler[ProtocolVersion](zodSchemas, "zProtocolVersion"),
 	zod.Unmarshaler[ProviderCurrentConfig](zodSchemas, "zProviderCurrentConfig"),
 	zod.Unmarshaler[ProviderID](zodSchemas, "zProviderId"),
 	zod.Unmarshaler[ProviderInfo](zodSchemas, "zProviderInfo"),
 	zod.Unmarshaler[ProvidersCapabilities](zodSchemas, "zProvidersCapabilities"),
+	zod.Unmarshaler[ProxyNotification](zodSchemas, "zProxyNotification"),
+	zod.Unmarshaler[ProxyRequest](zodSchemas, "zProxyRequest"),
+	zod.Unmarshaler[ProxyResponse](zodSchemas, "zProxyResponse"),
+	zod.Unmarshaler[ProxySuccessorNotification](zodSchemas, "zProxySuccessorNotification"),
+	zod.Unmarshaler[ProxySuccessorRequest](zodSchemas, "zProxySuccessorRequest"),
 	zod.Unmarshaler[ReplayFrom](zodSchemas, "zReplayFrom"),
 	zod.Unmarshaler[RequestID](zodSchemas, "zRequestId"),
 	zod.Unmarshaler[RequestPermissionOutcome](zodSchemas, "zRequestPermissionOutcome"),
@@ -2018,6 +2320,8 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[ResumeSessionResponse](zodSchemas, "zResumeSessionResponse"),
 	zod.Unmarshaler[Role](zodSchemas, "zRole"),
 	zod.Unmarshaler[SessionAdditionalDirectoriesCapabilities](zodSchemas, "zSessionAdditionalDirectoriesCapabilities"),
+	zod.Unmarshaler[SessionArchiveCapabilities](zodSchemas, "zSessionArchiveCapabilities"),
+	zod.Unmarshaler[SessionArchiveFilter](zodSchemas, "zSessionArchiveFilter"),
 	zod.Unmarshaler[SessionCancelCapabilities](zodSchemas, "zSessionCancelCapabilities"),
 	zod.Unmarshaler[SessionCapabilities](zodSchemas, "zSessionCapabilities"),
 	zod.Unmarshaler[SessionConfigBoolean](zodSchemas, "zSessionConfigBoolean"),
@@ -2035,31 +2339,47 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[SessionID](zodSchemas, "zSessionId"),
 	zod.Unmarshaler[SessionInfo](zodSchemas, "zSessionInfo"),
 	zod.Unmarshaler[SessionListCursor](zodSchemas, "zSessionListCursor"),
+	zod.Unmarshaler[SessionNotFoundErrorData](zodSchemas, "zSessionNotFoundErrorData"),
+	zod.Unmarshaler[SessionStatus](zodSchemas, "zSessionStatus"),
+	zod.Unmarshaler[SessionStatusCapabilities](zodSchemas, "zSessionStatusCapabilities"),
+	zod.Unmarshaler[SessionStatusRequest](zodSchemas, "zSessionStatusRequest"),
+	zod.Unmarshaler[SessionStatusResponse](zodSchemas, "zSessionStatusResponse"),
 	zod.Unmarshaler[SessionSystemPromptCapabilities](zodSchemas, "zSessionSystemPromptCapabilities"),
 	zod.Unmarshaler[SessionSystemPromptModeCapabilities](zodSchemas, "zSessionSystemPromptModeCapabilities"),
 	zod.Unmarshaler[SessionSystemPromptOverrideCapabilities](zodSchemas, "zSessionSystemPromptOverrideCapabilities"),
+	zod.Unmarshaler[SessionTitleCapabilities](zodSchemas, "zSessionTitleCapabilities"),
 	zod.Unmarshaler[SessionUpdate](zodSchemas, "zSessionUpdate"),
 	zod.Unmarshaler[SetProviderRequest](zodSchemas, "zSetProviderRequest"),
 	zod.Unmarshaler[SetProviderResponse](zodSchemas, "zSetProviderResponse"),
 	zod.Unmarshaler[SetSessionConfigOptionRequest](zodSchemas, "zSetSessionConfigOptionRequest"),
 	zod.Unmarshaler[SetSessionConfigOptionResponse](zodSchemas, "zSetSessionConfigOptionResponse"),
+	zod.Unmarshaler[SetSessionTitleRequest](zodSchemas, "zSetSessionTitleRequest"),
+	zod.Unmarshaler[SetSessionTitleResponse](zodSchemas, "zSetSessionTitleResponse"),
 	zod.Unmarshaler[StateUpdate](zodSchemas, "zStateUpdate"),
 	zod.Unmarshaler[StringFormat](zodSchemas, "zStringFormat"),
 	zod.Unmarshaler[SubagentSessionCapabilities](zodSchemas, "zSubagentSessionCapabilities"),
 	zod.Unmarshaler[SystemPrompt](zodSchemas, "zSystemPrompt"),
 	zod.Unmarshaler[SystemPromptMode](zodSchemas, "zSystemPromptMode"),
 	zod.Unmarshaler[TerminalAuthCapabilities](zodSchemas, "zTerminalAuthCapabilities"),
+	zod.Unmarshaler[TerminalCancelCapabilities](zodSchemas, "zTerminalCancelCapabilities"),
+	zod.Unmarshaler[TerminalCapabilities](zodSchemas, "zTerminalCapabilities"),
 	zod.Unmarshaler[TerminalExitStatus](zodSchemas, "zTerminalExitStatus"),
 	zod.Unmarshaler[TerminalID](zodSchemas, "zTerminalId"),
 	zod.Unmarshaler[TerminalOutput](zodSchemas, "zTerminalOutput"),
+	zod.Unmarshaler[TerminalSize](zodSchemas, "zTerminalSize"),
 	zod.Unmarshaler[TextResourceContents](zodSchemas, "zTextResourceContents"),
 	zod.Unmarshaler[TitledMultiSelectItems](zodSchemas, "zTitledMultiSelectItems"),
+	zod.Unmarshaler[ToolCallCancelCapabilities](zodSchemas, "zToolCallCancelCapabilities"),
+	zod.Unmarshaler[ToolCallCapabilities](zodSchemas, "zToolCallCapabilities"),
 	zod.Unmarshaler[ToolCallContent](zodSchemas, "zToolCallContent"),
 	zod.Unmarshaler[ToolCallID](zodSchemas, "zToolCallId"),
 	zod.Unmarshaler[ToolCallLocation](zodSchemas, "zToolCallLocation"),
 	zod.Unmarshaler[ToolCallStatus](zodSchemas, "zToolCallStatus"),
 	zod.Unmarshaler[ToolCallUpdate](zodSchemas, "zToolCallUpdate"),
 	zod.Unmarshaler[ToolKind](zodSchemas, "zToolKind"),
+	zod.Unmarshaler[UnarchiveSessionRequest](zodSchemas, "zUnarchiveSessionRequest"),
+	zod.Unmarshaler[UnarchiveSessionResponse](zodSchemas, "zUnarchiveSessionResponse"),
+	zod.Unmarshaler[UnsupportedProtocolVersionErrorData](zodSchemas, "zUnsupportedProtocolVersionErrorData"),
 	zod.Unmarshaler[UpdateSessionNotification](zodSchemas, "zUpdateSessionNotification"),
 	zod.Unmarshaler[Usage](zodSchemas, "zUsage"),
 	zod.Unmarshaler[SessionUpdateAgentMessage](zodSchemas, "zAgentMessage&sessionUpdate=\"agent_message\""),
@@ -2068,7 +2388,12 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[AuthMethodAgent](zodSchemas, "zAuthMethodAgent&type=\"agent\""),
 	zod.Unmarshaler[AuthMethodTerminal](zodSchemas, "zAuthMethodTerminal&type=\"terminal\""),
 	zod.Unmarshaler[SessionUpdateAvailableCommandsUpdate](zodSchemas, "zAvailableCommandsUpdate&sessionUpdate=\"available_commands_update\""),
+	zod.Unmarshaler[BackgroundWorkSubagent](zodSchemas, "zBackgroundSubagent&type=\"subagent\""),
+	zod.Unmarshaler[BackgroundWorkTerminal](zodSchemas, "zBackgroundTerminal&type=\"terminal\""),
+	zod.Unmarshaler[BackgroundWorkToolCall](zodSchemas, "zBackgroundToolCall&type=\"tool_call\""),
 	zod.Unmarshaler[ElicitationPropertySchemaBoolean](zodSchemas, "zBooleanPropertySchema&type=\"boolean\""),
+	zod.Unmarshaler[RequestPermissionOutcomeCancelled](zodSchemas, "zCancelledPermissionOutcome&outcome=\"cancelled\""),
+	zod.Unmarshaler[AvailableCommandCommand](zodSchemas, "zCommand&type=\"command\""),
 	zod.Unmarshaler[RequestPermissionSubjectCommand](zodSchemas, "zCommandPermissionSubject&type=\"command\""),
 	zod.Unmarshaler[SessionUpdateCompactionSummaryChunk](zodSchemas, "zCompactionSummaryChunk&sessionUpdate=\"compaction_summary_chunk\""),
 	zod.Unmarshaler[SessionUpdateCompactionUpdate](zodSchemas, "zCompactionUpdate&sessionUpdate=\"compaction_update\""),

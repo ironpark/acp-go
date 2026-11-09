@@ -11,14 +11,14 @@ stage="$(mktemp -d "$script_dir/.typescript.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT
 base="https://raw.githubusercontent.com/agentclientprotocol/typescript-sdk/$revision"
 for version in v1 v2; do
-  upstream="src/schema"
-  if [[ "$version" == v2 ]]; then upstream="src/v2/schema"; fi
+  # The unstable views carry every method and type; the façade tables mark what is unstable.
+  upstream="src/$version/unstable/schema"
   mkdir -p "$stage/$version"
   for name in types.gen.ts index.ts zod.gen.ts guards.gen.ts; do
     curl --fail --silent --show-error --location "$base/$upstream/$name" -o "$stage/$version/$name"
   done
 done
-curl --fail --silent --show-error --location "$base/src/schema-deserialize.ts" -o "$stage/schema-deserialize.ts"
+curl --fail --silent --show-error --location "$base/src/core/schema-deserialize.ts" -o "$stage/schema-deserialize.ts"
 curl --fail --silent --show-error --location "$base/LICENSE" -o "$stage/LICENSE"
 printf '%s\n' "$revision" > "$stage/REVISION"
 # Do not replace any source until all downloads have succeeded.

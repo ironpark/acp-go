@@ -3,6 +3,7 @@ package acp2
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
@@ -16,6 +17,8 @@ import (
 type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
+
+	authStatus atomic.Pointer[AuthStatusResponse] // see AuthStatus
 
 	mu       sync.Mutex
 	sessions map[SessionID]*acpconn.Queue[SessionUpdate] // one per ClientSession

@@ -2,7 +2,6 @@ package acp1
 
 import (
 	"context"
-	"fmt"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
@@ -168,7 +167,7 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 		return session, err
 	}
 	if !ok {
-		return session, acp.ResourceNotFound(fmt.Sprintf("session %s", id))
+		return session, acp.SessionNotFound(id)
 	}
 	return session, nil
 }
@@ -307,10 +306,12 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 }
 
 // List answers session/list from the store, describing each session with its
-// state's [SessionInfoReporter]. It applies the request's cwd filter and lists
-// the most recently updated sessions first. It paginates with the request's
-// cursor, returning at most [WithSessionListPageSize] sessions per page and a
-// next cursor while more remain. A store that implements [SessionInfoLister]
+// state's [SessionInfoReporter]. It applies the request's cwd filter and its
+// archived filter, which by default leaves out the sessions whose SessionInfo
+// reports Archived, and lists the most recently updated sessions first. It
+// paginates with the request's cursor, returning at most
+// [WithSessionListPageSize] sessions per page and a next cursor while more
+// remain. A store that implements [SessionInfoLister]
 // answers each page with one query; any other store has every session read and
 // described per page. An agent that lists sessions forwards to it:
 //
@@ -322,8 +323,12 @@ func (m *SessionManager[T]) List(ctx context.Context, params *ListSessionsReques
 	if err != nil {
 		return nil, err
 	}
+	archived, err := acpconn.ArchiveFilter(params.GetArchived())
+	if err != nil {
+		return nil, err
+	}
 	add := func(info SessionInfo) {
-		if params.Cwd == nil || info.Cwd == *params.Cwd {
+		if (params.Cwd == nil || info.Cwd == *params.Cwd) && archived(info.GetArchived()) {
 			pager.Add(info)
 		}
 	}
@@ -332,9 +337,10 @@ func (m *SessionManager[T]) List(ctx context.Context, params *ListSessionsReques
 	// contract from breaking the page order.
 	if lister, ok := m.store.(SessionInfoLister); ok {
 		sessions, err := lister.ListSessionInfo(ctx, acp.SessionListQuery{
-			Cwd:   params.GetCwd(),
-			After: (*acp.SessionListPosition)(pager.After()),
-			Limit: pager.Limit(),
+			Cwd:      params.GetCwd(),
+			Archived: string(params.GetArchived()),
+			After:    (*acp.SessionListPosition)(pager.After()),
+			Limit:    pager.Limit(),
 		})
 		if err != nil {
 			return nil, err

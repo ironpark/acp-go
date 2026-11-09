@@ -106,13 +106,72 @@ func (s *ClientSession) Close(ctx context.Context) error {
 	if _, err := s.conn.CloseSession(ctx, &CloseSessionRequest{SessionID: s.ID}); err != nil {
 		return err
 	}
+	s.release()
+	return nil
+}
+
+// release stops queueing the session's updates, once the agent closed it.
+func (s *ClientSession) release() {
 	s.conn.mu.Lock()
 	if s.conn.sessions[s.ID] == s.updates {
 		delete(s.conn.sessions, s.ID)
 	}
 	s.conn.mu.Unlock()
 	s.updates.Close(errSessionClosed)
+}
+
+// CancelToolCall asks the agent to cancel one tool call of the session, which
+// must advertise capabilities.cancel. The answer only accepts the
+// cancellation; the tool call's final status update confirms it.
+func (s *ClientSession) CancelToolCall(ctx context.Context, id ToolCallID) error {
+	_, err := s.conn.CancelToolCall(ctx, &CancelToolCallRequest{SessionID: s.ID, ToolCallID: id})
+	return err
+}
+
+// CancelTerminal asks the agent to stop one terminal of the session, which
+// must advertise capabilities.cancel. The terminal_update that sets its exit
+// status confirms it.
+func (s *ClientSession) CancelTerminal(ctx context.Context, id TerminalID) error {
+	_, err := s.conn.CancelTerminal(ctx, &CancelTerminalRequest{SessionID: s.ID, TerminalID: id})
+	return err
+}
+
+// SetTitle renames the session and returns the title the agent stored, which
+// may be normalized; display that one. It needs the agent's session.title
+// capability.
+func (s *ClientSession) SetTitle(ctx context.Context, title string) (string, error) {
+	response, err := s.conn.SetSessionTitle(ctx, &SetSessionTitleRequest{SessionID: s.ID, Title: title})
+	if err != nil {
+		return "", err
+	}
+	return response.Title, nil
+}
+
+// Archive archives the session, hiding it from session/list's default view.
+// The agent closes a loaded session first, so Archive also stops queueing its
+// updates, as [ClientSession.Close] does. It needs the agent's
+// session.archive capability.
+func (s *ClientSession) Archive(ctx context.Context) error {
+	if _, err := s.conn.ArchiveSession(ctx, &ArchiveSessionRequest{SessionID: s.ID}); err != nil {
+		return err
+	}
+	s.release()
 	return nil
+}
+
+// Unarchive restores an archived session. It does not resume it: call
+// [ClientSideConnection.ResumeSession], then [ClientSideConnection.Session]
+// for a new handle.
+func (s *ClientSession) Unarchive(ctx context.Context) error {
+	_, err := s.conn.UnarchiveSession(ctx, &UnarchiveSessionRequest{SessionID: s.ID})
+	return err
+}
+
+// Status reports whether the agent holds the session in memory. The answer is
+// a snapshot; treat a status you do not recognize as [SessionStatusSaved]. It
+// needs the agent's session.status capability.
+func (s *ClientSession) Status(ctx context.Context) (*SessionStatusResponse, error) {
+	return s.conn.GetSessionStatus(ctx, &SessionStatusRequest{SessionID: s.ID})
 }
 
 // Turn reads a session's foreground work: its updates up to the next idle

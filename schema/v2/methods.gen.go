@@ -17,9 +17,16 @@ const (
 	AgentMethodsSessionList            = "session/list"
 	AgentMethodsSessionDelete          = "session/delete"
 	AgentMethodsSessionFork            = "session/fork"
+	AgentMethodsSessionArchive         = "session/archive"
+	AgentMethodsSessionUnarchive       = "session/unarchive"
+	AgentMethodsSessionStatus          = "session/status"
+	AgentMethodsSessionSetTitle        = "session/set_title"
 	AgentMethodsSessionResume          = "session/resume"
 	AgentMethodsSessionClose           = "session/close"
+	AgentMethodsToolCallCancel         = "tool_call/cancel"
+	AgentMethodsTerminalCancel         = "terminal/cancel"
 	AgentMethodsAuthLogout             = "auth/logout"
+	AgentMethodsAuthStatus             = "auth/status"
 )
 
 // The ClientMethods constants mirror the SDK's CLIENT_METHODS table.
@@ -29,11 +36,18 @@ const (
 	ClientMethodsMCPMessage               = "mcp/message"
 	ClientMethodsElicitationCreate        = "elicitation/create"
 	ClientMethodsElicitationComplete      = "elicitation/complete"
+	ClientMethodsAuthStatusUpdate         = "auth/status_update"
 )
 
 // The ProtocolMethods constants mirror the SDK's PROTOCOL_METHODS table.
 const (
 	ProtocolMethodsCancelRequest = "$/cancel_request"
+)
+
+// The ProxyMethods constants mirror the SDK's PROXY_METHODS table.
+const (
+	ProxyMethodsProxyInitialize = "proxy/initialize"
+	ProxyMethodsProxySuccessor  = "proxy/successor"
 )
 
 // CurrentProtocolVersion is the SDK's PROTOCOL_VERSION constant.

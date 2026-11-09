@@ -19,7 +19,6 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -96,8 +95,7 @@ func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport) err
 	}
 	selected, ok := r.highestCompatible(requested)
 	if !ok {
-		return rejectAndClose(ctx, transport, msg.ID, acp.InvalidRequest(
-			fmt.Sprintf("unsupported ACP protocol version %d; this endpoint supports %s", requested, r.supported())))
+		return rejectAndClose(ctx, transport, msg.ID, acp.UnsupportedProtocolVersion(uint16(requested), r.supported()...))
 	}
 
 	params, err := rewriteInitializeParams(msg.Params, requested, selected)
@@ -131,16 +129,17 @@ func (r *ProtocolRouter) highestCompatible(requested uint64) (int, bool) {
 	return 0, false
 }
 
-func (r *ProtocolRouter) supported() string {
-	switch {
-	case r.v1 != nil && r.v2 != nil:
-		return "ACP protocol versions 1 and 2"
-	case r.v1 != nil:
-		return "ACP protocol version 1"
-	case r.v2 != nil:
-		return "ACP protocol version 2"
+// supported lists the protocol versions the router serves, in ascending
+// order, for an unsupported-protocol-version error.
+func (r *ProtocolRouter) supported() []uint16 {
+	var versions []uint16
+	if r.v1 != nil {
+		versions = append(versions, 1)
 	}
-	return "no ACP protocol versions"
+	if r.v2 != nil {
+		versions = append(versions, 2)
+	}
+	return versions
 }
 
 // wireMessage is the subset of a JSON-RPC message the router inspects. Every
@@ -269,10 +268,10 @@ func v2ClientCapabilitiesToV1(capabilities *schemav2.ClientCapabilities) (*schem
 }
 
 // v2AuthCapabilitiesToV1 collapses v2's terminal auth object into v1's flag.
-func v2AuthCapabilitiesToV1(capabilities *schemav2.AuthCapabilities) (*schemav1.AuthCapabilities, error) {
+func v2AuthCapabilitiesToV1(capabilities *schemav2.ClientAuthCapabilities) (*schemav1.AuthCapabilities, error) {
 	terminal := capabilities != nil && capabilities.Terminal != nil
 	if terminal && capabilities.Terminal.Meta != nil {
-		return nil, errors.New("v2 AuthCapabilities.terminal metadata cannot be represented in v1")
+		return nil, errors.New("v2 ClientAuthCapabilities.terminal metadata cannot be represented in v1")
 	}
 	result := &schemav1.AuthCapabilities{Terminal: &terminal}
 	if capabilities != nil {

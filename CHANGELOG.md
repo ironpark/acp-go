@@ -6,6 +6,106 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-09
+
+### Schema
+
+- Pinned the TypeScript SDK at `8d95327` (2.4.0). The ACP schema moves to **v1.29.1**, and the v2
+  draft to **2.0.0-alpha.13**. The SDK now ships stable and unstable views; the snapshot takes the
+  unstable views (`src/{v1,v2}/unstable/schema`), which hold every method, as before.
+- **New methods (unstable), in both versions:**
+  - `session/archive` / `session/unarchive` → `SessionArchiver`, advertised as
+    `sessionCapabilities.archive` (v1) / `session.archive` (v2), with the `archived` filter on
+    `session/list` (`SessionArchiveFilter`) and `SessionInfo.Archived`.
+  - `session/status` → `SessionStatusReader` (`GetSessionStatus`), reporting `open` or `saved`.
+  - `session/set_title` → `SessionTitleSetter`, advertised as `…title`.
+  - `auth/status` → `AuthStatusReader` (`GetAuthStatus`), advertised as `auth.status`; the agent's
+    `auth/status_update` notification reaches clients implementing `AuthStatusListener`.
+  - `CapabilitiesOf` sets each capability from the interface the agent implements.
+- **v2 cancellation of single tool calls and terminals:** `tool_call/cancel` → `ToolCallCanceller`
+  and `terminal/cancel` → `TerminalCanceller`. Each tool call or terminal advertises
+  `capabilities.cancel` itself, so these groups have no initialize capability.
+  `acp2.WithCancellable(bool)` sets or clears it on the tool call updates `SessionStream` sends.
+- v2 also gains background work reporting (`BackgroundWork`), the `paused` tool call status,
+  terminal sizes, typed error data (`ErrorData`, `SessionNotFoundErrorData`,
+  `UnsupportedProtocolVersionErrorData`), and error responses with a `null` id.
+- The proxy-chain methods `proxy/initialize` and `proxy/successor` are generated as types and
+  `ProxyMethods*` constants only; like the SDK, the façades do not route them.
+- **64-bit integers:** the SDK marks every `i64`/`u64` field with `wideInt()`, so the generator
+  takes their Go types from the Zod rules and `overrides.yaml` no longer lists any number.
+  Validation accepts integers beyond 2^53 for them, as Rust peers send. v2 `TerminalExitStatus.ExitCode`
+  becomes `*int64` and v2 `ResourceLink.size` `*uint64`, matching the Rust schema.
+  `ElicitationContentValue` gains an `int64` alternative ahead of `float64`; `As[float64]` still
+  reads integers.
+- **Null lists:** `mcpServers`, `additionalDirectories`, terminal `args`/`env`, MCP `headers` and
+  similar lists read an explicit `null` as empty, as Rust's `DefaultOnNull` does, while a missing
+  required list is still rejected.
+- v2 elicitation scopes require exactly one of `sessionId` or `requestId`; a request carrying both,
+  or neither, fails validation.
+- More members distinguish absent from `null` (`optional.Value`): v1/v2 `session_message`
+  participant ids, subagent `cwd`/`additionalDirectories`, and in v2 `usage_update.cost`, tool call
+  and terminal `capabilities`, and terminal `size`.
+
+### Added
+
+- `acp2.SlashCommand(name, description)` builds the common available command, and
+  `acp2.CommandOf` reads one back.
+- **Per-tool-call cancellation for v2 agents:** `acp2.SessionManager.TrackToolCall` and
+  `TrackTerminal` return a context that `tool_call/cancel` / `terminal/cancel` cancel with
+  `acp.ErrWorkCancelled` (`acp.WorkCancelled` checks it). The manager now serves both requests,
+  refusing untracked ids with `-32602` as the protocol asks. The version-neutral
+  `acp.WorkTracker[K]` is the building block.
+- **Session-bound client calls:** `ClientSession.SetTitle`, `Archive`, `Unarchive` and `Status` in
+  both versions, `CancelToolCall` and `CancelTerminal` in v2, and `Close` in v1. v2 `Archive`
+  releases the session's update queue, as `Close` does, since archiving closes the session.
+- `ClientSideConnection.AuthStatus()` (both versions) returns the agent's last reported auth
+  status, from `GetAuthStatus` or an `auth/status_update`, whether or not the client implements
+  `AuthStatusListener`.
+- Error data the protocol defines: `acp.SessionNotFound(id)` / `acp.SessionNotFoundID(err)` for
+  `-32002` with `data.sessionId`, and `acp.UnsupportedProtocolVersion(requested, supported...)` /
+  `acp.SupportedProtocolVersions(err)` for the new `-32022` (`acp.ErrorCodeUnsupportedProtocolVersion`).
+  `RequestError.DecodeData` reads any error's data, local or received.
+- `acp.SessionListQuery.Archived` passes session/list's archived filter to a `SessionInfoLister`.
+
+### Changed
+
+- `SessionManager.List` (v1) / `ListSessions` (v2) apply session/list's `archived` filter: by default
+  they leave out sessions whose `SessionInfo.Archived` is true, `include` and `only` select the
+  rest, and an unknown value is refused with `-32602` instead of being read as `exclude`.
+- `SessionManager.Lookup` answers an unknown session with `acp.SessionNotFound`, so the error now
+  carries `data.sessionId`; the code and message are unchanged.
+- The router answers an initialize below every version it serves with `-32022` and
+  `{requested, supported}` data instead of `-32600`. An `acp2` agent refuses an initialize below
+  v2 the same way before its `Initialize` runs.
+- `router.ClientConnector` reads a `-32022` answer: it retries with v1 when the agent lists it, and
+  otherwise fails with `ErrNoCommonVersion`.
+
+### Breaking changes
+
+- **v2 `AvailableCommand` is a tagged union** (`type: "command"`); build one with
+  `acp2.SlashCommand` or `NewAvailableCommand(AvailableCommandCommand{…})`.
+- **v2 `AuthHandler` no longer sets the `auth` capability**: a non-empty `authMethods` list
+  advertises `auth/login` and `auth/logout`. v2 `AuthCapabilities` is renamed
+  `ClientAuthCapabilities`.
+- v2 `Error.Data` is `ErrorData` (read it with `As` or `RawJSON`); `AgentResponseError.ID` and
+  `ClientResponseError.ID` are pointers, nil for a `null` id. `ProtocolLevelNotification` is removed.
+- v2 `ElicitationSchema.Type` and `.Properties` are required (non-pointer).
+- `session_message_chunk` no longer carries `senderSessionId`/`recipientSessionId`; they moved to
+  `session_message`, as `optional.Value[SessionID]`.
+- v2 `SessionUpdateUsageUpdate.Cost` is `optional.Value[Cost]`. `SessionStream.SendUsage` keeps its
+  signature; a nil cost now leaves the client's cost unchanged instead of omitting it.
+- v2 `Cost.Currency` accepts any unit (such as credits), not only three-letter ISO 4217 codes,
+  as v1 already did.
+
+### Generator
+
+- The Zod reader and evaluator support the SDK's new helpers `wideInt`, `defaultOnNull` and
+  `exactlyOneByRequiredKeys`. Reference fixtures were refreshed against Zod 4.6.7 and extended
+  with cases for each helper.
+- `schema/update.sh` follows the SDK's new source layout.
+- A method in an optional façade group may use `Via`/`CallVia`; the dispatch then reaches the
+  hand-written method whether or not the peer implements the interface.
+
 ## [0.3.0] - 2026-10-19
 
 ### Schema

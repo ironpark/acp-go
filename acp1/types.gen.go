@@ -28,11 +28,16 @@ type (
 	SetProviderResponse             = schema.SetProviderResponse
 	DisableProviderResponse         = schema.DisableProviderResponse
 	LogoutResponse                  = schema.LogoutResponse
+	AuthStatusResponse              = schema.AuthStatusResponse
 	NewSessionResponse              = schema.NewSessionResponse
 	LoadSessionResponse             = schema.LoadSessionResponse
 	ListSessionsResponse            = schema.ListSessionsResponse
 	DeleteSessionResponse           = schema.DeleteSessionResponse
 	ForkSessionResponse             = schema.ForkSessionResponse
+	ArchiveSessionResponse          = schema.ArchiveSessionResponse
+	UnarchiveSessionResponse        = schema.UnarchiveSessionResponse
+	SessionStatusResponse           = schema.SessionStatusResponse
+	SetSessionTitleResponse         = schema.SetSessionTitleResponse
 	ResumeSessionResponse           = schema.ResumeSessionResponse
 	CloseSessionResponse            = schema.CloseSessionResponse
 	SetSessionModeResponse          = schema.SetSessionModeResponse
@@ -41,6 +46,7 @@ type (
 	ExtResponse                     = schema.ExtResponse
 	SessionNotification             = schema.SessionNotification
 	CompleteElicitationNotification = schema.CompleteElicitationNotification
+	AuthStatusUpdateNotification    = schema.AuthStatusUpdateNotification
 	ExtNotification                 = schema.ExtNotification
 	InitializeRequest               = schema.InitializeRequest
 	AuthenticateRequest             = schema.AuthenticateRequest
@@ -48,11 +54,16 @@ type (
 	SetProviderRequest              = schema.SetProviderRequest
 	DisableProviderRequest          = schema.DisableProviderRequest
 	LogoutRequest                   = schema.LogoutRequest
+	AuthStatusRequest               = schema.AuthStatusRequest
 	NewSessionRequest               = schema.NewSessionRequest
 	LoadSessionRequest              = schema.LoadSessionRequest
 	ListSessionsRequest             = schema.ListSessionsRequest
 	DeleteSessionRequest            = schema.DeleteSessionRequest
 	ForkSessionRequest              = schema.ForkSessionRequest
+	ArchiveSessionRequest           = schema.ArchiveSessionRequest
+	UnarchiveSessionRequest         = schema.UnarchiveSessionRequest
+	SessionStatusRequest            = schema.SessionStatusRequest
+	SetSessionTitleRequest          = schema.SetSessionTitleRequest
 	ResumeSessionRequest            = schema.ResumeSessionRequest
 	CloseSessionRequest             = schema.CloseSessionRequest
 	SetSessionModeRequest           = schema.SetSessionModeRequest
@@ -71,6 +82,14 @@ type (
 	CancelNotification              = schema.CancelNotification
 	MessageMCPNotification          = schema.MessageMCPNotification
 	CancelRequestNotification       = schema.CancelRequestNotification
+	ProxyRequest                    = schema.ProxyRequest
+	InitializeProxyRequest          = schema.InitializeProxyRequest
+	ProxySuccessorRequest           = schema.ProxySuccessorRequest
+	ProxyResponse                   = schema.ProxyResponse
+	InitializeProxyResponse         = schema.InitializeProxyResponse
+	ProxySuccessorResponse          = schema.ProxySuccessorResponse
+	ProxyNotification               = schema.ProxyNotification
+	ProxySuccessorNotification      = schema.ProxySuccessorNotification
 )
 
 // Every type those payloads reach, with the constants and constructors
@@ -80,6 +99,7 @@ type (
 	AgentAuthCapabilities                    = schema.AgentAuthCapabilities
 	AgentCapabilities                        = schema.AgentCapabilities
 	Annotations                              = schema.Annotations
+	AuthAccount                              = schema.AuthAccount
 	AuthCapabilities                         = schema.AuthCapabilities
 	AuthMethod                               = schema.AuthMethod
 	AuthMethodAgent                          = schema.AuthMethodAgent
@@ -87,6 +107,8 @@ type (
 	AuthMethodTerminal                       = schema.AuthMethodTerminal
 	AuthMethodVariant                        = schema.AuthMethodVariant
 	AuthMethodVariants                       = schema.AuthMethodVariants
+	AuthState                                = schema.AuthState
+	AuthStatusCapabilities                   = schema.AuthStatusCapabilities
 	AvailableCommand                         = schema.AvailableCommand
 	AvailableCommandInput                    = schema.AvailableCommandInput
 	BlobResourceContents                     = schema.BlobResourceContents
@@ -201,6 +223,13 @@ type (
 	ProviderID                               = schema.ProviderID
 	ProviderInfo                             = schema.ProviderInfo
 	ProvidersCapabilities                    = schema.ProvidersCapabilities
+	ProxyRequestParams                       = schema.ProxyRequestParams
+	ProxyRequestParamsAlternative            = schema.ProxyRequestParamsAlternative
+	ProxyResponseAlternative                 = schema.ProxyResponseAlternative
+	ProxyResponseError                       = schema.ProxyResponseError
+	ProxyResponseResult                      = schema.ProxyResponseResult
+	ProxyResponseResultResult                = schema.ProxyResponseResultResult
+	ProxyResponseResultResultAlternative     = schema.ProxyResponseResultResultAlternative
 	RequestID                                = schema.RequestID
 	RequestIDAlternative                     = schema.RequestIDAlternative
 	RequestPermissionOutcome                 = schema.RequestPermissionOutcome
@@ -211,6 +240,8 @@ type (
 	RequestPermissionOutcomeVariants         = schema.RequestPermissionOutcomeVariants
 	Role                                     = schema.Role
 	SessionAdditionalDirectoriesCapabilities = schema.SessionAdditionalDirectoriesCapabilities
+	SessionArchiveCapabilities               = schema.SessionArchiveCapabilities
+	SessionArchiveFilter                     = schema.SessionArchiveFilter
 	SessionCancelCapabilities                = schema.SessionCancelCapabilities
 	SessionCapabilities                      = schema.SessionCapabilities
 	SessionCloseCapabilities                 = schema.SessionCloseCapabilities
@@ -238,9 +269,12 @@ type (
 	SessionModeID                            = schema.SessionModeID
 	SessionModeState                         = schema.SessionModeState
 	SessionResumeCapabilities                = schema.SessionResumeCapabilities
+	SessionStatus                            = schema.SessionStatus
+	SessionStatusCapabilities                = schema.SessionStatusCapabilities
 	SessionSystemPromptCapabilities          = schema.SessionSystemPromptCapabilities
 	SessionSystemPromptModeCapabilities      = schema.SessionSystemPromptModeCapabilities
 	SessionSystemPromptOverrideCapabilities  = schema.SessionSystemPromptOverrideCapabilities
+	SessionTitleCapabilities                 = schema.SessionTitleCapabilities
 	SessionUpdate                            = schema.SessionUpdate
 	SessionUpdateAgentMessageChunk           = schema.SessionUpdateAgentMessageChunk
 	SessionUpdateAgentThoughtChunk           = schema.SessionUpdateAgentThoughtChunk
@@ -303,6 +337,10 @@ type (
 )
 
 const (
+	AuthStateAuthenticated                  = schema.AuthStateAuthenticated
+	AuthStateUnauthenticated                = schema.AuthStateUnauthenticated
+	AuthStateNotRequired                    = schema.AuthStateNotRequired
+	AuthStateUnknown                        = schema.AuthStateUnknown
 	CompactionStatusInProgress              = schema.CompactionStatusInProgress
 	CompactionStatusCompleted               = schema.CompactionStatusCompleted
 	CompactionStatusFailed                  = schema.CompactionStatusFailed
@@ -336,10 +374,15 @@ const (
 	PlanEntryStatusCompleted                = schema.PlanEntryStatusCompleted
 	RoleAssistant                           = schema.RoleAssistant
 	RoleUser                                = schema.RoleUser
+	SessionArchiveFilterExclude             = schema.SessionArchiveFilterExclude
+	SessionArchiveFilterInclude             = schema.SessionArchiveFilterInclude
+	SessionArchiveFilterOnly                = schema.SessionArchiveFilterOnly
 	SessionConfigOptionCategoryMode         = schema.SessionConfigOptionCategoryMode
 	SessionConfigOptionCategoryModel        = schema.SessionConfigOptionCategoryModel
 	SessionConfigOptionCategoryModelConfig  = schema.SessionConfigOptionCategoryModelConfig
 	SessionConfigOptionCategoryThoughtLevel = schema.SessionConfigOptionCategoryThoughtLevel
+	SessionStatusOpen                       = schema.SessionStatusOpen
+	SessionStatusSaved                      = schema.SessionStatusSaved
 	StopReasonEndTurn                       = schema.StopReasonEndTurn
 	StopReasonMaxTokens                     = schema.StopReasonMaxTokens
 	StopReasonMaxTurnRequests               = schema.StopReasonMaxTurnRequests
@@ -419,6 +462,21 @@ func NewMultiSelectItems[T MultiSelectItemsVariants](v T) MultiSelectItems {
 // NewPlanUpdateContent wraps a variant.
 func NewPlanUpdateContent[T PlanUpdateContentVariants](v T) PlanUpdateContent {
 	return schema.NewPlanUpdateContent(v)
+}
+
+// NewProxyRequestParams encodes value, one of the ProxyRequestParamsAlternative types.
+func NewProxyRequestParams[T ProxyRequestParamsAlternative](value T) (ProxyRequestParams, error) {
+	return schema.NewProxyRequestParams(value)
+}
+
+// NewProxyResponse encodes value, one of the ProxyResponseAlternative types.
+func NewProxyResponse[T ProxyResponseAlternative](value T) (ProxyResponse, error) {
+	return schema.NewProxyResponse(value)
+}
+
+// NewProxyResponseResultResult encodes value, one of the ProxyResponseResultResultAlternative types.
+func NewProxyResponseResultResult[T ProxyResponseResultResultAlternative](value T) (ProxyResponseResultResult, error) {
+	return schema.NewProxyResponseResultResult(value)
 }
 
 // NewRequestID encodes value, one of the RequestIDAlternative types.

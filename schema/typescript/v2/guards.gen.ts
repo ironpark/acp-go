@@ -2,6 +2,7 @@
 
 import * as z from "zod/v4";
 
+import { exactlyOneByRequiredKeys } from "../../../core/schema-deserialize.js";
 import type * as types from "./types.gen.js";
 import * as validate from "./zod.gen.js";
 
@@ -73,9 +74,10 @@ const zGuardCreateElicitationRequestForm = validate.zElicitationFormMode
 const zGuardCreateElicitationRequestUrl = validate.zElicitationUrlMode
   .and(z.object({ mode: z.literal("url") }))
   .and(z.object({ message: z.string() }));
-const zGuardCreateElicitationRequestCustom = z
-  .union([validate.zElicitationSessionScope, validate.zElicitationRequestScope])
-  .and(z.object({ message: z.string() }));
+const zGuardCreateElicitationRequestCustom = exactlyOneByRequiredKeys(
+  [validate.zElicitationSessionScope, validate.zElicitationRequestScope],
+  [["sessionId"], ["requestId"]],
+).and(z.object({ message: z.string() }));
 const zGuardElicitationPropertySchemaString =
   validate.zStringPropertySchema.and(z.object({ type: z.literal("string") }));
 const zGuardElicitationPropertySchemaNumber =
@@ -112,9 +114,56 @@ const zGuardSessionConfigOptionCustom = z.object({
   configId: validate.zSessionConfigId,
   name: z.string(),
 });
+const zGuardAvailableCommandCommand = validate.zCommand
+  .and(z.object({ input: validate.zAvailableCommandInput.nullish() }))
+  .and(z.object({ type: z.literal("command") }));
+const zGuardAvailableCommandCustom = z.object({
+  name: z.string(),
+  description: z.string(),
+});
 const zGuardAvailableCommandInputText = validate.zTextCommandInput.and(
   z.object({ type: z.literal("text") }),
 );
+const zGuardStateUpdateRunning = validate.zRunningStateUpdate.and(
+  z.object({ state: z.literal("running") }),
+);
+const zGuardStateUpdateIdle = validate.zIdleStateUpdate
+  .and(z.object({ usage: validate.zUsage.nullish() }))
+  .and(z.object({ state: z.literal("idle") }));
+const zGuardStateUpdateRequiresAction = validate.zRequiresActionStateUpdate.and(
+  z.object({ state: z.literal("requires_action") }),
+);
+const zGuardStateUpdateUnknown = validate.zUnknownStateUpdate.and(
+  z.object({ state: z.literal("unknown") }),
+);
+const zGuardBackgroundWorkTerminal = validate.zBackgroundTerminal.and(
+  z.object({ type: z.literal("terminal") }),
+);
+const zGuardBackgroundWorkToolCall = validate.zBackgroundToolCall.and(
+  z.object({ type: z.literal("tool_call") }),
+);
+const zGuardBackgroundWorkSubagent = validate.zBackgroundSubagent.and(
+  z.object({ type: z.literal("subagent") }),
+);
+const zGuardIdleStateUpdateEndTurn = z.object({
+  stopReason: z.literal("end_turn"),
+});
+const zGuardIdleStateUpdateMaxTokens = z.object({
+  stopReason: z.literal("max_tokens"),
+});
+const zGuardIdleStateUpdateMaxTurnRequests = z.object({
+  stopReason: z.literal("max_turn_requests"),
+});
+const zGuardIdleStateUpdateRefusal = z.object({
+  stopReason: z.literal("refusal"),
+});
+const zGuardIdleStateUpdateCancelled = z.object({
+  stopReason: z.literal("cancelled"),
+});
+const zGuardIdleStateUpdateError = validate.zErrorStopReason
+  .and(z.object({ error: validate.zError.nullish() }))
+  .and(z.object({ stopReason: z.literal("error") }));
+const zGuardIdleStateUpdateNone = z.object({ stopReason: z.null().optional() });
 const zGuardSessionUpdateUserMessageChunk = validate.zContentChunk.and(
   z.object({ sessionUpdate: z.literal("user_message_chunk") }),
 );
@@ -145,6 +194,7 @@ const zGuardSessionUpdateToolCallUpdate = validate.zToolCallUpdate
     z.object({
       kind: validate.zToolKind.nullish(),
       status: validate.zToolCallStatus.nullish(),
+      capabilities: validate.zToolCallCapabilities.nullish(),
     }),
   )
   .and(z.object({ sessionUpdate: z.literal("tool_call_update") }));
@@ -154,6 +204,8 @@ const zGuardSessionUpdateTerminalUpdate = validate.zTerminalUpdate
       cwd: validate.zAbsolutePath.nullish(),
       output: validate.zTerminalOutput.nullish(),
       exitStatus: validate.zTerminalExitStatus.nullish(),
+      size: validate.zTerminalSize.nullish(),
+      capabilities: validate.zTerminalCapabilities.nullish(),
     }),
   )
   .and(z.object({ sessionUpdate: z.literal("terminal_update") }));
@@ -203,48 +255,15 @@ const zGuardSessionUpdateSessionMessage = validate.zSessionMessage
     z.object({
       senderSessionId: validate.zSessionId.nullish(),
       recipientSessionId: validate.zSessionId.nullish(),
+      senderMessageId: validate.zMessageId.nullish(),
+      recipientMessageId: validate.zMessageId.nullish(),
     }),
   )
   .and(z.object({ sessionUpdate: z.literal("session_message") }));
-const zGuardSessionUpdateSessionMessageChunk = validate.zSessionMessageChunk
-  .and(
-    z.object({
-      senderSessionId: validate.zSessionId.nullish(),
-      recipientSessionId: validate.zSessionId.nullish(),
-    }),
-  )
-  .and(z.object({ sessionUpdate: z.literal("session_message_chunk") }));
-const zGuardIdleStateUpdateEndTurn = z.object({
-  stopReason: z.literal("end_turn"),
-});
-const zGuardIdleStateUpdateMaxTokens = z.object({
-  stopReason: z.literal("max_tokens"),
-});
-const zGuardIdleStateUpdateMaxTurnRequests = z.object({
-  stopReason: z.literal("max_turn_requests"),
-});
-const zGuardIdleStateUpdateRefusal = z.object({
-  stopReason: z.literal("refusal"),
-});
-const zGuardIdleStateUpdateCancelled = z.object({
-  stopReason: z.literal("cancelled"),
-});
-const zGuardIdleStateUpdateError = validate.zErrorStopReason
-  .and(z.object({ error: validate.zError.nullish() }))
-  .and(z.object({ stopReason: z.literal("error") }));
-const zGuardIdleStateUpdateNone = z.object({ stopReason: z.null().optional() });
-const zGuardStateUpdateRunning = validate.zRunningStateUpdate.and(
-  z.object({ state: z.literal("running") }),
-);
-const zGuardStateUpdateIdle = validate.zIdleStateUpdate
-  .and(z.object({ usage: validate.zUsage.nullish() }))
-  .and(z.object({ state: z.literal("idle") }));
-const zGuardStateUpdateRequiresAction = validate.zRequiresActionStateUpdate.and(
-  z.object({ state: z.literal("requires_action") }),
-);
-const zGuardStateUpdateUnknown = validate.zUnknownStateUpdate.and(
-  z.object({ state: z.literal("unknown") }),
-);
+const zGuardSessionUpdateSessionMessageChunk =
+  validate.zSessionMessageChunk.and(
+    z.object({ sessionUpdate: z.literal("session_message_chunk") }),
+  );
 const zGuardPlanUpdateContentItems = validate.zPlanItems.and(
   z.object({ type: z.literal("items") }),
 );
@@ -293,9 +312,10 @@ const zGuardSetSessionConfigOptionRequestCustom = z
       configId: validate.zSessionConfigId,
     }),
   );
-const zGuardRequestPermissionOutcomeCancelled = z.object({
-  outcome: z.literal("cancelled"),
-});
+const zGuardRequestPermissionOutcomeCancelled =
+  validate.zCancelledPermissionOutcome.and(
+    z.object({ outcome: z.literal("cancelled") }),
+  );
 const zGuardRequestPermissionOutcomeSelected =
   validate.zSelectedPermissionOutcome.and(
     z.object({ outcome: z.literal("selected") }),
@@ -443,17 +463,14 @@ export const ToolCallContent = {
 /**
  * Content blocks represent displayable information in the Agent Client Protocol.
  *
- * They provide a structured way to handle various types of user-facing content—whether
- * it's text from language models, images for analysis, or embedded resources for context.
- *
  * Content blocks appear in:
  * - User prompts sent via `session/prompt`
  * - Language model output reported through `session/update` notifications as
  *   message updates or streamed chunks
  * - Progress updates and results from tool calls
  *
- * This structure is compatible with the Model Context Protocol (MCP), enabling
- * agents to seamlessly forward content from MCP tool outputs without transformation.
+ * This structure is compatible with the Model Context Protocol (MCP), so agents can
+ * forward content from MCP tool outputs without transformation.
  *
  * See protocol docs: [Content](https://agentclientprotocol.com/protocol/v2/draft/content)
  */
@@ -545,7 +562,7 @@ export const ContentBlock = {
 } as const;
 
 /**
- * One file-level change described by a [`Diff`].
+ * One file-level change described by a `Diff`.
  *
  * Structured change metadata lets clients identify affected files and
  * operations without parsing the text patch.
@@ -730,8 +747,8 @@ export const CreateElicitationRequest = {
  * Property schema for elicitation form fields.
  *
  * Each variant corresponds to a JSON Schema `"type"` value.
- * Single-select enums use the `String` variant with `enum` or `oneOf` set.
- * Multi-select enums use the `Array` variant.
+ * Single-select enums use `type: "string"` with `enum` or `oneOf` set.
+ * Multi-select enums use `type: "array"`.
  */
 export type ElicitationPropertySchema = types.ElicitationPropertySchema;
 /**
@@ -1016,6 +1033,60 @@ export const SessionConfigOption = {
 } as const;
 
 /**
+ * A command the agent advertises to the client.
+ *
+ * The `type` field acts as the discriminator in the serialized JSON form.
+ */
+export type AvailableCommand = types.AvailableCommand;
+/**
+ * Validated type guards for `AvailableCommand`'s known variants.
+ *
+ * Each guard validates the variant's payload, not just its discriminant
+ * tag: a malformed known variant (right tag, wrong payload) matches no
+ * guard — mirroring wire validation, which rejects such values instead
+ * of classifying them as custom.
+ *
+ * Guards check the value as given: fields that wire deserialization
+ * salvages to a default (e.g. a malformed `_meta`) are only normalized
+ * by parsing, and for ambiguous raw shapes (a known tag combined with
+ * another variant's payload) guards are conservative where wire parsing
+ * may still accept the value — narrow wire-parsed values when exact
+ * parity matters.
+ */
+export const AvailableCommand = {
+  /** Narrow to the `command` variant, validating its payload. */
+  isCommand(
+    value: types.AvailableCommand,
+  ): value is types.Command & { type: "command" } {
+    return (
+      tagOf(value, "type") === "command" &&
+      zGuardAvailableCommandCommand.safeParse(value).success
+    );
+  },
+
+  /**
+   * Narrow to a custom or future variant: the `type` tag matches no known variant, with a valid payload.
+   *
+   * TypeScript keeps the known variants in the narrowed union (they are
+   * structural subtypes of the catch-all), so read vendor payload keys
+   * via a widening cast: `(value as Record<string, unknown>).someKey`.
+   */
+  isCustom(
+    value: types.AvailableCommand,
+  ): value is (
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }>
+  ) & { name: string; description: string } {
+    const tag = tagOf(value, "type");
+    return (
+      typeof tag === "string" &&
+      !["command"].includes(tag) &&
+      zGuardAvailableCommandCustom.safeParse(value).success
+    );
+  },
+} as const;
+
+/**
  * The input specification for a command.
  */
 export type AvailableCommandInput = types.AvailableCommandInput;
@@ -1059,6 +1130,354 @@ export const AvailableCommandInput = {
     | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
     const tag = tagOf(value, "type");
     return typeof tag === "string" && !["text"].includes(tag);
+  },
+} as const;
+
+/**
+ * A snapshot of the session's aggregate foreground activity.
+ *
+ * Foreground work is the agent's active response or workflow in the session,
+ * including model processing, tool execution, and waiting for user action needed
+ * to continue that work. It can start with a prompt or be agent-initiated, for
+ * example to pursue an ongoing goal or follow up on a completed background task.
+ * Either way, the agent MUST report `running` when foreground work starts,
+ * or `requires_action` if it starts blocked on user action, and `idle` when it
+ * ends. The agent SHOULD include a stop reason on that idle update.
+ * Agent-initiated work does not require a prompt request or a synthetic user
+ * message.
+ *
+ * `running` may precede user-message insertion, for example during a foreground
+ * hook. It is not acknowledgment of insertion, and rejecting a prompt does not
+ * itself end foreground work.
+ *
+ * Background activity can continue and emit other `session/update` notifications
+ * while `idle`. Those notifications, including a detached task's progress or
+ * completion, do not by themselves change this state. A permission request only
+ * warrants `requires_action` when foreground work is blocked on user action.
+ *
+ * The agent SHOULD report `requires_action` when the foreground workflow as a
+ * whole cannot progress without user action, including permissions or elicitations.
+ * Once reported, it MUST report `running` when progress resumes, or `idle` when
+ * work ends without resuming.
+ * If other foreground work can progress, the state remains `running`. Resolving
+ * one of several requests does not itself change the state. Agents SHOULD ignore
+ * responses for work that has already ended rather than use them to resume it.
+ *
+ * A new session defaults to idle until a state update reports otherwise.
+ * Resume MUST send a current-state snapshot after any replay and before its
+ * response. The snapshot reports foreground state after resuming.
+ * The response alone does not imply idle.
+ * Repeated snapshots are idempotent, not additional work, completions, or usage.
+ * A repeated state may carry updated information without another state transition.
+ * The agent MUST report `idle` when no foreground activity remains. Completing
+ * an individual activity while other foreground work continues does not require
+ * an idle boundary. Local commands use the same lifecycle even without model work.
+ *
+ * See protocol docs: [Session States](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#session-states)
+ */
+export type StateUpdate = types.StateUpdate;
+/**
+ * Validated type guards for `StateUpdate`'s known variants.
+ *
+ * Each guard validates the variant's payload, not just its discriminant
+ * tag: a malformed known variant (right tag, wrong payload) matches no
+ * guard — mirroring wire validation, which rejects such values instead
+ * of classifying them as custom.
+ *
+ * Guards check the value as given: fields that wire deserialization
+ * salvages to a default (e.g. a malformed `_meta`) are only normalized
+ * by parsing, and for ambiguous raw shapes (a known tag combined with
+ * another variant's payload) guards are conservative where wire parsing
+ * may still accept the value — narrow wire-parsed values when exact
+ * parity matters.
+ */
+export const StateUpdate = {
+  /** Narrow to the `running` variant, validating its payload. */
+  isRunning(
+    value: types.StateUpdate,
+  ): value is types.RunningStateUpdate & { state: "running" } {
+    return (
+      tagOf(value, "state") === "running" &&
+      zGuardStateUpdateRunning.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `idle` variant, validating its payload. */
+  isIdle(
+    value: types.StateUpdate,
+  ): value is types.IdleStateUpdate & { state: "idle" } {
+    return (
+      tagOf(value, "state") === "idle" &&
+      zGuardStateUpdateIdle.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `requires_action` variant, validating its payload. */
+  isRequiresAction(
+    value: types.StateUpdate,
+  ): value is types.RequiresActionStateUpdate & { state: "requires_action" } {
+    return (
+      tagOf(value, "state") === "requires_action" &&
+      zGuardStateUpdateRequiresAction.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `unknown` variant, validating its payload. */
+  isUnknown(
+    value: types.StateUpdate,
+  ): value is types.UnknownStateUpdate & { state: "unknown" } {
+    return (
+      tagOf(value, "state") === "unknown" &&
+      zGuardStateUpdateUnknown.safeParse(value).success
+    );
+  },
+
+  /**
+   * Narrow to a custom or future variant: the `state` tag matches no known variant.
+   *
+   * TypeScript keeps the known variants in the narrowed union (they are
+   * structural subtypes of the catch-all), so read vendor payload keys
+   * via a widening cast: `(value as Record<string, unknown>).someKey`.
+   */
+  isCustom(
+    value: types.StateUpdate,
+  ): value is
+    | { state: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ state: string; [key: string]: unknown }> {
+    const tag = tagOf(value, "state");
+    return (
+      typeof tag === "string" &&
+      !["idle", "requires_action", "running", "unknown"].includes(tag)
+    );
+  },
+} as const;
+
+/**
+ * One piece of work running independently of the session's foreground work.
+ *
+ * Items reference entities the Client already tracks. The Agent MUST announce each item
+ * before the first snapshot that lists it, and MUST report a terminal's `exitStatus` or a
+ * tool call's final status before the snapshot that removes it. Each piece of work is
+ * listed once: process-backed work is listed as its terminal, not also as its tool call.
+ *
+ * See protocol docs: [Background Work](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#background-work)
+ */
+export type BackgroundWork = types.BackgroundWork;
+/**
+ * Validated type guards for `BackgroundWork`'s known variants.
+ *
+ * Each guard validates the variant's payload, not just its discriminant
+ * tag: a malformed known variant (right tag, wrong payload) matches no
+ * guard — mirroring wire validation, which rejects such values instead
+ * of classifying them as custom.
+ *
+ * Guards check the value as given: fields that wire deserialization
+ * salvages to a default (e.g. a malformed `_meta`) are only normalized
+ * by parsing, and for ambiguous raw shapes (a known tag combined with
+ * another variant's payload) guards are conservative where wire parsing
+ * may still accept the value — narrow wire-parsed values when exact
+ * parity matters.
+ */
+export const BackgroundWork = {
+  /** Narrow to the `terminal` variant, validating its payload. */
+  isTerminal(
+    value: types.BackgroundWork,
+  ): value is types.BackgroundTerminal & { type: "terminal" } {
+    return (
+      tagOf(value, "type") === "terminal" &&
+      zGuardBackgroundWorkTerminal.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `tool_call` variant, validating its payload. */
+  isToolCall(
+    value: types.BackgroundWork,
+  ): value is types.BackgroundToolCall & { type: "tool_call" } {
+    return (
+      tagOf(value, "type") === "tool_call" &&
+      zGuardBackgroundWorkToolCall.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `subagent` variant, validating its payload. */
+  isSubagent(
+    value: types.BackgroundWork,
+  ): value is types.BackgroundSubagent & { type: "subagent" } {
+    return (
+      tagOf(value, "type") === "subagent" &&
+      zGuardBackgroundWorkSubagent.safeParse(value).success
+    );
+  },
+
+  /**
+   * Narrow to a custom or future variant: the `type` tag matches no known variant.
+   *
+   * TypeScript keeps the known variants in the narrowed union (they are
+   * structural subtypes of the catch-all), so read vendor payload keys
+   * via a widening cast: `(value as Record<string, unknown>).someKey`.
+   */
+  isCustom(
+    value: types.BackgroundWork,
+  ): value is
+    | { type: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ type: string; [key: string]: unknown }> {
+    const tag = tagOf(value, "type");
+    return (
+      typeof tag === "string" &&
+      !["subagent", "terminal", "tool_call"].includes(tag)
+    );
+  },
+} as const;
+
+/**
+ * No foreground work is active. Background activity may continue.
+ *
+ * Agents SHOULD include a `stopReason` when the idle transition ends foreground
+ * work. An idle update that does not end foreground work need not include one.
+ * Receivers treat an omitted, `null`, or malformed `stopReason` as the agent not
+ * reporting one.
+ * Repeated or resume snapshots may carry the last stop reason for context.
+ * They MUST NOT be counted as new completions, cancellations, or additional usage.
+ */
+export type IdleStateUpdate = types.IdleStateUpdate;
+/**
+ * Validated type guards for `IdleStateUpdate`'s known variants.
+ *
+ * Each guard validates the variant's payload, not just its discriminant
+ * tag: a malformed known variant (right tag, wrong payload) matches no
+ * guard — mirroring wire validation, which rejects such values instead
+ * of classifying them as custom.
+ *
+ * Guards check the value as given: fields that wire deserialization
+ * salvages to a default (e.g. a malformed `_meta`) are only normalized
+ * by parsing, and for ambiguous raw shapes (a known tag combined with
+ * another variant's payload) guards are conservative where wire parsing
+ * may still accept the value — narrow wire-parsed values when exact
+ * parity matters.
+ */
+export const IdleStateUpdate = {
+  /** Narrow to the `end_turn` variant, validating its payload. */
+  isEndTurn(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "end_turn" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "background" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "end_turn" &&
+      zGuardIdleStateUpdateEndTurn.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `max_tokens` variant, validating its payload. */
+  isMaxTokens(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "max_tokens" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "background" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "max_tokens" &&
+      zGuardIdleStateUpdateMaxTokens.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `max_turn_requests` variant, validating its payload. */
+  isMaxTurnRequests(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "max_turn_requests" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "background" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "max_turn_requests" &&
+      zGuardIdleStateUpdateMaxTurnRequests.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `refusal` variant, validating its payload. */
+  isRefusal(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "refusal" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "background" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "refusal" &&
+      zGuardIdleStateUpdateRefusal.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `cancelled` variant, validating its payload. */
+  isCancelled(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason: "cancelled" } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "background" | "_meta" | "stopReason"
+  > {
+    return (
+      tagOf(value, "stopReason") === "cancelled" &&
+      zGuardIdleStateUpdateCancelled.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `error` variant, validating its payload. */
+  isError(
+    value: types.IdleStateUpdate,
+  ): value is (types.ErrorStopReason & { stopReason: "error" }) &
+    Pick<
+      types.IdleStateUpdate,
+      "usage" | "background" | "_meta" | "stopReason"
+    > {
+    return (
+      tagOf(value, "stopReason") === "error" &&
+      zGuardIdleStateUpdateError.safeParse(value).success
+    );
+  },
+
+  /** Narrow to the `none` variant, validating its payload. */
+  isNone(
+    value: types.IdleStateUpdate,
+  ): value is { stopReason?: null } & Pick<
+    types.IdleStateUpdate,
+    "usage" | "background" | "_meta" | "stopReason"
+  > {
+    return (
+      (tagOf(value, "stopReason") === null ||
+        tagOf(value, "stopReason") === undefined) &&
+      zGuardIdleStateUpdateNone.safeParse(value).success
+    );
+  },
+
+  /**
+   * Narrow to a custom or future variant: the `stopReason` tag matches no known variant.
+   *
+   * TypeScript keeps the known variants in the narrowed union (they are
+   * structural subtypes of the catch-all), so read vendor payload keys
+   * via a widening cast: `(value as Record<string, unknown>).someKey`.
+   */
+  isCustom(
+    value: types.IdleStateUpdate,
+  ): value is (
+    | { stopReason: `_${string}`; [key: string]: unknown }
+    | types.UnknownVariant<{ stopReason: string; [key: string]: unknown }>
+  ) &
+    Pick<
+      types.IdleStateUpdate,
+      "usage" | "background" | "_meta" | "stopReason"
+    > {
+    const tag = tagOf(value, "stopReason");
+    return (
+      typeof tag === "string" &&
+      ![
+        "cancelled",
+        "end_turn",
+        "error",
+        "max_tokens",
+        "max_turn_requests",
+        "refusal",
+      ].includes(tag)
+    );
   },
 } as const;
 
@@ -1375,271 +1794,6 @@ export const SessionUpdate = {
 } as const;
 
 /**
- * No foreground work is active. Background activity may continue.
- *
- * Agents SHOULD include a `stopReason` when the idle transition ends foreground
- * work. An idle update that does not end foreground work need not include one.
- * Receivers treat an omitted, `null`, or malformed `stopReason` as the agent not
- * reporting one.
- * Repeated or resume snapshots may carry the last stop reason for context.
- * They MUST NOT be counted as new completions, cancellations, or additional usage.
- */
-export type IdleStateUpdate = types.IdleStateUpdate;
-/**
- * Validated type guards for `IdleStateUpdate`'s known variants.
- *
- * Each guard validates the variant's payload, not just its discriminant
- * tag: a malformed known variant (right tag, wrong payload) matches no
- * guard — mirroring wire validation, which rejects such values instead
- * of classifying them as custom.
- *
- * Guards check the value as given: fields that wire deserialization
- * salvages to a default (e.g. a malformed `_meta`) are only normalized
- * by parsing, and for ambiguous raw shapes (a known tag combined with
- * another variant's payload) guards are conservative where wire parsing
- * may still accept the value — narrow wire-parsed values when exact
- * parity matters.
- */
-export const IdleStateUpdate = {
-  /** Narrow to the `end_turn` variant, validating its payload. */
-  isEndTurn(
-    value: types.IdleStateUpdate,
-  ): value is { stopReason: "end_turn" } & Pick<
-    types.IdleStateUpdate,
-    "usage" | "_meta" | "stopReason"
-  > {
-    return (
-      tagOf(value, "stopReason") === "end_turn" &&
-      zGuardIdleStateUpdateEndTurn.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `max_tokens` variant, validating its payload. */
-  isMaxTokens(
-    value: types.IdleStateUpdate,
-  ): value is { stopReason: "max_tokens" } & Pick<
-    types.IdleStateUpdate,
-    "usage" | "_meta" | "stopReason"
-  > {
-    return (
-      tagOf(value, "stopReason") === "max_tokens" &&
-      zGuardIdleStateUpdateMaxTokens.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `max_turn_requests` variant, validating its payload. */
-  isMaxTurnRequests(
-    value: types.IdleStateUpdate,
-  ): value is { stopReason: "max_turn_requests" } & Pick<
-    types.IdleStateUpdate,
-    "usage" | "_meta" | "stopReason"
-  > {
-    return (
-      tagOf(value, "stopReason") === "max_turn_requests" &&
-      zGuardIdleStateUpdateMaxTurnRequests.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `refusal` variant, validating its payload. */
-  isRefusal(
-    value: types.IdleStateUpdate,
-  ): value is { stopReason: "refusal" } & Pick<
-    types.IdleStateUpdate,
-    "usage" | "_meta" | "stopReason"
-  > {
-    return (
-      tagOf(value, "stopReason") === "refusal" &&
-      zGuardIdleStateUpdateRefusal.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `cancelled` variant, validating its payload. */
-  isCancelled(
-    value: types.IdleStateUpdate,
-  ): value is { stopReason: "cancelled" } & Pick<
-    types.IdleStateUpdate,
-    "usage" | "_meta" | "stopReason"
-  > {
-    return (
-      tagOf(value, "stopReason") === "cancelled" &&
-      zGuardIdleStateUpdateCancelled.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `error` variant, validating its payload. */
-  isError(
-    value: types.IdleStateUpdate,
-  ): value is (types.ErrorStopReason & { stopReason: "error" }) &
-    Pick<types.IdleStateUpdate, "usage" | "_meta" | "stopReason"> {
-    return (
-      tagOf(value, "stopReason") === "error" &&
-      zGuardIdleStateUpdateError.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `none` variant, validating its payload. */
-  isNone(
-    value: types.IdleStateUpdate,
-  ): value is { stopReason?: null } & Pick<
-    types.IdleStateUpdate,
-    "usage" | "_meta" | "stopReason"
-  > {
-    return (
-      (tagOf(value, "stopReason") === null ||
-        tagOf(value, "stopReason") === undefined) &&
-      zGuardIdleStateUpdateNone.safeParse(value).success
-    );
-  },
-
-  /**
-   * Narrow to a custom or future variant: the `stopReason` tag matches no known variant.
-   *
-   * TypeScript keeps the known variants in the narrowed union (they are
-   * structural subtypes of the catch-all), so read vendor payload keys
-   * via a widening cast: `(value as Record<string, unknown>).someKey`.
-   */
-  isCustom(
-    value: types.IdleStateUpdate,
-  ): value is (
-    | { stopReason: `_${string}`; [key: string]: unknown }
-    | types.UnknownVariant<{ stopReason: string; [key: string]: unknown }>
-  ) &
-    Pick<types.IdleStateUpdate, "usage" | "_meta" | "stopReason"> {
-    const tag = tagOf(value, "stopReason");
-    return (
-      typeof tag === "string" &&
-      ![
-        "cancelled",
-        "end_turn",
-        "error",
-        "max_tokens",
-        "max_turn_requests",
-        "refusal",
-      ].includes(tag)
-    );
-  },
-} as const;
-
-/**
- * A snapshot of the session's aggregate foreground activity.
- *
- * Foreground work is the agent's active response or workflow in the session,
- * including model processing, tool execution, and waiting for user action needed
- * to continue that work. It can start with a prompt or be agent-initiated, for
- * example to pursue an ongoing goal or follow up on a completed background task.
- * Either way, the agent MUST report `running` when foreground work starts,
- * or `requires_action` if it starts blocked on user action, and `idle` when it
- * ends. The agent SHOULD include a stop reason on that idle update.
- * Agent-initiated work does not require a prompt request or a synthetic user
- * message.
- *
- * `running` may precede user-message insertion, for example during a foreground
- * hook. It is not acknowledgment of insertion, and rejecting a prompt does not
- * itself end foreground work.
- *
- * Background activity can continue and emit other `session/update` notifications
- * while `idle`. Those notifications, including a detached task's progress or
- * completion, do not by themselves change this state. A permission request only
- * warrants `requires_action` when foreground work is blocked on user action.
- *
- * The agent SHOULD report `requires_action` when the foreground workflow as a
- * whole cannot progress without user action, including permissions or elicitations.
- * Once reported, it MUST report `running` when progress resumes, or `idle` when
- * work ends without resuming.
- * If other foreground work can progress, the state remains `running`. Resolving
- * one of several requests does not itself change the state. Agents SHOULD ignore
- * responses for work that has already ended rather than use them to resume it.
- *
- * A new session defaults to idle until a state update reports otherwise.
- * Resume MUST send a current-state snapshot after any replay and before its
- * response. The snapshot reports foreground state after resuming.
- * The response alone does not imply idle.
- * Repeated snapshots are idempotent, not additional work, completions, or usage.
- * A repeated state may carry updated information without another state transition.
- * The agent MUST report `idle` when no foreground activity remains. Completing
- * an individual activity while other foreground work continues does not require
- * an idle boundary. Local commands use the same lifecycle even without model work.
- *
- * See protocol docs: [Session States](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#session-states)
- */
-export type StateUpdate = types.StateUpdate;
-/**
- * Validated type guards for `StateUpdate`'s known variants.
- *
- * Each guard validates the variant's payload, not just its discriminant
- * tag: a malformed known variant (right tag, wrong payload) matches no
- * guard — mirroring wire validation, which rejects such values instead
- * of classifying them as custom.
- *
- * Guards check the value as given: fields that wire deserialization
- * salvages to a default (e.g. a malformed `_meta`) are only normalized
- * by parsing, and for ambiguous raw shapes (a known tag combined with
- * another variant's payload) guards are conservative where wire parsing
- * may still accept the value — narrow wire-parsed values when exact
- * parity matters.
- */
-export const StateUpdate = {
-  /** Narrow to the `running` variant, validating its payload. */
-  isRunning(
-    value: types.StateUpdate,
-  ): value is types.RunningStateUpdate & { state: "running" } {
-    return (
-      tagOf(value, "state") === "running" &&
-      zGuardStateUpdateRunning.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `idle` variant, validating its payload. */
-  isIdle(
-    value: types.StateUpdate,
-  ): value is types.IdleStateUpdate & { state: "idle" } {
-    return (
-      tagOf(value, "state") === "idle" &&
-      zGuardStateUpdateIdle.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `requires_action` variant, validating its payload. */
-  isRequiresAction(
-    value: types.StateUpdate,
-  ): value is types.RequiresActionStateUpdate & { state: "requires_action" } {
-    return (
-      tagOf(value, "state") === "requires_action" &&
-      zGuardStateUpdateRequiresAction.safeParse(value).success
-    );
-  },
-
-  /** Narrow to the `unknown` variant, validating its payload. */
-  isUnknown(
-    value: types.StateUpdate,
-  ): value is types.UnknownStateUpdate & { state: "unknown" } {
-    return (
-      tagOf(value, "state") === "unknown" &&
-      zGuardStateUpdateUnknown.safeParse(value).success
-    );
-  },
-
-  /**
-   * Narrow to a custom or future variant: the `state` tag matches no known variant.
-   *
-   * TypeScript keeps the known variants in the narrowed union (they are
-   * structural subtypes of the catch-all), so read vendor payload keys
-   * via a widening cast: `(value as Record<string, unknown>).someKey`.
-   */
-  isCustom(
-    value: types.StateUpdate,
-  ): value is
-    | { state: `_${string}`; [key: string]: unknown }
-    | types.UnknownVariant<{ state: string; [key: string]: unknown }> {
-    const tag = tagOf(value, "state");
-    return (
-      typeof tag === "string" &&
-      !["idle", "requires_action", "running", "unknown"].includes(tag)
-    );
-  },
-} as const;
-
-/**
  * Updated content for a plan.
  */
 export type PlanUpdateContent = types.PlanUpdateContent;
@@ -1832,6 +1986,12 @@ export const ReplayFrom = {
 
 /**
  * Request parameters for setting a session configuration option.
+ *
+ * Agents MUST support this method for any session where they advertise config options.
+ * Agents MUST reject an unknown `configId` or invalid value with `-32602` and leave the
+ * configuration unchanged.
+ *
+ * See protocol docs: [Session Config Options](https://agentclientprotocol.com/protocol/v2/draft/session-config-options#setting-a-config-option)
  */
 export type SetSessionConfigOptionRequest = types.SetSessionConfigOptionRequest;
 /**
@@ -1927,7 +2087,7 @@ export const RequestPermissionOutcome = {
   /** Narrow to the `cancelled` variant, validating its payload. */
   isCancelled(
     value: types.RequestPermissionOutcome,
-  ): value is { outcome: "cancelled" } {
+  ): value is types.CancelledPermissionOutcome & { outcome: "cancelled" } {
     return (
       tagOf(value, "outcome") === "cancelled" &&
       zGuardRequestPermissionOutcomeCancelled.safeParse(value).success

@@ -11,13 +11,18 @@ import (
 
 // listSession is session state that can describe itself for session/list.
 type listSession struct {
-	cwd     string
-	updated string
+	cwd      string
+	updated  string
+	archived bool
 }
 
 func (s listSession) SessionInfo() acp1.SessionInfo {
 	updated := s.updated
-	return acp1.SessionInfo{Cwd: s.cwd, UpdatedAt: &updated}
+	info := acp1.SessionInfo{Cwd: s.cwd, UpdatedAt: &updated}
+	if s.archived {
+		info.Archived = new(true)
+	}
+	return info
 }
 
 func seedListStore(t *testing.T, sessions map[acp1.SessionID]listSession) *acp1.MemoryStore[listSession] {
@@ -190,5 +195,43 @@ func TestSessionManagerListUsesSessionInfoLister(t *testing.T) {
 		if query.Cwd != "/a" || query.Limit != 3 || (query.After == nil) != (i == 0) {
 			t.Errorf("query %d = %+v", i, query)
 		}
+	}
+}
+
+func TestSessionManagerListArchivedFilter(t *testing.T) {
+	ctx := t.Context()
+	manager := newListManager(seedListStore(t, map[acp1.SessionID]listSession{
+		"live": {cwd: "/", updated: "2024-02-01"},
+		"old":  {cwd: "/", updated: "2024-01-01", archived: true},
+	}))
+	ids := func(filter acp1.SessionArchiveFilter) []acp1.SessionID {
+		t.Helper()
+		request := &acp1.ListSessionsRequest{}
+		if filter != "" {
+			request.Archived = &filter
+		}
+		page, err := manager.List(ctx, request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []acp1.SessionID
+		for _, info := range page.Sessions {
+			out = append(out, info.SessionID)
+		}
+		return out
+	}
+	for filter, want := range map[acp1.SessionArchiveFilter][]acp1.SessionID{
+		"":                               {"live"},
+		acp1.SessionArchiveFilterExclude: {"live"},
+		acp1.SessionArchiveFilterInclude: {"live", "old"},
+		acp1.SessionArchiveFilterOnly:    {"old"},
+	} {
+		if got := ids(filter); !slices.Equal(got, want) {
+			t.Errorf("archived=%q: got %v, want %v", filter, got, want)
+		}
+	}
+	unknown := acp1.SessionArchiveFilter("recent")
+	if _, err := manager.List(ctx, &acp1.ListSessionsRequest{Archived: &unknown}); !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
+		t.Errorf("unknown filter: got %v, want invalid params", err)
 	}
 }

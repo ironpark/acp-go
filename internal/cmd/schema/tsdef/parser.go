@@ -42,6 +42,9 @@ func ParseDir(dir string) (*Schema, error) {
 	if err := ApplyNumericHints(result); err != nil {
 		return nil, err
 	}
+	for _, d := range result.Types {
+		dedupeUnions(d.Type)
+	}
 	return result, nil
 }
 
@@ -213,13 +216,9 @@ func (r reader) typ(n *ts.Node) (*Type, error) {
 		}
 		// Alternatives that differ only in what the wire cannot tell apart,
 		// such as a branded and an unbranded catch-all, are one alternative.
-		var distinct []*Type
-		for _, m := range t.Members {
-			if !slices.ContainsFunc(distinct, func(d *Type) bool { return SameShape(d, m) }) {
-				distinct = append(distinct, m)
-			}
-		}
-		t.Members = distinct
+		// Bare numbers stay apart until the Zod rules have said which are
+		// integers (an i64 beside an f64); see dedupeUnions.
+		t.Members = distinctMembers(t.Members, bareNumber)
 	case "array_type":
 		t.Kind = KindArray
 		elem, err := r.typ(n.NamedChild(0))
@@ -328,6 +327,41 @@ func (r reader) constant(n *ts.Node) (Constant, error) {
 		return c, r.fail(n, "unsupported constant value")
 	}
 	return c, nil
+}
+
+// distinctMembers drops the union alternatives that are the same shape as an
+// earlier one, except those keep reports true for, which are never merged;
+// keep may be nil.
+func distinctMembers(members []*Type, keep func(*Type) bool) []*Type {
+	var distinct []*Type
+	for _, m := range members {
+		if (keep != nil && keep(m)) || !slices.ContainsFunc(distinct, func(d *Type) bool { return SameShape(d, m) }) {
+			distinct = append(distinct, m)
+		}
+	}
+	return distinct
+}
+
+// bareNumber reports whether t is a number no Zod rule has typed yet.
+func bareNumber(t *Type) bool { return t.Kind == KindNumber && t.Number == "" }
+
+// dedupeUnions merges the union alternatives that are still the same shape
+// once numbers have their Go types, such as two bare numbers no integer rule
+// told apart.
+func dedupeUnions(t *Type) {
+	if t == nil {
+		return
+	}
+	for _, m := range t.Members {
+		dedupeUnions(m)
+	}
+	for _, f := range t.Fields {
+		dedupeUnions(f.Type)
+	}
+	dedupeUnions(t.Element)
+	if t.Kind == KindUnion {
+		t.Members = distinctMembers(t.Members, nil)
+	}
 }
 
 // SameShape reports whether a and b describe the same JSON, ignoring docs.

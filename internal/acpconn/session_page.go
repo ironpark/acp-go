@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"encoding/base64"
 	"encoding/json/v2"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -159,4 +160,20 @@ func (p *SessionPager[T]) Page() (page []T, next string) {
 		page[i] = candidate.item
 	}
 	return page, next
+}
+
+// ArchiveFilter returns which archive states session/list's archived filter
+// keeps: "" and "exclude" the sessions not archived, "include" every session,
+// "only" the archived ones. Any other value is an invalid-params error, which
+// the protocol asks agents to return rather than read it as exclude.
+func ArchiveFilter[F ~string](filter F) (func(archived bool) bool, error) {
+	switch filter {
+	case "", "exclude":
+		return func(archived bool) bool { return !archived }, nil
+	case "include":
+		return func(bool) bool { return true }, nil
+	case "only":
+		return func(archived bool) bool { return archived }, nil
+	}
+	return nil, jsonrpc.InvalidParams(fmt.Sprintf("unsupported archived filter %q", string(filter)))
 }

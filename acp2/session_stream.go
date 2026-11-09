@@ -18,6 +18,8 @@ type toolCallOptions struct {
 	locations []ToolCallLocation
 	rawInput  jsontext.Value
 	rawOutput jsontext.Value
+	// capabilities is absent unless WithCancellable set it.
+	capabilities optional.Value[ToolCallCapabilities]
 }
 
 // WithToolContent sets the tool call's content: its output, a diff or a
@@ -42,6 +44,21 @@ func WithRawOutput(raw jsontext.Value) ToolCallOption {
 	return func(o *toolCallOptions) { o.rawOutput = raw }
 }
 
+// WithCancellable advertises whether the client may cancel the tool call with
+// tool_call/cancel, which the agent serves as a [ToolCallCanceller]. A tool
+// call starts out not cancellable; true sets capabilities.cancel and false
+// clears the tool call's capabilities. Without the option the capabilities
+// stay as they were.
+func WithCancellable(cancellable bool) ToolCallOption {
+	return func(o *toolCallOptions) {
+		if cancellable {
+			o.capabilities = optional.Of(ToolCallCapabilities{Cancel: &ToolCallCancelCapabilities{}})
+		} else {
+			o.capabilities = optional.Null[ToolCallCapabilities]()
+		}
+	}
+}
+
 // toolCallUpdate builds a tool call update with status and the fields opts set.
 func toolCallUpdate(id ToolCallID, status ToolCallStatus, opts []ToolCallOption) schema.SessionUpdateToolCallUpdate {
 	var o toolCallOptions
@@ -49,10 +66,11 @@ func toolCallUpdate(id ToolCallID, status ToolCallStatus, opts []ToolCallOption)
 		opt(&o)
 	}
 	update := schema.SessionUpdateToolCallUpdate{
-		ToolCallID: id,
-		Status:     optional.Of(status),
-		RawInput:   o.rawInput,
-		RawOutput:  o.rawOutput,
+		ToolCallID:   id,
+		Status:       optional.Of(status),
+		RawInput:     o.rawInput,
+		RawOutput:    o.rawOutput,
+		Capabilities: o.capabilities,
 	}
 	if o.content != nil {
 		update.Content = optional.Of(o.content)
@@ -185,10 +203,15 @@ func (s *SessionStream) SendConfigUpdate(ctx context.Context, options []SessionC
 	return s.Send(ctx, schema.SessionUpdateConfigOptionUpdate{ConfigOptions: options})
 }
 
-// SendUsage reports context window usage: used tokens out of size, with an
-// optional running cost.
+// SendUsage reports context window usage: used tokens out of size, with the
+// running cost. A nil cost leaves the cost the client shows as it was; send a
+// [SessionUpdateUsageUpdate] with an [optional.Null] cost to clear it.
 func (s *SessionStream) SendUsage(ctx context.Context, used, size uint64, cost *Cost) error {
-	return s.Send(ctx, schema.SessionUpdateUsageUpdate{Used: used, Size: size, Cost: cost})
+	update := schema.SessionUpdateUsageUpdate{Used: used, Size: size}
+	if cost != nil {
+		update.Cost = optional.Of(*cost)
+	}
+	return s.Send(ctx, update)
 }
 
 // Running reports that foreground work started or resumed.

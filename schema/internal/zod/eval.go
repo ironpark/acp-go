@@ -132,6 +132,13 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 			return outcome{n: s.value}, nil
 		}
 		return inner()
+	case KindNullDefault:
+		// serde_with's DefaultOnNull: an explicit null reads as the empty
+		// value; absence still meets Inner, so a required field rejects it.
+		if kindOf(n) == 'n' {
+			return outcome{n: s.value}, nil
+		}
+		return inner()
 	case KindCatch, KindRequiredCatch:
 		if n == nil && s.Kind == KindRequiredCatch {
 			return fail("required value is missing")
@@ -282,7 +289,7 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 			return fail(fmt.Sprintf("value or length must be <= %g", s.bound))
 		}
 		return result, nil
-	case KindInt:
+	case KindInt, KindWideInt:
 		value := outcome{n: n}
 		var err error
 		if s.Inner != nil {
@@ -291,12 +298,16 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 				return value, err
 			}
 		}
+		expected := "expected a safe integer"
+		if s.Kind == KindWideInt {
+			expected = "expected an integer"
+		}
 		if kindOf(value.n) != '0' {
-			return fail("expected a safe integer")
+			return fail(expected)
 		}
 		f, ok := value.n.number()
-		if !ok || math.Trunc(f) != f || math.Abs(f) > 9007199254740991 {
-			return fail("expected a safe integer")
+		if !ok || math.IsInf(f, 0) || math.Trunc(f) != f || (s.Kind == KindInt && math.Abs(f) > 9007199254740991) {
+			return fail(expected)
 		}
 		// JSON numbers such as 1.0 and 1e0 are integers to JavaScript/Zod,
 		// but must be normalized before decoding into a Go integer type.
@@ -313,6 +324,26 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		return fail("required value is missing")
 	}
 	switch s.Kind {
+	case KindExactlyOne:
+		// The variant is picked by which required keys are present, a null
+		// or malformed value counting as present, as in the Rust deserializer,
+		// and only that variant is evaluated.
+		if n.kind != '{' {
+			return fail("expected object")
+		}
+		pick := -1
+		for i, keys := range s.Keys {
+			if !slices.ContainsFunc(keys, func(k string) bool { return n.get(k) == nil }) {
+				if pick >= 0 {
+					return fail("expected exactly one of " + describeKeys(s.Keys) + ", found several")
+				}
+				pick = i
+			}
+		}
+		if pick < 0 {
+			return fail("expected exactly one of " + describeKeys(s.Keys) + ", found none")
+		}
+		return r.apply(s.Members[pick], n, path, depth+1)
 	case KindUnknown, KindAny:
 		// Any present value; an absent one, as Zod has it, failed above.
 	case KindNull:
@@ -478,6 +509,19 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		return fail(fmt.Sprintf("unsupported generated Zod rule %d", s.Kind))
 	}
 	return pass()
+}
+
+// describeKeys names the key sets of an exactlyOne rule.
+func describeKeys(sets [][]string) string {
+	var out []string
+	for _, keys := range sets {
+		quoted := make([]string, len(keys))
+		for i, k := range keys {
+			quoted[i] = "`" + k + "`"
+		}
+		out = append(out, strings.Join(quoted, " + "))
+	}
+	return strings.Join(out, " or ")
 }
 
 // plainInt reports whether an integer's JSON text is already as Go decodes

@@ -73,9 +73,10 @@ foreground work, which then reports idle with the cancelled stop reason.`,
 			},
 		},
 		{
-			Interface:  "AuthHandler",
-			Capability: "auth",
-			Doc:        `AuthHandler handles auth/login and auth/logout.`,
+			Interface:    "AuthHandler",
+			NoCapability: true,
+			Doc: `AuthHandler handles auth/login and auth/logout. A non-empty authMethods
+list in the Initialize response advertises them; no capability does.`,
 			Methods: []Method{
 				{Wire: "auth/login", Name: "Login", Params: "LoginAuthRequest", Response: "LoginAuthResponse",
 					CallDoc: `Login authenticates with one of the methods the agent advertised.`},
@@ -101,6 +102,93 @@ foreground work, which then reports idle with the cancelled stop reason.`,
 				Wire: "session/fork", Name: "ForkSession", Params: "ForkSessionRequest", Response: "ForkSessionResponse",
 				CallDoc: `ForkSession branches a session so work continues without touching the
 original history.`,
+			}},
+		},
+		{
+			Interface:    "ToolCallCanceller",
+			NoCapability: true,
+			Doc: `ToolCallCanceller handles tool_call/cancel. Each tool call advertises
+whether it can be cancelled in its own capabilities.cancel; there is no
+connection-wide capability. Answer once the cancellation is accepted and
+confirm it with a tool_call_update to a final status. Reject an unknown,
+final or uncancellable tool call with an invalid-params error.
+
+See protocol docs: [Cancelling Tool Calls](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-tool-calls)`,
+			Methods: []Method{{
+				Wire: "tool_call/cancel", Name: "CancelToolCall", Params: "CancelToolCallRequest", Response: "CancelToolCallResponse",
+				CallDoc: `CancelToolCall asks the agent to cancel one tool call that advertises
+capabilities.cancel. The response means the cancellation was accepted; the
+final tool_call_update confirms it.`,
+			}},
+		},
+		{
+			Interface:    "TerminalCanceller",
+			NoCapability: true,
+			Doc: `TerminalCanceller handles terminal/cancel. Each terminal advertises whether
+it can be cancelled in its own capabilities.cancel. Answer once the
+cancellation is accepted and confirm it with a terminal_update that sets
+exitStatus. Cancelling stops the process but does not release the terminal.
+
+See protocol docs: [Cancelling Terminals](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-terminals)`,
+			Methods: []Method{{
+				Wire: "terminal/cancel", Name: "CancelTerminal", Params: "CancelTerminalRequest", Response: "CancelTerminalResponse",
+				CallDoc: `CancelTerminal asks the agent to stop one terminal that advertises
+capabilities.cancel. The terminal_update that sets exitStatus confirms it.`,
+			}},
+		},
+		{
+			Interface:    "SessionArchiver",
+			Capability:   "session.archive",
+			Experimental: true,
+			Doc: `SessionArchiver handles session/archive and session/unarchive. An agent
+that advertises it also supports the archived filter on session/list and
+reports SessionInfo.Archived for every listed session.
+Archive state persists across connections; archiving a loaded session first
+cancels its work and frees it as session/close does. Archiving an archived
+session, or unarchiving one that is not, succeeds.`,
+			Methods: []Method{
+				{Wire: "session/archive", Name: "ArchiveSession", Params: "ArchiveSessionRequest", Response: "ArchiveSessionResponse",
+					CallDoc: `ArchiveSession hides a session from session/list's default view, closing it
+first if it is loaded.`},
+				{Wire: "session/unarchive", Name: "UnarchiveSession", Params: "UnarchiveSessionRequest", Response: "UnarchiveSessionResponse",
+					CallDoc: `UnarchiveSession restores an archived session. It does not load or resume it.`},
+			},
+		},
+		{
+			Interface:    "SessionStatusReader",
+			Capability:   "session.status",
+			Experimental: true,
+			Doc: `SessionStatusReader handles session/status, which reports whether the agent
+holds a session in memory (open) or only in storage (saved).`,
+			Methods: []Method{{
+				Wire: "session/status", Name: "GetSessionStatus", Params: "SessionStatusRequest", Response: "SessionStatusResponse",
+				CallDoc: `GetSessionStatus reports whether the agent holds a session in memory. The
+answer is a snapshot; treat a status you do not recognize as saved.`,
+			}},
+		},
+		{
+			Interface:    "SessionTitleSetter",
+			Capability:   "session.title",
+			Experimental: true,
+			Doc: `SessionTitleSetter handles session/set_title. Agents report titles through
+session/list and session_info_update without it; it lets the client set one.`,
+			Methods: []Method{{
+				Wire: "session/set_title", Name: "SetSessionTitle", Params: "SetSessionTitleRequest", Response: "SetSessionTitleResponse",
+				CallDoc: `SetSessionTitle renames a session. The response carries the title the agent
+stored, which may be normalized; display that one.`,
+			}},
+		},
+		{
+			Interface:    "AuthStatusReader",
+			Capability:   "auth.status",
+			Experimental: true,
+			Doc: `AuthStatusReader handles auth/status. An agent that advertises it may also
+send the auth/status_update notification whenever the status changes.`,
+			Methods: []Method{{
+				Wire: "auth/status", Name: "GetAuthStatus", Params: "AuthStatusRequest", Response: "AuthStatusResponse", CallVia: "getAuthStatus",
+				CallDoc: `GetAuthStatus reports whether the agent can start sessions without the user
+signing in first, and the accounts it has configured.
+[ClientSideConnection.AuthStatus] keeps the answer.`,
 			}},
 		},
 		{
@@ -186,6 +274,18 @@ and terminal/* methods.`,
 					CallDoc: `MessageMCP sends one MCP request to a server the client provides and returns
 its outcome: the MCP result, or the MCP error, which is not an ACP error.`},
 			},
+		},
+		{
+			Interface:    "AuthStatusListener",
+			NoCapability: true,
+			Experimental: true,
+			Doc: `AuthStatusListener receives auth/status_update, which an agent advertising
+auth.status sends when its authentication status changes.`,
+			Methods: []Method{{
+				Wire: "auth/status_update", Name: "AuthStatusUpdate", Params: "AuthStatusUpdateNotification", Via: "authStatusUpdate",
+				CallDoc: `AuthStatusUpdate tells the client the agent's authentication status changed.
+Send it only when the status differs from the last one sent on the connection.`,
+			}},
 		},
 		{
 			Interface:  "ElicitationHandler",

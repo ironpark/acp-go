@@ -316,12 +316,13 @@ type AgentNotificationParams struct{ raw jsontext.Value }
 
 // AgentNotificationParamsAlternative is the set of Go types AgentNotificationParams can hold.
 type AgentNotificationParamsAlternative interface {
-	SessionNotification | CompleteElicitationNotification | jsontext.Value
+	SessionNotification | CompleteElicitationNotification | AuthStatusUpdateNotification | jsontext.Value
 }
 
 var agentNotificationParamsAlternatives = union.Table(
 	union.Alt[SessionNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "update"}, NotNull: []string{"sessionId", "update"}}),
 	union.Alt[CompleteElicitationNotification](union.Rule{NonNull: true, Required: []string{"elicitationId"}, NotNull: []string{"elicitationId"}}),
+	union.Alt[AuthStatusUpdateNotification](union.Rule{NonNull: true, Required: []string{"state"}, NotNull: []string{"state", "accounts"}}),
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
@@ -368,7 +369,7 @@ type ClientRequestParams struct{ raw jsontext.Value }
 
 // ClientRequestParamsAlternative is the set of Go types ClientRequestParams can hold.
 type ClientRequestParamsAlternative interface {
-	InitializeRequest | AuthenticateRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutRequest | NewSessionRequest | LoadSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionModeRequest | SetSessionConfigOptionRequest | PromptRequest | jsontext.Value
+	InitializeRequest | AuthenticateRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutRequest | AuthStatusRequest | NewSessionRequest | LoadSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ArchiveSessionRequest | UnarchiveSessionRequest | SessionStatusRequest | SetSessionTitleRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionModeRequest | SetSessionConfigOptionRequest | PromptRequest | jsontext.Value
 }
 
 var clientRequestParamsAlternatives = union.Table(
@@ -378,11 +379,16 @@ var clientRequestParamsAlternatives = union.Table(
 	union.Alt[SetProviderRequest](union.Rule{NonNull: true, Required: []string{"providerId", "apiType", "baseUrl"}, NotNull: []string{"providerId", "apiType", "baseUrl", "headers"}}),
 	union.Alt[DisableProviderRequest](union.Rule{NonNull: true, Required: []string{"providerId"}, NotNull: []string{"providerId"}}),
 	union.Alt[LogoutRequest](union.Rule{NonNull: true}),
+	union.Alt[AuthStatusRequest](union.Rule{NonNull: true}),
 	union.Alt[NewSessionRequest](union.Rule{NonNull: true, Required: []string{"cwd", "mcpServers"}, NotNull: []string{"cwd", "additionalDirectories", "mcpServers"}}),
 	union.Alt[LoadSessionRequest](union.Rule{NonNull: true, Required: []string{"mcpServers", "cwd", "sessionId"}, NotNull: []string{"mcpServers", "cwd", "additionalDirectories", "sessionId"}}),
 	union.Alt[ListSessionsRequest](union.Rule{NonNull: true}),
 	union.Alt[DeleteSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
 	union.Alt[ForkSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "cwd"}, NotNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}),
+	union.Alt[ArchiveSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[UnarchiveSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[SessionStatusRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[SetSessionTitleRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "title"}, NotNull: []string{"sessionId", "title"}}),
 	union.Alt[ResumeSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "cwd"}, NotNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}),
 	union.Alt[CloseSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
 	union.Alt[SetSessionModeRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "modeId"}, NotNull: []string{"sessionId", "modeId"}}),
@@ -500,7 +506,7 @@ type AgentResponseResultResult struct{ raw jsontext.Value }
 
 // AgentResponseResultResultAlternative is the set of Go types AgentResponseResultResult can hold.
 type AgentResponseResultResultAlternative interface {
-	InitializeResponse | AuthenticateResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutResponse | NewSessionResponse | LoadSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ResumeSessionResponse | CloseSessionResponse | SetSessionModeResponse | SetSessionConfigOptionResponse | PromptResponse | jsontext.Value
+	InitializeResponse | AuthenticateResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutResponse | AuthStatusResponse | NewSessionResponse | LoadSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ArchiveSessionResponse | UnarchiveSessionResponse | SessionStatusResponse | SetSessionTitleResponse | ResumeSessionResponse | CloseSessionResponse | SetSessionModeResponse | SetSessionConfigOptionResponse | PromptResponse | jsontext.Value
 }
 
 var agentResponseResultResultAlternatives = union.Table(
@@ -510,11 +516,16 @@ var agentResponseResultResultAlternatives = union.Table(
 	union.Alt[SetProviderResponse](union.Rule{NonNull: true}),
 	union.Alt[DisableProviderResponse](union.Rule{NonNull: true}),
 	union.Alt[LogoutResponse](union.Rule{NonNull: true}),
+	union.Alt[AuthStatusResponse](union.Rule{NonNull: true, Required: []string{"state"}, NotNull: []string{"state", "accounts"}}),
 	union.Alt[NewSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
 	union.Alt[LoadSessionResponse](union.Rule{NonNull: true}),
 	union.Alt[ListSessionsResponse](union.Rule{NonNull: true, Required: []string{"sessions"}, NotNull: []string{"sessions"}}),
 	union.Alt[DeleteSessionResponse](union.Rule{NonNull: true}),
 	union.Alt[ForkSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[ArchiveSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[UnarchiveSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[SessionStatusResponse](union.Rule{NonNull: true, Required: []string{"status"}, NotNull: []string{"status"}}),
+	union.Alt[SetSessionTitleResponse](union.Rule{NonNull: true, Required: []string{"title"}, NotNull: []string{"title"}}),
 	union.Alt[ResumeSessionResponse](union.Rule{NonNull: true}),
 	union.Alt[CloseSessionResponse](union.Rule{NonNull: true}),
 	union.Alt[SetSessionModeResponse](union.Rule{NonNull: true}),

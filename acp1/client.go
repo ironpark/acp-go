@@ -2,6 +2,7 @@ package acp1
 
 import (
 	"context"
+	"sync/atomic"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
@@ -18,7 +19,9 @@ import (
 type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
-	turns  acpconn.Turns[SessionID, SessionUpdate, *PromptResponse]
+
+	authStatus atomic.Pointer[AuthStatusResponse] // see AuthStatus
+	turns      acpconn.Turns[SessionID, SessionUpdate, *PromptResponse]
 }
 
 var _ Agent = (*ClientSideConnection)(nil)

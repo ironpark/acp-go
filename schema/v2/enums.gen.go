@@ -4,8 +4,8 @@ package schema
 
 // SessionID is a unique identifier for a conversation session between a client and agent.
 //
-// Sessions maintain their own context, conversation history, and state,
-// allowing multiple independent interactions with the same agent.
+// Each session has its own context, conversation history, and state, so one
+// agent can run several independent sessions.
 //
 // See protocol docs: [Session ID]
 //
@@ -22,9 +22,9 @@ type ToolCallID string
 // Tool kinds help clients choose appropriate icons and optimize how they
 // display tool execution progress.
 //
-// See protocol docs: [Creating]
+// See protocol docs: [Reporting]
 //
-// [Creating]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#creating
+// [Reporting]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#reporting
 type ToolKind string
 
 const (
@@ -63,6 +63,7 @@ type ToolCallStatus string
 const (
 	ToolCallStatusPending    ToolCallStatus = "pending"
 	ToolCallStatusInProgress ToolCallStatus = "in_progress"
+	ToolCallStatusPaused     ToolCallStatus = "paused"
 	ToolCallStatusCompleted  ToolCallStatus = "completed"
 	ToolCallStatusFailed     ToolCallStatus = "failed"
 	ToolCallStatusCancelled  ToolCallStatus = "cancelled"
@@ -71,7 +72,7 @@ const (
 // Known reports whether v is one of the protocol-defined constants.
 func (v ToolCallStatus) Known() bool {
 	switch v {
-	case ToolCallStatusPending, ToolCallStatusInProgress, ToolCallStatusCompleted, ToolCallStatusFailed, ToolCallStatusCancelled:
+	case ToolCallStatusPending, ToolCallStatusInProgress, ToolCallStatusPaused, ToolCallStatusCompleted, ToolCallStatusFailed, ToolCallStatusCancelled:
 		return true
 	}
 	return false
@@ -140,11 +141,14 @@ func (v DiffFileType) Known() bool {
 }
 
 // AbsolutePath is an absolute filesystem path used by the protocol.
+//
+// Uses the native syntax of the machine the Agent runs on, such as `/home/user/project`,
+// `C:\Users\user\project`, or `\\server\share\project`. It is not a URI.
 type AbsolutePath string
 
 // DiffPatchFormat also accepts values outside the listed constants; use [DiffPatchFormat.Known] to check.
 //
-// Text patch format used by [DiffPatch].
+// Text patch format used by `DiffPatch`.
 type DiffPatchFormat string
 
 const (
@@ -278,6 +282,29 @@ func (v LLMProtocol) Known() bool {
 	return false
 }
 
+// AuthState is the agent's overall authentication state.
+//
+// AuthState also accepts values outside the listed constants; use [AuthState.Known] to check.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AuthState string
+
+const (
+	AuthStateAuthenticated   AuthState = "authenticated"
+	AuthStateUnauthenticated AuthState = "unauthenticated"
+	AuthStateNotRequired     AuthState = "not_required"
+	AuthStateUnknown         AuthState = "unknown"
+)
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v AuthState) Known() bool {
+	switch v {
+	case AuthStateAuthenticated, AuthStateUnauthenticated, AuthStateNotRequired, AuthStateUnknown:
+		return true
+	}
+	return false
+}
+
 // SessionConfigID is a unique identifier for a session configuration option.
 type SessionConfigID string
 
@@ -319,19 +346,34 @@ type SessionConfigGroupID string
 // SessionListCursor is an opaque cursor used to paginate `session/list` results.
 type SessionListCursor string
 
-// Identifier for a message, unique among messages of the same type within a session.
+// SessionStatus also accepts values outside the listed constants; use [SessionStatus.Known] to check.
 //
-// Each message type, such as user messages, agent messages, and agent thoughts,
-// has its own ID space: messages of different types may share an ID and remain
-// distinct messages.
-type MessageID string
+// Whether the Agent has a session in memory, as reported by `session/status`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionStatus string
+
+const (
+	SessionStatusOpen  SessionStatus = "open"
+	SessionStatusSaved SessionStatus = "saved"
+)
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v SessionStatus) Known() bool {
+	switch v {
+	case SessionStatusOpen, SessionStatusSaved:
+		return true
+	}
+	return false
+}
 
 // ErrorCode also accepts values outside the listed constants; use [ErrorCode.Known] to check.
 //
 // Predefined error codes for common JSON-RPC and ACP-specific errors.
 //
-// These codes follow the JSON-RPC 2.0 specification for standard errors
-// and use the reserved range (-32000 to -32099) for protocol-specific errors.
+// Standard errors use the JSON-RPC 2.0 codes. ACP-specific errors use the JSON-RPC
+// server-error range (-32000 to -32099), and request cancellation uses -32800 from the
+// range LSP reserves (-32899 to -32800).
 type ErrorCode int32
 
 const (
@@ -343,16 +385,24 @@ const (
 	ErrorCodeRequestCancelled       ErrorCode = -32800
 	ErrorCodeAuthenticationRequired ErrorCode = -32000
 	ErrorCodeResourceNotFound       ErrorCode = -32002
+	ErrorCodeValue32022             ErrorCode = -32022
 )
 
 // Known reports whether v is one of the protocol-defined constants.
 func (v ErrorCode) Known() bool {
 	switch v {
-	case ErrorCodeParseError, ErrorCodeInvalidRequest, ErrorCodeMethodNotFound, ErrorCodeInvalidParams, ErrorCodeInternalError, ErrorCodeRequestCancelled, ErrorCodeAuthenticationRequired, ErrorCodeResourceNotFound:
+	case ErrorCodeParseError, ErrorCodeInvalidRequest, ErrorCodeMethodNotFound, ErrorCodeInvalidParams, ErrorCodeInternalError, ErrorCodeRequestCancelled, ErrorCodeAuthenticationRequired, ErrorCodeResourceNotFound, ErrorCodeValue32022:
 		return true
 	}
 	return false
 }
+
+// Identifier for a message, unique among messages of the same type within a session.
+//
+// Each message type, such as user messages, agent messages, and agent thoughts,
+// has its own ID space: messages of different types may share an ID and remain
+// distinct messages.
+type MessageID string
 
 // PlanID is a unique identifier for a plan within a session.
 type PlanID string
@@ -457,7 +507,7 @@ func (v CompactionStatus) Known() bool {
 //
 // How the Agent combines a client-provided system prompt with its own instructions.
 //
-// Unknown modes parse as SystemPromptMode.Other so they can be stored,
+// Unknown modes are preserved so they can be stored,
 // proxied, or forwarded. An Agent MUST return an error for a mode it does not
 // support rather than treating it as `append` or `override`.
 //
@@ -473,6 +523,31 @@ const (
 func (v SystemPromptMode) Known() bool {
 	switch v {
 	case SystemPromptModeAppend, SystemPromptModeOverride:
+		return true
+	}
+	return false
+}
+
+// SessionArchiveFilter also accepts values outside the listed constants; use [SessionArchiveFilter.Known] to check.
+//
+// Which sessions `session/list` returns based on their archive state.
+//
+// Unknown values are preserved so they can be stored, proxied, or forwarded. An Agent MUST
+// return `-32602` for a value it does not support rather than treating it as `exclude`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionArchiveFilter string
+
+const (
+	SessionArchiveFilterExclude SessionArchiveFilter = "exclude"
+	SessionArchiveFilterInclude SessionArchiveFilter = "include"
+	SessionArchiveFilterOnly    SessionArchiveFilter = "only"
+)
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v SessionArchiveFilter) Known() bool {
+	switch v {
+	case SessionArchiveFilterExclude, SessionArchiveFilterInclude, SessionArchiveFilterOnly:
 		return true
 	}
 	return false

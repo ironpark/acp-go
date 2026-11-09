@@ -78,7 +78,10 @@ type Method struct {
 	CallDoc string
 	// Via names a hand-written method on the serving connection, with the
 	// handler's signature, that the dispatch calls instead of the interface.
-	// It lets the connection observe a method before the handler sees it.
+	// It lets the connection observe a method before the handler sees it. In
+	// an optional group the dispatch calls it whether or not the peer
+	// implements the interface, so it forwards to the interface itself and
+	// answers "method not found" without one.
 	Via string
 	// CallVia names a hand-written method on the calling connection, with the
 	// outgoing call's signature, that the call goes through instead of
@@ -230,9 +233,6 @@ func (g *emitter) validate(s side) error {
 			// rather than drop a flag.
 			if m.Untimed && (m.notification() || m.CallVia != "") {
 				return fmt.Errorf("%s: Untimed applies only to a request sent directly, not a notification or a CallVia", m.Wire)
-			}
-			if (m.Via != "" || m.CallVia != "") && !group.Required {
-				return fmt.Errorf("%s: Via and CallVia apply only to the required group, whose handler always exists", m.Wire)
 			}
 		}
 	}
