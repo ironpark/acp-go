@@ -41,7 +41,7 @@ type ClientTransport struct {
 	mu           sync.Mutex
 	connectionID string
 	sessions     map[string]bool   // sessions whose stream is open
-	pendingLoads map[string]string // session/load request id -> session
+	pendingLoads map[string]string // session/load or resume request id -> session
 }
 
 // ClientOption configures [NewClientTransport] and
@@ -180,7 +180,7 @@ func (t *ClientTransport) WriteMessage(ctx context.Context, data jsontext.Value)
 	t.mu.Lock()
 	connectionID := t.connectionID
 	session := e.paramsSession()
-	loading := e.isRequest() && e.Method == loadSessionMethod && session != ""
+	loading := e.isRequest() && reattachMethods[e.Method] && session != ""
 	if loading {
 		t.pendingLoads[e.idKey()] = session
 	}
@@ -424,8 +424,8 @@ func (t *ClientTransport) receive(msg jsontext.Value) {
 		if session == "" {
 			session = e.resultSession()
 		}
-		// A load's replay arrives on the connection stream; its session
-		// stream opens once the load succeeds, not for a load that fails.
+		// The replay of a load or resume arrives on the connection stream;
+		// the session stream opens once it succeeds, not when it fails.
 		if session != "" && !t.loading(session) {
 			open = append(open, session)
 		}

@@ -52,8 +52,8 @@ const (
 
 // sessionScopedMethods are the requests on an existing session: their POSTs
 // carry Acp-Session-Id and their replies use the session stream. Requests that
-// create or attach a session reply on the connection stream, since the client
-// cannot open the session stream before it knows the id. The wire names are
+// create or attach a session (see reattachMethods) reply on the connection
+// stream, since the client need not have the session stream open yet. The wire names are
 // the same in every protocol version.
 var sessionScopedMethods = map[string]bool{
 	"session/set_mode":          true,
@@ -63,10 +63,17 @@ var sessionScopedMethods = map[string]bool{
 	"session/close":             true,
 }
 
-const (
-	initializeMethod  = "initialize"
-	loadSessionMethod = "session/load"
-)
+const initializeMethod = "initialize"
+
+// reattachMethods bring a session the client already knows by id onto this
+// connection. The client may open the session's stream before it sends one,
+// and the session is established here once the agent answers it with a
+// result; until then its replay stays on the connection stream, ordered with
+// the reply.
+var reattachMethods = map[string]bool{
+	"session/load":   true,
+	"session/resume": true,
+}
 
 // envelope is what routing reads from a JSON-RPC message.
 type envelope struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,8 +15,9 @@ import (
 	acp "github.com/ironpark/acp-go"
 )
 
-// fakeAgent answers initialize, session/new and session/prompt over raw
-// JSON-RPC; a prompt first sends a session/update for its session.
+// fakeAgent answers initialize, session/new, session/load, session/resume and
+// session/prompt over raw JSON-RPC; a prompt first sends a session/update for
+// session s1.
 func fakeAgent(ctx context.Context, t acp.Transport) error {
 	for {
 		msg, err := t.ReadMessage(ctx)
@@ -34,6 +36,8 @@ func fakeAgent(ctx context.Context, t acp.Transport) error {
 			err = reply(`{"protocolVersion":1}`)
 		case "session/new":
 			err = reply(`{"sessionId":"s1"}`)
+		case "session/load", "session/resume":
+			err = reply(`{}`)
 		case "session/prompt":
 			update := `{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s1","update":{}}}`
 			if err = t.WriteMessage(ctx, jsontext.Value(update)); err == nil {
@@ -182,7 +186,7 @@ func TestHTTPServerRejects(t *testing.T) {
 		{"prompt without session header", "POST", `{"jsonrpc":"2.0","id":9,"method":"session/prompt","params":{"sessionId":"s1"}}`, map[string]string{"Content-Type": "application/json", ConnectionIDHeader: conn}, http.StatusBadRequest},
 		{"unknown session", "POST", `{"jsonrpc":"2.0","id":9,"method":"session/prompt","params":{"sessionId":"zz"}}`, map[string]string{"Content-Type": "application/json", ConnectionIDHeader: conn, SessionIDHeader: "zz"}, http.StatusNotFound},
 		{"stream without Accept", "GET", ``, map[string]string{ConnectionIDHeader: conn}, http.StatusNotAcceptable},
-		{"stream of unknown session", "GET", ``, map[string]string{"Accept": "text/event-stream", ConnectionIDHeader: conn, SessionIDHeader: "zz"}, http.StatusOK},
+		{"stream ahead of the session's load", "GET", ``, map[string]string{"Accept": "text/event-stream", ConnectionIDHeader: conn, SessionIDHeader: "zz"}, http.StatusOK},
 		{"delete without connection", "DELETE", ``, nil, http.StatusBadRequest},
 		{"put", "PUT", ``, nil, http.StatusMethodNotAllowed},
 	}
@@ -222,7 +226,7 @@ func TestHTTPServerRouting(t *testing.T) {
 	if route(`{"jsonrpc":"2.0","id":1,"result":{"sessionId":"s1"}}`) != c.connStream {
 		t.Fatal("session/new reply not on the connection stream")
 	}
-	s1 := c.stream("s1")
+	s1 := c.sessions["s1"]
 	if s1 == nil {
 		t.Fatal("no stream for the new session")
 	}
@@ -246,7 +250,7 @@ func TestHTTPServerRouting(t *testing.T) {
 
 	// A load keeps its replay on the connection stream until it is answered.
 	deliver(`{"jsonrpc":"2.0","id":3,"method":"session/load","params":{"sessionId":"s2"}}`)
-	if c.stream("s2") == nil {
+	if c.sessions["s2"] == nil {
 		t.Fatal("no provisional stream while loading")
 	}
 	if route(`{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s2"}}`) != c.connStream {
@@ -256,15 +260,29 @@ func TestHTTPServerRouting(t *testing.T) {
 		t.Fatal("load reply not on the connection stream")
 	}
 	// The load failed, so its provisional stream goes.
-	if c.stream("s2") != nil {
+	if c.sessions["s2"] != nil {
 		t.Fatal("failed load kept its provisional stream")
 	}
 
 	deliver(`{"jsonrpc":"2.0","id":4,"method":"session/load","params":{"sessionId":"s3"}}`)
 	route(`{"jsonrpc":"2.0","id":4,"result":null}`) // a v1 load may answer null
-	s3 := c.stream("s3")
+	s3 := c.sessions["s3"]
 	if s3 == nil || route(`{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s3"}}`) != s3 {
 		t.Fatal("after a successful load, updates do not use the session stream")
+	}
+
+	// A resume attaches a session as a load does, though its reply names no
+	// session: replay and reply on the connection stream, then the session's.
+	deliver(`{"jsonrpc":"2.0","id":5,"method":"session/resume","params":{"sessionId":"s4"}}`)
+	if c.hasEstablishedSession("s4") {
+		t.Fatal("session established before its resume was answered")
+	}
+	if route(`{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s4"}}`) != c.connStream ||
+		route(`{"jsonrpc":"2.0","id":5,"result":{}}`) != c.connStream {
+		t.Fatal("resume replay or reply not on the connection stream")
+	}
+	if !c.hasEstablishedSession("s4") || route(`{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s4"}}`) != c.sessions["s4"] {
+		t.Fatal("after a successful resume, updates do not use the session stream")
 	}
 }
 
@@ -317,10 +335,17 @@ func TestClientCloseAbortsAPost(t *testing.T) {
 	}
 }
 
+// rawPeer sends requests to the server as a client other than ClientTransport
+// would, on the connection of an initialized transport.
+type rawPeer struct {
+	t      *testing.T
+	url    string
+	conn   string
+	server *httpServerConn
+}
 
-// TestSessionSSEBeforeLoad matches the TypeScript SDK createHttpStream order:
-// open session SSE for a remembered id, then POST session/load with Acp-Session-Id.
-func TestSessionSSEBeforeLoad(t *testing.T) {
+func newRawPeer(t *testing.T) (rawPeer, *ClientTransport) {
+	t.Helper()
 	server, client, ts := newHTTPPair(t)
 	call(t, client, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
 	expect(t, client, `"result"`)
@@ -328,58 +353,145 @@ func TestSessionSSEBeforeLoad(t *testing.T) {
 	client.mu.Lock()
 	conn := client.connectionID
 	client.mu.Unlock()
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	return rawPeer{t, ts.URL, conn, server.conns[conn]}, client
+}
 
-	sessionID := "retained-session"
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL, nil)
+func (p rawPeer) do(ctx context.Context, method, session, body string) *http.Response {
+	p.t.Helper()
+	req, err := http.NewRequestWithContext(ctx, method, p.url, strings.NewReader(body))
 	if err != nil {
-		t.Fatal(err)
+		p.t.Fatal(err)
 	}
-	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set(ConnectionIDHeader, conn)
-	req.Header.Set(SessionIDHeader, sessionID)
-	sse, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	req.Header.Set(ConnectionIDHeader, p.conn)
+	if session != "" {
+		req.Header.Set(SessionIDHeader, session)
 	}
-	defer sse.Body.Close()
-	if sse.StatusCode != http.StatusOK {
-		t.Fatalf("session SSE before load: status %d, want 200", sse.StatusCode)
+	if method == http.MethodGet {
+		req.Header.Set("Accept", "text/event-stream")
+	} else {
+		req.Header.Set("Content-Type", "application/json")
 	}
-
-	load := `{"jsonrpc":"2.0","id":2,"method":"session/load","params":{"sessionId":"retained-session"}}`
-	req, err = http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL, strings.NewReader(load))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(ConnectionIDHeader, conn)
-	req.Header.Set(SessionIDHeader, sessionID)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Fatal(err)
+		p.t.Fatal(err)
 	}
-	body, _ := io.ReadAll(resp.Body)
+	return resp
+}
+
+// post sends one message with the session header and returns the status.
+func (p rawPeer) post(session, body string) int {
+	p.t.Helper()
+	resp := p.do(p.t.Context(), http.MethodPost, session, body)
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusAccepted {
-		t.Fatalf("session/load with session header: status %d body %q, want 202", resp.StatusCode, body)
+	return resp.StatusCode
+}
+
+// sessions counts the session streams the connection holds, and how many of
+// them are provisional.
+func (p rawPeer) sessions() (total, provisional int) {
+	p.server.mu.Lock()
+	defer p.server.mu.Unlock()
+	return len(p.server.sessions), len(p.server.provisional)
+}
+
+// The RFD's reconnect flow, which the TypeScript SDK follows: open the stream
+// of a remembered session, then send session/load or session/resume with
+// Acp-Session-Id. The session takes prompts once the agent has answered.
+func TestSessionStreamBeforeReattach(t *testing.T) {
+	for _, method := range []string{"session/load", "session/resume"} {
+		t.Run(method, func(t *testing.T) {
+			peer, client := newRawPeer(t)
+			const session = "s1" // the session fakeAgent's prompt updates name
+
+			sse := peer.do(t.Context(), http.MethodGet, session, "")
+			defer sse.Body.Close()
+			if sse.StatusCode != http.StatusOK {
+				t.Fatalf("session stream before %s: status %d, want 200", method, sse.StatusCode)
+			}
+			prompt := `{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"s1","prompt":[]}}`
+			if status := peer.post(session, prompt); status != http.StatusNotFound {
+				t.Fatalf("prompt before %s: status %d, want 404", method, status)
+			}
+
+			reattach := `{"jsonrpc":"2.0","id":2,"method":"` + method + `","params":{"sessionId":"s1","cwd":"/"}}`
+			if status := peer.post(session, reattach); status != http.StatusAccepted {
+				t.Fatalf("%s with the session header: status %d, want 202", method, status)
+			}
+			expect(t, client, `"id":2`) // answered on the connection stream
+
+			if status := peer.post(session, prompt); status != http.StatusAccepted {
+				t.Fatalf("prompt after %s: status %d, want 202", method, status)
+			}
+			// The stream opened ahead of the reattach is the session's: the
+			// prompt's update and reply arrive on it.
+			events := make(chan string, 1)
+			go func() {
+				buf := make([]byte, 4096)
+				n, _ := sse.Body.Read(buf)
+				events <- string(buf[:n])
+			}()
+			select {
+			case event := <-events:
+				if !strings.Contains(event, "session/update") {
+					t.Fatalf("session stream delivered %q, want the prompt's update", event)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("nothing arrived on the session stream opened before the reattach")
+			}
+		})
+	}
+}
+
+// ClientTransport resumes a session and then prompts it: the session stream
+// it opens after the answer carries the prompt's update and reply.
+func TestClientResumesThenPrompts(t *testing.T) {
+	_, client, _ := newHTTPPair(t)
+	call(t, client, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
+	expect(t, client, `"result"`)
+	call(t, client, `{"jsonrpc":"2.0","id":2,"method":"session/resume","params":{"sessionId":"s1","cwd":"/"}}`)
+	expect(t, client, `"id":2`)
+	call(t, client, `{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"s1","prompt":[]}}`)
+	expect(t, client, `session/update`)
+	expect(t, client, `end_turn`)
+}
+
+// A stream opened for a session that is never loaded goes with its GET, and
+// a connection holds only so many of them at once.
+func TestProvisionalStreamsAreBounded(t *testing.T) {
+	peer, _ := newRawPeer(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	sse := peer.do(ctx, http.MethodGet, "never-loaded", "")
+	if total, provisional := peer.sessions(); sse.StatusCode != http.StatusOK || total != 1 || provisional != 1 {
+		t.Fatalf("status %d, %d sessions (%d provisional), want 200 and one provisional", sse.StatusCode, total, provisional)
+	}
+	cancel()
+	sse.Body.Close()
+	for deadline := time.Now().Add(2 * time.Second); ; time.Sleep(time.Millisecond) {
+		if total, _ := peer.sessions(); total == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the provisional stream outlived its GET")
+		}
 	}
 
-	// session-scoped methods still require an established (non-provisional) session
-	prompt := `{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"retained-session","prompt":[]}}`
-	req, err = http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL, strings.NewReader(prompt))
-	if err != nil {
-		t.Fatal(err)
+	for i := range maxProvisionalStreams {
+		resp := peer.do(t.Context(), http.MethodGet, fmt.Sprintf("pending-%d", i), "")
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("stream %d: status %d, want 200", i, resp.StatusCode)
+		}
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(ConnectionIDHeader, conn)
-	req.Header.Set(SessionIDHeader, sessionID)
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	over := peer.do(t.Context(), http.MethodGet, "one-too-many", "")
+	over.Body.Close()
+	if over.StatusCode != http.StatusConflict {
+		t.Fatalf("stream past the limit: status %d, want 409", over.StatusCode)
 	}
-	body, _ = io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("prompt on provisional session: status %d body %q, want 404", resp.StatusCode, body)
+	// A session the agent attaches is not provisional and still gets through.
+	if status := peer.post("", `{"jsonrpc":"2.0","id":2,"method":"session/load","params":{"sessionId":"real"}}`); status != http.StatusAccepted {
+		t.Fatalf("session/load at the limit: status %d, want 202", status)
 	}
 }

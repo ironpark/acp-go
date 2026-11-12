@@ -8,10 +8,16 @@ All notable changes to this module are recorded here. The format follows
 
 ### Fixed
 
-- Streamable HTTP: allow session-scoped SSE (and `session/load` with `Acp-Session-Id`)
-  before the session exists on the connection, matching the TypeScript ACP SDK
-  `createHttpStream` order. Session-scoped methods such as `session/prompt` still
-  require an established session after a successful load.
+- Streamable HTTP: a client may open a session's SSE stream, and send `session/load` or
+  `session/resume` with `Acp-Session-Id`, before the session exists on the connection. This is
+  the reconnect flow of the transport RFD, which the TypeScript SDK follows; its clients got
+  `404 unknown session` and dropped the connection. Other session-scoped methods, such as
+  `session/prompt`, still need the session established by a successful load or resume. A stream
+  opened for a session that is never attached goes with its GET, and a connection holds at most
+  64 of them (`409` beyond that).
+- Streamable HTTP: `session/resume` attaches the session to the connection, on the server and in
+  `ClientTransport`. A session resumed over HTTP had no session stream, so the prompts that
+  followed were answered `404 unknown session`.
 
 ## [0.4.0] - 2026-11-09
 
