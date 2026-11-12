@@ -6,6 +6,26 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-13
+
+### Schema
+
+- Pinned the TypeScript SDK at `8649e0a` (2.6.0). The ACP schema moves to **v1.31.0**, and the v2
+  draft to **2.0.0-alpha.15**. Every change is an addition.
+- **`session/options` (unstable)** → `SessionOptionsReader` (`GetSessionOptions`), advertised as
+  `sessionCapabilities.options` (v1) / `session.options` (v2). It reports the config options (and
+  v1 modes, v2 commands) a session would start with, without creating or resuming one.
+- **Initial config option values (unstable):** `session/new`, `session/resume` and v1
+  `session/load` take `configOptions` (`[]InitialSessionConfigOption`), which an agent
+  advertising the options capability applies when it sets the session up. Unknown or mismatched
+  entries are ignored rather than rejected.
+- **Session tool call content (unstable):** a tool call may show another session it works on, such
+  as a subagent (`ToolCallContentSession`); `ToolSession(id)` builds it in both façades.
+- `AuthAccount` gains an optional `Description`.
+- The client system prompt (`systemPrompt` on session setup requests) is stable as of schema
+  v1.30.0; the Go API is unchanged.
+- Reference fixtures gain cases for the new types, checked against Zod 4.6.7.
+
 ### Fixed
 
 - Streamable HTTP: a client may open a session's SSE stream, and send `session/load` or

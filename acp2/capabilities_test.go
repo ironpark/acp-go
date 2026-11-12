@@ -46,8 +46,8 @@ func TestCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
 		t.Error("auth.status not advertised for an agent implementing AuthStatusReader")
 	}
 	caps = acp2.CapabilitiesOf(sessionExtrasAgent{bareAgent{manager}})
-	if caps.Session.Archive == nil || caps.Session.Status == nil || caps.Session.Title == nil {
-		t.Errorf("session capabilities = %+v, want archive, status and title", caps.Session)
+	if caps.Session.Archive == nil || caps.Session.Status == nil || caps.Session.Title == nil || caps.Session.Options == nil {
+		t.Errorf("session capabilities = %+v, want archive, status, title and options", caps.Session)
 	}
 	if caps := acp2.CapabilitiesOf(mcpAgent{bareAgent{manager}}); caps.GetSession().GetMCP().GetACP() == nil {
 		t.Error("session.mcp.acp not advertised for an agent implementing MCPMessageHandler")
@@ -76,5 +76,8 @@ func (sessionExtrasAgent) GetSessionStatus(context.Context, *acp2.SessionStatusR
 	return nil, nil
 }
 func (sessionExtrasAgent) SetSessionTitle(context.Context, *acp2.SetSessionTitleRequest) (*acp2.SetSessionTitleResponse, error) {
+	return nil, nil
+}
+func (sessionExtrasAgent) GetSessionOptions(context.Context, *acp2.SessionOptionsRequest) (*acp2.SessionOptionsResponse, error) {
 	return nil, nil
 }

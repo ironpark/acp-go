@@ -340,5 +340,107 @@
       "env": [],
       "outputByteLimit": 10
     }
+  },
+  {
+    "schema": "zInitialSessionConfigOption",
+    "input": {
+      "configId": "mode",
+      "value": "fast"
+    },
+    "success": true,
+    "output": {
+      "value": "fast",
+      "configId": "mode"
+    }
+  },
+  {
+    "schema": "zInitialSessionConfigOption",
+    "input": {
+      "configId": "verbose",
+      "type": "boolean",
+      "value": true
+    },
+    "success": true,
+    "output": {
+      "type": "boolean",
+      "value": true,
+      "configId": "verbose"
+    }
+  },
+  {
+    "schema": "zInitialSessionConfigOption",
+    "input": {
+      "configId": "verbose",
+      "type": "boolean",
+      "value": "yes"
+    },
+    "success": true,
+    "output": {
+      "value": "yes",
+      "configId": "verbose"
+    }
+  },
+  {
+    "schema": "zInitialSessionConfigOption",
+    "input": {
+      "configId": "x",
+      "type": "_custom",
+      "value": "v",
+      "extra": 1
+    },
+    "success": true,
+    "output": {
+      "value": "v",
+      "configId": "x"
+    }
+  },
+  {
+    "schema": "zInitialSessionConfigOption",
+    "input": {
+      "value": "fast"
+    },
+    "success": false
+  },
+  {
+    "schema": "zSessionOptionsRequest",
+    "input": {
+      "cwd": "/w",
+      "additionalDirectories": null,
+      "sessionId": null
+    },
+    "success": true,
+    "output": {
+      "cwd": "/w",
+      "additionalDirectories": [],
+      "sessionId": null
+    }
+  },
+  {
+    "schema": "zSessionOptionsRequest",
+    "input": {
+      "additionalDirectories": []
+    },
+    "success": false
+  },
+  {
+    "schema": "zSessionOptionsResponse",
+    "input": {
+      "configOptions": null
+    },
+    "success": true,
+    "output": {
+      "configOptions": null
+    }
+  },
+  {
+    "schema": "zSessionReference",
+    "input": {
+      "sessionId": "s",
+      "extra": 1
+    },
+    "success": true,
+    "output": {
+      "sessionId": "s"
+    }
   }
 ]

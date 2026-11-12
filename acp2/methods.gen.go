@@ -125,6 +125,21 @@ type SessionStatusReader interface {
 	GetSessionStatus(ctx context.Context, params *SessionStatusRequest) (*SessionStatusResponse, error)
 }
 
+// SessionOptionsReader handles session/options, which reports the config
+// options a session would start with, without creating or resuming one. It
+// must not send session updates, list the session or change an existing one.
+// With a session id it answers what session/resume would for that
+// session, and an unknown session is refused with [acp.SessionNotFound]. An
+// agent that advertises it also accepts the initial config option values a
+// client sends on session setup requests.
+//
+// [CapabilitiesOf] advertises it with the `capabilities.session.options` agent capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionOptionsReader interface {
+	GetSessionOptions(ctx context.Context, params *SessionOptionsRequest) (*SessionOptionsResponse, error)
+}
+
 // SessionTitleSetter handles session/set_title. Agents report titles through
 // session/list and session_info_update without it; it lets the client set one.
 //
@@ -371,6 +386,15 @@ func (c *ClientSideConnection) GetSessionStatus(ctx context.Context, params *Ses
 	return acpconn.Call[SessionStatusResponse](ctx, c.conn, schema.AgentMethodsSessionStatus, params)
 }
 
+// GetSessionOptions asks which config options a session would start with,
+// without creating or resuming one. The answer is a snapshot; the session
+// setup response has the options the session actually starts with.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (c *ClientSideConnection) GetSessionOptions(ctx context.Context, params *SessionOptionsRequest) (*SessionOptionsResponse, error) {
+	return acpconn.Call[SessionOptionsResponse](ctx, c.conn, schema.AgentMethodsSessionOptions, params)
+}
+
 // SetSessionTitle renames a session. The response carries the title the agent
 // stored, which may be normalized; display that one.
 //
@@ -511,6 +535,10 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 		if h, ok := c.agent.(SessionStatusReader); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.GetSessionStatus)
 		}
+	case schema.AgentMethodsSessionOptions:
+		if h, ok := c.agent.(SessionOptionsReader); ok {
+			return acpconn.Request(ctx, schema.Validated(), params, h.GetSessionOptions)
+		}
 	case schema.AgentMethodsSessionSetTitle:
 		if h, ok := c.agent.(SessionTitleSetter); ok {
 			return acpconn.Request(ctx, schema.Validated(), params, h.SetSessionTitle)
@@ -612,6 +640,9 @@ func capabilitiesOf(agent Agent, caps *schema.AgentCapabilities) {
 	}
 	if _, ok := agent.(SessionStatusReader); ok {
 		caps.Session.Status = &schema.SessionStatusCapabilities{}
+	}
+	if _, ok := agent.(SessionOptionsReader); ok {
+		caps.Session.Options = &schema.SessionOptionsCapabilities{}
 	}
 	if _, ok := agent.(SessionTitleSetter); ok {
 		caps.Session.Title = &schema.SessionTitleCapabilities{}

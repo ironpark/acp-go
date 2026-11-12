@@ -11,11 +11,14 @@ package acp1
 // Providers, a group capability with its own sub-flags, is set to an empty
 // object, which advertises the group; fill in the sub-flags the agent supports.
 // [LogoutHandler] sets auth.logout, [AuthStatusReader] auth.status,
-// [SessionArchiver], [SessionStatusReader] and [SessionTitleSetter]
-// sessionCapabilities.archive, .status and .title, and [MCPMessageHandler]
-// mcpCapabilities.acp. The protocol asks an agent advertising
-// sessionCapabilities.archive to advertise sessionCapabilities.list too. Prompt capabilities and the other MCP transports
-// describe content rather than methods and are left for the agent to set.
+// [SessionArchiver], [SessionStatusReader], [SessionTitleSetter] and
+// [SessionOptionsReader] sessionCapabilities.archive, .status, .title and
+// .options, and [MCPMessageHandler] mcpCapabilities.acp. The protocol asks an
+// agent advertising sessionCapabilities.archive to advertise
+// sessionCapabilities.list too, and one advertising .options to accept the
+// initial config option values of session setup requests. Prompt capabilities
+// and the other MCP transports describe content rather than methods and are
+// left for the agent to set.
 func CapabilitiesOf(agent Agent) *AgentCapabilities {
 	caps := &AgentCapabilities{}
 	capabilitiesOf(agent, caps)

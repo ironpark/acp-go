@@ -213,7 +213,7 @@ func (v RequestPermissionSubjectCustom) Tag() string { return v.Type }
 // [Content]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#content
 type ToolCallContent struct{ value ToolCallContentVariant }
 
-// ToolCallContentVariant is implemented by [ToolCallContentContent], [ToolCallContentDiff], [ToolCallContentTerminal], [ToolCallContentCustom].
+// ToolCallContentVariant is implemented by [ToolCallContentContent], [ToolCallContentDiff], [ToolCallContentTerminal], [ToolCallContentSession], [ToolCallContentCustom].
 type ToolCallContentVariant interface {
 	toolCallContentVariant()
 	Tag() string
@@ -226,6 +226,7 @@ type ToolCallContentVariants interface {
 	ToolCallContentContent |
 		ToolCallContentDiff |
 		ToolCallContentTerminal |
+		ToolCallContentSession |
 		ToolCallContentCustom
 	ToolCallContentVariant
 }
@@ -304,6 +305,12 @@ func unmarshalToolCallContentVariant(dec *jsontext.Decoder, out *ToolCallContent
 		*out = v
 	case "terminal":
 		var v ToolCallContentTerminal
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "session":
+		var v ToolCallContentSession
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -416,6 +423,41 @@ func (v ToolCallContentTerminal) MarshalJSONTo(enc *jsontext.Encoder) error {
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ToolCallContentTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalTypeTagged(dec, "ToolCallContentTerminal", "terminal", (*toolCallContentTerminalFields)(v))
+}
+
+// ToolCallContentSession is the ToolCallContent variant with type "session".
+//
+// A display-only reference to another session that this tool call operates on,
+// such as a subagent it created, delegated to, or is waiting on.
+//
+// The referenced session must already be known to the Client through ordinary
+// session setup or a `subagent_update` announcement. The reference does not
+// establish ownership, grant any Client-initiated controls, or report that the
+// referenced session received or finished any work.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ToolCallContentSession struct {
+	// The referenced session.
+	SessionID SessionID `json:"sessionId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (ToolCallContentSession) toolCallContentVariant() {}
+
+// Tag returns "session".
+func (ToolCallContentSession) Tag() string { return "session" }
+
+type toolCallContentSessionFields ToolCallContentSession
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ToolCallContentSession) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[toolCallContentSessionFields]{"session", toolCallContentSessionFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ToolCallContentSession) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "ToolCallContentSession", "session", (*toolCallContentSessionFields)(v))
 }
 
 // ToolCallContentCustom holds ToolCallContent values with an unrecognized "type", keeping every member.
@@ -5278,6 +5320,195 @@ func (MCPServerCustom) mcpServerVariant() {}
 // Tag returns the "type" member.
 func (v MCPServerCustom) Tag() string { return v.Type }
 
+// InitialSessionConfigOption is an initial value for a config option, sent on session setup requests.
+//
+// Same shape as `session/set_config_option` without `sessionId`. Unlike
+// `session/set_config_option`, an unknown `configId`, a `type` that does not match the
+// option, or a value that is not allowed is ignored instead of rejected.
+//
+// InitialSessionConfigOption is a tagged union discriminated by the "type" member. Use [NewInitialSessionConfigOption]
+// or a type switch on [InitialSessionConfigOption.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type InitialSessionConfigOption struct {
+	value InitialSessionConfigOptionVariant
+}
+
+// InitialSessionConfigOptionVariant is implemented by [InitialSessionConfigOptionID], [InitialSessionConfigOptionBoolean], [InitialSessionConfigOptionCustom].
+type InitialSessionConfigOptionVariant interface {
+	initialSessionConfigOptionVariant()
+	Tag() string
+}
+
+// InitialSessionConfigOptionVariants is the set of InitialSessionConfigOption variant types. It lists the types
+// themselves: a pointer to a variant also has the InitialSessionConfigOptionVariant
+// methods, but is not one.
+type InitialSessionConfigOptionVariants interface {
+	InitialSessionConfigOptionID |
+		InitialSessionConfigOptionBoolean |
+		InitialSessionConfigOptionCustom
+	InitialSessionConfigOptionVariant
+}
+
+// NewInitialSessionConfigOption wraps a variant.
+func NewInitialSessionConfigOption[T InitialSessionConfigOptionVariants](v T) InitialSessionConfigOption {
+	return InitialSessionConfigOption{value: v}
+}
+
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u InitialSessionConfigOption) Variant() InitialSessionConfigOptionVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u InitialSessionConfigOption) As[T InitialSessionConfigOptionVariants]() (T, bool) {
+	v, ok := u.value.(T)
+	return v, ok
+}
+
+// Tag returns the "type" discriminator, or "" for the zero value.
+func (u InitialSessionConfigOption) Tag() string {
+	if u.value == nil {
+		return ""
+	}
+	return u.value.Tag()
+}
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u InitialSessionConfigOption) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u InitialSessionConfigOption) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return errors.New("InitialSessionConfigOption: no variant set; use NewInitialSessionConfigOption")
+	}
+	return json.MarshalEncode(enc, u.value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *InitialSessionConfigOption) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalInitialSessionConfigOptionVariant(dec, &u.value)
+}
+
+// unmarshalInitialSessionConfigOptionVariant decodes a InitialSessionConfigOptionVariant by its "type" member; it backs Unmarshalers.
+func unmarshalInitialSessionConfigOptionVariant(dec *jsontext.Decoder, out *InitialSessionConfigOptionVariant) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("InitialSessionConfigOption: expected object, got %s", raw.Kind())
+	}
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
+		return fmt.Errorf("InitialSessionConfigOption: %w", err)
+	}
+	if !present {
+		return errors.New("InitialSessionConfigOption: missing \"type\" member")
+	}
+	switch tag {
+	case "id":
+		var v InitialSessionConfigOptionID
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "boolean":
+		var v InitialSessionConfigOptionBoolean
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v InitialSessionConfigOptionCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
+	return nil
+}
+
+// InitialSessionConfigOptionID is the InitialSessionConfigOption variant with type "id".
+type InitialSessionConfigOptionID struct {
+	// The value ID.
+	Value SessionConfigValueID `json:"value"`
+	// The ID of the configuration option to set.
+	ConfigID SessionConfigID `json:"configId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (InitialSessionConfigOptionID) initialSessionConfigOptionVariant() {}
+
+// Tag returns "id".
+func (InitialSessionConfigOptionID) Tag() string { return "id" }
+
+type initialSessionConfigOptionIDFields InitialSessionConfigOptionID
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v InitialSessionConfigOptionID) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[initialSessionConfigOptionIDFields]{"id", initialSessionConfigOptionIDFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *InitialSessionConfigOptionID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "InitialSessionConfigOptionID", "id", (*initialSessionConfigOptionIDFields)(v))
+}
+
+// InitialSessionConfigOptionBoolean is the InitialSessionConfigOption variant with type "boolean".
+type InitialSessionConfigOptionBoolean struct {
+	// The boolean value.
+	Value bool `json:"value"`
+	// The ID of the configuration option to set.
+	ConfigID SessionConfigID `json:"configId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (InitialSessionConfigOptionBoolean) initialSessionConfigOptionVariant() {}
+
+// Tag returns "boolean".
+func (InitialSessionConfigOptionBoolean) Tag() string { return "boolean" }
+
+type initialSessionConfigOptionBooleanFields InitialSessionConfigOptionBoolean
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v InitialSessionConfigOptionBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[initialSessionConfigOptionBooleanFields]{"boolean", initialSessionConfigOptionBooleanFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *InitialSessionConfigOptionBoolean) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "InitialSessionConfigOptionBoolean", "boolean", (*initialSessionConfigOptionBooleanFields)(v))
+}
+
+// InitialSessionConfigOptionCustom holds InitialSessionConfigOption values with an unrecognized "type", keeping every member.
+type InitialSessionConfigOptionCustom struct {
+	// Custom or future session configuration option value type.
+	//
+	// Values beginning with `_` are reserved for implementation-specific
+	// extensions. Unknown values that do not begin with `_` are reserved for
+	// future ACP variants.
+	Type string `json:"type"`
+	// Raw value payload for the custom or future value type.
+	Value jsontext.Value `json:"value"`
+	// The ID of the configuration option to set.
+	ConfigID SessionConfigID `json:"configId"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta                 Meta                      `json:"_meta,omitzero"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (InitialSessionConfigOptionCustom) initialSessionConfigOptionVariant() {}
+
+// Tag returns the "type" member.
+func (v InitialSessionConfigOptionCustom) Tag() string { return v.Type }
+
 // ReplayFrom is a tagged union discriminated by the "type" member. Use [NewReplayFrom]
 // or a type switch on [ReplayFrom.Variant] to work with it. The zero value holds no
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
@@ -6342,6 +6573,7 @@ var unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalSessionUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalPlanUpdateContentVariant),
 	json.UnmarshalFromFunc(unmarshalMCPServerVariant),
+	json.UnmarshalFromFunc(unmarshalInitialSessionConfigOptionVariant),
 	json.UnmarshalFromFunc(unmarshalReplayFromVariant),
 	json.UnmarshalFromFunc(unmarshalSetSessionConfigOptionRequestVariant),
 	json.UnmarshalFromFunc(unmarshalRequestPermissionOutcomeVariant),

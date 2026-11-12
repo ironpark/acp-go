@@ -36,6 +36,7 @@ The next two tables describe **ACP v1**.
 | `session/archive`, `session/unarchive` | `SessionArchiver` (unstable) |
 | `session/status` | `SessionStatusReader` (unstable) |
 | `session/set_title` | `SessionTitleSetter` (unstable) |
+| `session/options` | `SessionOptionsReader` (unstable) |
 | `session/set_mode` | `SessionModeSetter` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
@@ -70,6 +71,7 @@ The next two tables describe **ACP v1**.
 | `session/archive`, `session/unarchive` | `SessionArchiver` (unstable) |
 | `session/status` | `SessionStatusReader` (unstable) |
 | `session/set_title` | `SessionTitleSetter` (unstable) |
+| `session/options` | `SessionOptionsReader` (unstable) |
 | `tool_call/cancel` | `ToolCallCanceller` (provided by `SessionManager`) |
 | `terminal/cancel` | `TerminalCanceller` (provided by `SessionManager`) |
 | `session/set_config_option` | `SessionConfigOptionSetter` |

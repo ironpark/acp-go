@@ -440,8 +440,6 @@ type SessionCapabilities struct {
 	//
 	// Optional. Omitted or `null` both mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports `systemPrompt` in `append` mode.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
 	SystemPrompt *SessionSystemPromptCapabilities `json:"systemPrompt,omitzero"`
 	// Whether the agent supports `session/fork`.
 	//
@@ -465,6 +463,14 @@ type SessionCapabilities struct {
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	Status *SessionStatusCapabilities `json:"status,omitzero"`
+	// Whether the agent supports `session/options`.
+	//
+	// Optional. Omitted or `null` both mean the agent does not advertise support.
+	// Supplying `{}` means the agent supports `session/options` and accepts initial
+	// config option values on session setup requests.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Options *SessionOptionsCapabilities `json:"options,omitzero"`
 	// Whether the agent supports `session/set_title`.
 	//
 	// Agents report titles through `session/list` and `session_info_update` without this
@@ -516,8 +522,6 @@ type SessionAdditionalDirectoriesCapabilities struct {
 //
 // Supplying `{}` means the agent supports `systemPrompt` on session lifecycle
 // requests in `append` mode.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionSystemPromptCapabilities struct {
 	// Delivery modes the agent supports in addition to `append`.
 	//
@@ -530,8 +534,6 @@ type SessionSystemPromptCapabilities struct {
 //
 // `append` has no entry because every agent advertising
 // `sessionCapabilities.systemPrompt` supports it.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionSystemPromptModeCapabilities struct {
 	// Whether the agent supports `override` mode.
 	//
@@ -546,8 +548,6 @@ type SessionSystemPromptModeCapabilities struct {
 //
 // Supplying `{}` means the agent supports replacing its built-in default
 // instructions with the client-provided system prompt.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionSystemPromptOverrideCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
@@ -577,6 +577,16 @@ type SessionArchiveCapabilities struct {
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionStatusCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for the `session/options` method.
+//
+// Supplying `{}` means the agent supports `session/options` and accepts initial config
+// option values on session setup requests.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionOptionsCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -744,8 +754,8 @@ type LogoutResponse struct {
 type AuthStatusResponse struct {
 	// Whether the agent can start sessions without the user signing in first.
 	//
-	// This is the only field clients should act on. Clients MUST treat values they
-	// do not recognize as `unknown`.
+	// Clients use this field to decide whether sign-in is needed. Clients MUST treat
+	// values they do not recognize as `unknown`.
 	State AuthState `json:"state"`
 	// The accounts the agent has configured, for display.
 	//
@@ -768,6 +778,11 @@ type AuthAccount struct {
 	// Human-readable name for the account, suitable for display on its own,
 	// for example `Claude Max`, `OpenAI API key`, or `Vertex AI`.
 	Label string `json:"label"`
+	// Short text shown with the label, such as the credential source, for example
+	// `API key helper`. MUST NOT contain credentials.
+	//
+	// Optional. Omitted and `null` are equivalent and mean no description is reported.
+	Description *string `json:"description,omitzero"`
 	// Whether the agent currently uses this account by default.
 	//
 	// Several accounts MAY be active, for example one per provider.
@@ -961,6 +976,28 @@ type SessionStatusResponse struct {
 	// Required. Clients MUST treat a value they do not recognize as `saved`.
 	Status SessionStatus `json:"status"`
 	Meta   Meta          `json:"_meta,omitzero"`
+}
+
+// SessionOptionsResponse is a response from `session/options`.
+//
+// The result is a snapshot. The options a session actually starts with are the ones in
+// the session setup response.
+//
+// Agents only return `type: "boolean"` options when the Client advertises
+// `sessionCapabilities.configOptions.boolean`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionOptionsResponse struct {
+	// The mode state the session would start with, if the Agent supports modes.
+	//
+	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/v1/draft/session-modes)
+	Modes *SessionModeState `json:"modes,omitzero"`
+	// The config options the session would start with, with the same rules as on
+	// `NewSessionResponse`.
+	//
+	// Optional. Omitted, `null`, or empty means no config options are advertised.
+	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
+	Meta          Meta                  `json:"_meta,omitzero"`
 }
 
 // SetSessionTitleResponse is a response from setting the title of a session.
@@ -1176,8 +1213,8 @@ type CompleteElicitationNotification struct {
 type AuthStatusUpdateNotification struct {
 	// Whether the agent can start sessions without the user signing in first.
 	//
-	// This is the only field clients should act on. Clients MUST treat values they
-	// do not recognize as `unknown`.
+	// Clients use this field to decide whether sign-in is needed. Clients MUST treat
+	// values they do not recognize as `unknown`.
 	State AuthState `json:"state"`
 	// The accounts the agent has configured, for display.
 	//
@@ -1470,10 +1507,22 @@ type NewSessionRequest struct {
 	// Optional. Omitted and `null` are equivalent and mean the Agent uses its
 	// own default instructions. Clients MUST only send this when the Agent
 	// advertises `sessionCapabilities.systemPrompt`.
+	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
+	// Initial values for the session's config options.
+	//
+	// Optional. Omitted and `null` are equivalent to an empty list. Clients MUST only send
+	// this when the Agent advertises `sessionCapabilities.options`.
+	//
+	// The Agent applies the entries in list order, as if the Client had called
+	// `session/set_config_option` for each entry after the session was set up. Malformed
+	// entries and duplicate `configId` values fail the request with `-32602`. The Agent MUST
+	// ignore an entry whose `configId` is unknown, whose `type` does not match the option,
+	// or whose value is not allowed when it is applied. The `configOptions` in the response contain the values the session actually
+	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
-	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
-	Meta         Meta          `json:"_meta,omitzero"`
+	ConfigOptions []InitialSessionConfigOption `json:"configOptions,omitzero"`
+	Meta          Meta                         `json:"_meta,omitzero"`
 }
 
 // HTTPHeader is an HTTP header to set when making requests to the MCP server.
@@ -1503,10 +1552,7 @@ type MCPServerStdio struct {
 // Clients MUST only send this when the Agent advertises
 // `sessionCapabilities.systemPrompt`. Agents that cannot apply it, for example
 // because of an unadvertised mode or an unsupported content block type, MUST
-// return an error instead of creating, loading, resuming, or forking the
-// session.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
+// return an error instead of creating, loading, or resuming the session.
 type SystemPrompt struct {
 	// How the Agent combines `content` with its own instructions.
 	//
@@ -1521,7 +1567,7 @@ type SystemPrompt struct {
 	// blocks they do not support.
 	//
 	// Clients MUST NOT send an empty array. Agents MAY reject one with
-	// `-32602` without creating, loading, resuming, or forking the session.
+	// `-32602` without creating, loading, or resuming the session.
 	Content []ContentBlock `json:"content"`
 	Meta    Meta           `json:"_meta,omitzero"`
 }
@@ -1554,10 +1600,22 @@ type LoadSessionRequest struct {
 	// Clients MUST only send this when the Agent advertises
 	// `sessionCapabilities.systemPrompt`, and SHOULD send the same value they used
 	// when the session was created.
+	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
+	// Initial values for the session's config options.
+	//
+	// Optional. Omitted and `null` are equivalent to an empty list. Clients MUST only send
+	// this when the Agent advertises `sessionCapabilities.options`.
+	//
+	// The Agent applies the entries in list order, as if the Client had called
+	// `session/set_config_option` for each entry after the session was set up. Malformed
+	// entries and duplicate `configId` values fail the request with `-32602`. The Agent MUST
+	// ignore an entry whose `configId` is unknown, whose `type` does not match the option,
+	// or whose value is not allowed when it is applied. The `configOptions` in the response contain the values the session actually
+	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
-	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
-	Meta         Meta          `json:"_meta,omitzero"`
+	ConfigOptions []InitialSessionConfigOption `json:"configOptions,omitzero"`
+	Meta          Meta                         `json:"_meta,omitzero"`
 }
 
 // Request parameters for listing existing sessions.
@@ -1616,8 +1674,6 @@ type ForkSessionRequest struct {
 	// instructions. Clients MUST only send this when the Agent advertises
 	// `sessionCapabilities.systemPrompt`, and SHOULD send the same value they used
 	// for the source session.
-	//
-	// Experimental: not part of the spec yet; it may change or be removed.
 	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
 	Meta         Meta          `json:"_meta,omitzero"`
 }
@@ -1668,6 +1724,35 @@ type SessionStatusRequest struct {
 	// The ID of the session to check.
 	SessionID SessionID `json:"sessionId"`
 	Meta      Meta      `json:"_meta,omitzero"`
+}
+
+// Request parameters for `session/options`, which returns the config options a session
+// would start with, without creating or resuming a session.
+//
+// Only available if the Agent supports the `sessionCapabilities.options` capability.
+//
+// `session/options` MUST NOT create or resume a session, send `session/update`
+// notifications, add an entry to `session/list`, or change an existing session. Agents
+// SHOULD NOT connect to MCP servers to answer it.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionOptionsRequest struct {
+	// The working directory to resolve options for. Must be an absolute path.
+	Cwd string `json:"cwd"`
+	// Additional workspace roots to resolve options for. Each path must be absolute.
+	//
+	// Optional. Omitted and `null` are equivalent to an empty list.
+	AdditionalDirectories []string `json:"additionalDirectories,omitzero"`
+	// The session to resolve options for.
+	//
+	// Optional. Omitted and `null` are equivalent and mean a new session. When present,
+	// the Agent returns what `session/load` or `session/resume` with the same `cwd` and
+	// `additionalDirectories` would return, with the same `cwd` rules. A session the
+	// Agent does not know gets `-32002`.
+	// Clients MUST only send this when the Agent supports `session/load` (`loadSession`)
+	// or `session/resume` (`sessionCapabilities.resume`).
+	SessionID *SessionID `json:"sessionId,omitzero"`
+	Meta      Meta       `json:"_meta,omitzero"`
 }
 
 // Request parameters for setting the title of a session.
@@ -1721,10 +1806,22 @@ type ResumeSessionRequest struct {
 	// Clients MUST only send this when the Agent advertises
 	// `sessionCapabilities.systemPrompt`, and SHOULD send the same value they used
 	// when the session was created.
+	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
+	// Initial values for the session's config options.
+	//
+	// Optional. Omitted and `null` are equivalent to an empty list. Clients MUST only send
+	// this when the Agent advertises `sessionCapabilities.options`.
+	//
+	// The Agent applies the entries in list order, as if the Client had called
+	// `session/set_config_option` for each entry after the session was set up. Malformed
+	// entries and duplicate `configId` values fail the request with `-32602`. The Agent MUST
+	// ignore an entry whose `configId` is unknown, whose `type` does not match the option,
+	// or whose value is not allowed when it is applied. The `configOptions` in the response contain the values the session actually
+	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
-	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
-	Meta         Meta          `json:"_meta,omitzero"`
+	ConfigOptions []InitialSessionConfigOption `json:"configOptions,omitzero"`
+	Meta          Meta                         `json:"_meta,omitzero"`
 }
 
 // Request parameters for closing an active session.

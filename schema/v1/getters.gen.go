@@ -85,6 +85,15 @@ func (x *Annotations) GetPriority() float64 {
 	return zero
 }
 
+// GetDescription returns the value of Description, or the zero value if x or Description is nil.
+func (x *AuthAccount) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	var zero string
+	return zero
+}
+
 // GetActive returns the value of Active, or the zero value if x or Active is nil.
 func (x *AuthAccount) GetActive() bool {
 	if x != nil && x.Active != nil {
@@ -1073,6 +1082,14 @@ func (x *SessionCapabilities) GetStatus() *SessionStatusCapabilities {
 	return x.Status
 }
 
+// GetOptions returns Options, or nil if x is nil.
+func (x *SessionCapabilities) GetOptions() *SessionOptionsCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Options
+}
+
 // GetTitle returns Title, or nil if x is nil.
 func (x *SessionCapabilities) GetTitle() *SessionTitleCapabilities {
 	if x == nil {
@@ -1184,6 +1201,23 @@ func (x *SessionMode) GetDescription() string {
 	}
 	var zero string
 	return zero
+}
+
+// GetSessionID returns the value of SessionID, or the zero value if x or SessionID is nil.
+func (x *SessionOptionsRequest) GetSessionID() SessionID {
+	if x != nil && x.SessionID != nil {
+		return *x.SessionID
+	}
+	var zero SessionID
+	return zero
+}
+
+// GetModes returns Modes, or nil if x is nil.
+func (x *SessionOptionsResponse) GetModes() *SessionModeState {
+	if x == nil {
+		return nil
+	}
+	return x.Modes
 }
 
 // GetMode returns Mode, or nil if x is nil.

@@ -36,6 +36,7 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `session/archive`, `session/unarchive` | `SessionArchiver` (unstable) |
 | `session/status` | `SessionStatusReader` (unstable) |
 | `session/set_title` | `SessionTitleSetter` (unstable) |
+| `session/options` | `SessionOptionsReader` (unstable) |
 | `session/set_mode` | `SessionModeSetter` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
@@ -70,6 +71,7 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 | `session/archive`, `session/unarchive` | `SessionArchiver` (unstable) |
 | `session/status` | `SessionStatusReader` (unstable) |
 | `session/set_title` | `SessionTitleSetter` (unstable) |
+| `session/options` | `SessionOptionsReader` (unstable) |
 | `tool_call/cancel` | `ToolCallCanceller` (`SessionManager` 제공) |
 | `terminal/cancel` | `TerminalCanceller` (`SessionManager` 제공) |
 | `session/set_config_option` | `SessionConfigOptionSetter` |

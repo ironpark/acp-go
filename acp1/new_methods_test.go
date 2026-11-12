@@ -36,6 +36,15 @@ func (a *extrasAgent) GetSessionStatus(ctx context.Context, params *acp1.Session
 	return &acp1.SessionStatusResponse{Status: acp1.SessionStatusSaved}, nil
 }
 
+func (a *extrasAgent) GetSessionOptions(ctx context.Context, params *acp1.SessionOptionsRequest) (*acp1.SessionOptionsResponse, error) {
+	if params.SessionID != nil {
+		if _, err := a.Lookup(ctx, *params.SessionID); err != nil {
+			return nil, err
+		}
+	}
+	return &acp1.SessionOptionsResponse{Modes: &acp1.SessionModeState{CurrentModeID: "ask"}}, nil
+}
+
 func (a *extrasAgent) GetAuthStatus(context.Context, *acp1.AuthStatusRequest) (*acp1.AuthStatusResponse, error) {
 	return &acp1.AuthStatusResponse{State: acp1.AuthStateNotRequired}, nil
 }
@@ -50,6 +59,20 @@ func TestClientSessionExtras(t *testing.T) {
 	}, &acp1test.Client{})
 
 	caps := acp1.CapabilitiesOf(agent)
+	if caps.GetSessionCapabilities().GetOptions() == nil {
+		t.Error("sessionCapabilities.options not advertised for a SessionOptionsReader")
+	}
+	if options, err := conn.GetSessionOptions(ctx, &acp1.SessionOptionsRequest{Cwd: "/tmp"}); err != nil || options.GetModes().CurrentModeID != "ask" {
+		t.Errorf("session/options = %+v, %v", options, err)
+	}
+	missing := acp1.SessionID("session_missing")
+	_, err := conn.GetSessionOptions(ctx, &acp1.SessionOptionsRequest{Cwd: "/tmp", SessionID: &missing})
+	if id, ok := acp.SessionNotFoundID(err); !ok || id != string(missing) {
+		t.Errorf("options of an unknown session: %v", err)
+	}
+	if content := acp1.ToolSession("session_sub"); content.Tag() != "session" {
+		t.Errorf("ToolSession tag = %q", content.Tag())
+	}
 	if caps.GetSessionCapabilities().GetTitle() == nil || caps.GetSessionCapabilities().GetArchive() == nil ||
 		caps.GetSessionCapabilities().GetStatus() == nil || caps.GetAuth().GetStatus() == nil {
 		t.Errorf("capabilities = %+v", caps)
