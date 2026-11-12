@@ -278,7 +278,12 @@ func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing "+SessionIDHeader, http.StatusBadRequest)
 		return
 	}
-	if session != "" && !c.hasSession(session) {
+	// session/load and session/resume may name a session this connection does
+	// not have yet: they are what attaches it, and the RFD's reconnect flow
+	// sends them with the header after opening the session stream. Every
+	// other message needs the session established; a stream opened ahead of
+	// its load is not enough.
+	if session != "" && !reattachMethods[e.Method] && !c.hasEstablishedSession(session) {
 		http.Error(w, "unknown session", http.StatusNotFound)
 		return
 	}
@@ -342,9 +347,14 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out := c.stream(r.Header.Get(SessionIDHeader))
+	// A client that reconnects opens the session stream before it sends
+	// session/load or session/resume, so a session the connection does not
+	// have yet gets a provisional stream, which goes again with this GET
+	// unless the load arrived.
+	session := r.Header.Get(SessionIDHeader)
+	out := c.streamFor(session)
 	if out == nil {
-		http.Error(w, "unknown session", http.StatusNotFound)
+		http.Error(w, "too many session streams await a session/load", http.StatusConflict)
 		return
 	}
 	flusher, ok := w.(http.Flusher)
@@ -360,6 +370,15 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer out.detach()
+	if session != "" {
+		defer func() {
+			select {
+			case <-replaced: // a newer GET reads the stream now
+			default:
+				c.releaseProvisional(session, out)
+			}
+		}()
+	}
 	if out == c.connStream {
 		c.streamOpened()
 		defer c.streamClosed()
@@ -439,8 +458,8 @@ type httpServerConn struct {
 	connStream    *outbound
 	sessions      map[string]*outbound
 	pendingRoutes map[string]string // request id -> session its reply goes to
-	pendingLoads  map[string]string // session/load request id -> session
-	provisional   map[string]bool   // session streams opened for a load in flight
+	pendingLoads  map[string]string // session/load or resume request id -> session
+	provisional   map[string]bool   // session streams opened ahead of a load's answer
 }
 
 func newHTTPServerConn(id, initID string) *httpServerConn {
@@ -497,20 +516,63 @@ func (c *httpServerConn) touch() {
 	}
 }
 
-func (c *httpServerConn) hasSession(id string) bool {
+// hasEstablishedSession reports a session that takes session-scoped
+// messages: one the agent created, or attached by answering a session/load or
+// session/resume. A provisional stream is not one yet.
+func (c *httpServerConn) hasEstablishedSession(id string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.sessions[id] != nil
+	return c.sessions[id] != nil && !c.provisional[id]
 }
 
-// stream returns the connection stream for "", or the session's stream.
-func (c *httpServerConn) stream(session string) *outbound {
+// maxProvisionalStreams bounds the session streams a connection holds for
+// sessions it has not attached, so a client cannot make it buffer for ids
+// without end. Reconnecting clients open one per session they restore.
+const maxProvisionalStreams = 64
+
+// streamFor returns the stream a GET reads: the connection stream for "", the
+// session's stream, or a new provisional one for a session the connection
+// does not have yet. It returns nil once maxProvisionalStreams are held.
+func (c *httpServerConn) streamFor(session string) *outbound {
 	if session == "" {
 		return c.connStream
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.sessions[session]
+	if out := c.sessions[session]; out != nil {
+		return out
+	}
+	if len(c.provisional) >= maxProvisionalStreams {
+		return nil
+	}
+	return c.addProvisional(session)
+}
+
+// addProvisional gives session a stream ahead of its load or resume; c.mu
+// must be held.
+func (c *httpServerConn) addProvisional(session string) *outbound {
+	out := newOutbound()
+	c.sessions[session] = out
+	c.provisional[session] = true
+	return out
+}
+
+// releaseProvisional drops the stream out of a session that is still
+// provisional when the GET reading it ends, unless its load or resume is in
+// flight, whose answer decides instead.
+func (c *httpServerConn) releaseProvisional(session string, out *outbound) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.sessions[session] == out && c.provisional[session] && !c.loading(session) {
+		c.dropProvisional(session)
+	}
+}
+
+// dropProvisional closes and forgets a provisional stream; c.mu must be held.
+func (c *httpServerConn) dropProvisional(session string) {
+	delete(c.provisional, session)
+	c.sessions[session].close()
+	delete(c.sessions, session)
 }
 
 // deliver hands a POSTed message to the agent, first noting where the reply
@@ -519,12 +581,11 @@ func (c *httpServerConn) deliver(ctx context.Context, msg jsontext.Value, e enve
 	if e.isRequest() {
 		if session := e.paramsSession(); session != "" {
 			c.mu.Lock()
-			if e.Method == loadSessionMethod {
+			if reattachMethods[e.Method] {
 				c.pendingLoads[e.idKey()] = session
 				if c.sessions[session] == nil {
 					// Let the client open the stream while the replay runs.
-					c.sessions[session] = newOutbound()
-					c.provisional[session] = true
+					c.addProvisional(session)
 				}
 			} else {
 				c.pendingRoutes[e.idKey()] = session
@@ -586,17 +647,15 @@ func (c *httpServerConn) route(e envelope) *outbound {
 			if len(e.Result) > 0 {
 				delete(c.provisional, loaded)
 			} else if c.provisional[loaded] && !c.loading(loaded) {
-				delete(c.provisional, loaded)
-				c.sessions[loaded].close()
-				delete(c.sessions, loaded)
+				c.dropProvisional(loaded)
 			}
 			return c.connStream
 		}
 		session = c.pendingRoutes[key]
 		delete(c.pendingRoutes, key)
 		if created := e.resultSession(); created != "" {
-			// session/new, fork or resume: the client learns the id from this
-			// reply on the connection stream, then opens the session stream.
+			// session/new or fork: the client learns the id from this reply
+			// on the connection stream, then opens the session stream.
 			if c.sessions[created] == nil {
 				c.sessions[created] = newOutbound()
 			}
@@ -604,7 +663,8 @@ func (c *httpServerConn) route(e envelope) *outbound {
 			return c.connStream
 		}
 	}
-	// A load's replay stays on the connection stream, ordered with its reply.
+	// The replay of a load or resume stays on the connection stream, ordered
+	// with its reply.
 	if session == "" || c.loading(session) {
 		return c.connStream
 	}
@@ -614,7 +674,8 @@ func (c *httpServerConn) route(e envelope) *outbound {
 	return c.connStream
 }
 
-// loading reports whether a session/load for session awaits its reply.
+// loading reports whether a session/load or session/resume for session
+// awaits its reply; c.mu must be held.
 func (c *httpServerConn) loading(session string) bool {
 	for _, s := range c.pendingLoads {
 		if s == session {
