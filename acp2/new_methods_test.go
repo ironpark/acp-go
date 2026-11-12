@@ -17,6 +17,16 @@ import (
 type extrasAgent struct {
 	helperAgent
 	archived chan acp2.SessionID
+	initial  chan []acp2.InitialSessionConfigOption // of each session/new
+}
+
+func (a *extrasAgent) GetSessionOptions(ctx context.Context, params *acp2.SessionOptionsRequest) (*acp2.SessionOptionsResponse, error) {
+	if params.SessionID != nil {
+		if _, err := a.Lookup(ctx, *params.SessionID); err != nil {
+			return nil, err
+		}
+	}
+	return &acp2.SessionOptionsResponse{AvailableCommands: commandSession{}.AvailableCommands()}, nil
 }
 
 func (a *extrasAgent) SetSessionTitle(_ context.Context, params *acp2.SetSessionTitleRequest) (*acp2.SetSessionTitleResponse, error) {
@@ -56,9 +66,10 @@ func (c *authStatusClient) AuthStatusUpdate(_ context.Context, params *acp2.Auth
 
 func connectExtras(t *testing.T, client acp2.Client) (*extrasAgent, *acp2.ClientSideConnection, *acp2.AgentSideConnection) {
 	t.Helper()
-	agent := &extrasAgent{archived: make(chan acp2.SessionID, 1)}
+	agent := &extrasAgent{archived: make(chan acp2.SessionID, 1), initial: make(chan []acp2.InitialSessionConfigOption, 8)}
 	agent.SessionManager = acp2.NewSessionManager(acp2.NewMemoryStore[commandSession](),
-		func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, commandSession, error) {
+		func(_ context.Context, params *acp2.NewSessionRequest) (acp2.SessionID, commandSession, error) {
+			agent.initial <- params.ConfigOptions
 			return acp2.GenerateSessionID(), commandSession{}, nil
 		})
 	var agentConn *acp2.AgentSideConnection
@@ -232,5 +243,52 @@ func waitFor(t *testing.T, ctx context.Context, cond func() bool) {
 			t.Fatal("condition not met")
 		case <-time.After(5 * time.Millisecond):
 		}
+	}
+}
+
+func TestSessionOptions(t *testing.T) {
+	ctx := testContext(t)
+	agent, conn, _ := connectExtras(t, &acp2test.Client{})
+	if acp2.CapabilitiesOf(agent).GetSession().GetOptions() == nil {
+		t.Error("session.options not advertised for a SessionOptionsReader")
+	}
+
+	// Asking creates no session.
+	options, err := conn.GetSessionOptions(ctx, &acp2.SessionOptionsRequest{Cwd: "/tmp"})
+	if err != nil || len(options.AvailableCommands) != 1 {
+		t.Fatalf("session/options = %+v, %v", options, err)
+	}
+	if listed, err := conn.ListSessions(ctx, &acp2.ListSessionsRequest{}); err != nil || len(listed.Sessions) != 0 {
+		t.Errorf("sessions after session/options = %+v, %v", listed, err)
+	}
+	missing := acp2.SessionID("session_missing")
+	_, err = conn.GetSessionOptions(ctx, &acp2.SessionOptionsRequest{Cwd: "/tmp", SessionID: &missing})
+	if id, ok := acp.SessionNotFoundID(err); !ok || id != string(missing) {
+		t.Errorf("options of an unknown session: %v", err)
+	}
+
+	// The initial values of a session setup request reach the agent.
+	if _, err := conn.NewSession(ctx, &acp2.NewSessionRequest{Cwd: "/tmp", ConfigOptions: []acp2.InitialSessionConfigOption{
+		acp2.NewInitialSessionConfigOption(acp2.InitialSessionConfigOptionBoolean{ConfigID: "verbose", Value: true}),
+		acp2.NewInitialSessionConfigOption(acp2.InitialSessionConfigOptionID{ConfigID: "model", Value: "fast"}),
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	initial := <-agent.initial
+	if len(initial) != 2 {
+		t.Fatalf("initial config options = %+v", initial)
+	}
+	if verbose, ok := initial[0].As[acp2.InitialSessionConfigOptionBoolean](); !ok || verbose.ConfigID != "verbose" || !verbose.Value {
+		t.Errorf("first initial option = %+v", initial[0])
+	}
+	if model, ok := initial[1].As[acp2.InitialSessionConfigOptionID](); !ok || model.Value != "fast" {
+		t.Errorf("second initial option = %+v", initial[1])
+	}
+}
+
+func TestToolSession(t *testing.T) {
+	content := acp2.ToolSession("session_sub")
+	if ref, ok := content.As[acp2.ToolCallContentSession](); !ok || ref.SessionID != "session_sub" || content.Tag() != "session" {
+		t.Errorf("ToolSession = %+v (tag %q)", content, content.Tag())
 	}
 }

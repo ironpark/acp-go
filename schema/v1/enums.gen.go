@@ -376,8 +376,6 @@ func (v CompactionStatus) Known() bool {
 // Unknown modes are preserved so they can be stored,
 // proxied, or forwarded. An Agent MUST return an error for a mode it does not
 // support rather than treating it as `append` or `override`.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SystemPromptMode string
 
 const (

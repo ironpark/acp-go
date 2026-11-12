@@ -29,6 +29,7 @@ type (
 	ArchiveSessionResponse          = schema.ArchiveSessionResponse
 	UnarchiveSessionResponse        = schema.UnarchiveSessionResponse
 	SessionStatusResponse           = schema.SessionStatusResponse
+	SessionOptionsResponse          = schema.SessionOptionsResponse
 	SetSessionTitleResponse         = schema.SetSessionTitleResponse
 	ResumeSessionResponse           = schema.ResumeSessionResponse
 	CloseSessionResponse            = schema.CloseSessionResponse
@@ -55,6 +56,7 @@ type (
 	ArchiveSessionRequest           = schema.ArchiveSessionRequest
 	UnarchiveSessionRequest         = schema.UnarchiveSessionRequest
 	SessionStatusRequest            = schema.SessionStatusRequest
+	SessionOptionsRequest           = schema.SessionOptionsRequest
 	SetSessionTitleRequest          = schema.SetSessionTitleRequest
 	ResumeSessionRequest            = schema.ResumeSessionRequest
 	CloseSessionRequest             = schema.CloseSessionRequest
@@ -193,6 +195,12 @@ type (
 	IdleStateUpdateVariant                   = schema.IdleStateUpdateVariant
 	IdleStateUpdateVariants                  = schema.IdleStateUpdateVariants
 	Implementation                           = schema.Implementation
+	InitialSessionConfigOption               = schema.InitialSessionConfigOption
+	InitialSessionConfigOptionBoolean        = schema.InitialSessionConfigOptionBoolean
+	InitialSessionConfigOptionCustom         = schema.InitialSessionConfigOptionCustom
+	InitialSessionConfigOptionID             = schema.InitialSessionConfigOptionID
+	InitialSessionConfigOptionVariant        = schema.InitialSessionConfigOptionVariant
+	InitialSessionConfigOptionVariants       = schema.InitialSessionConfigOptionVariants
 	LLMProtocol                              = schema.LLMProtocol
 	MCPACPCapabilities                       = schema.MCPACPCapabilities
 	MCPCapabilities                          = schema.MCPCapabilities
@@ -296,6 +304,7 @@ type (
 	SessionInfo                              = schema.SessionInfo
 	SessionListCursor                        = schema.SessionListCursor
 	SessionNotFoundErrorData                 = schema.SessionNotFoundErrorData
+	SessionOptionsCapabilities               = schema.SessionOptionsCapabilities
 	SessionStatus                            = schema.SessionStatus
 	SessionStatusCapabilities                = schema.SessionStatusCapabilities
 	SessionSystemPromptCapabilities          = schema.SessionSystemPromptCapabilities
@@ -361,6 +370,7 @@ type (
 	ToolCallContentContent                   = schema.ToolCallContentContent
 	ToolCallContentCustom                    = schema.ToolCallContentCustom
 	ToolCallContentDiff                      = schema.ToolCallContentDiff
+	ToolCallContentSession                   = schema.ToolCallContentSession
 	ToolCallContentTerminal                  = schema.ToolCallContentTerminal
 	ToolCallContentVariant                   = schema.ToolCallContentVariant
 	ToolCallContentVariants                  = schema.ToolCallContentVariants
@@ -510,6 +520,11 @@ func NewErrorData[T ErrorDataAlternative](value T) (ErrorData, error) {
 // NewIdleStateUpdate wraps a variant.
 func NewIdleStateUpdate[T IdleStateUpdateVariants](v T) IdleStateUpdate {
 	return schema.NewIdleStateUpdate(v)
+}
+
+// NewInitialSessionConfigOption wraps a variant.
+func NewInitialSessionConfigOption[T InitialSessionConfigOptionVariants](v T) InitialSessionConfigOption {
+	return schema.NewInitialSessionConfigOption(v)
 }
 
 // NewMCPServer wraps a variant.

@@ -20,6 +20,7 @@ const (
 	AgentMethodsSessionArchive         = "session/archive"
 	AgentMethodsSessionUnarchive       = "session/unarchive"
 	AgentMethodsSessionStatus          = "session/status"
+	AgentMethodsSessionOptions         = "session/options"
 	AgentMethodsSessionSetTitle        = "session/set_title"
 	AgentMethodsSessionResume          = "session/resume"
 	AgentMethodsSessionClose           = "session/close"

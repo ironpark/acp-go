@@ -58,3 +58,12 @@ func ToolDiff(path string, oldText *string, newText string) ToolCallContent {
 func ToolTerminal(id TerminalID) ToolCallContent {
 	return schema.NewToolCallContent(schema.ToolCallContentTerminal{TerminalID: id})
 }
+
+// ToolSession shows, in a tool call, another session it works on, such as a
+// subagent it created or waits for. The client must already know the session,
+// from session setup or a subagent update; the reference is for display only.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func ToolSession(id SessionID) ToolCallContent {
+	return schema.NewToolCallContent(schema.ToolCallContentSession{SessionID: id})
+}

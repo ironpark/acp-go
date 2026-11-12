@@ -37,6 +37,7 @@ type (
 	ArchiveSessionResponse          = schema.ArchiveSessionResponse
 	UnarchiveSessionResponse        = schema.UnarchiveSessionResponse
 	SessionStatusResponse           = schema.SessionStatusResponse
+	SessionOptionsResponse          = schema.SessionOptionsResponse
 	SetSessionTitleResponse         = schema.SetSessionTitleResponse
 	ResumeSessionResponse           = schema.ResumeSessionResponse
 	CloseSessionResponse            = schema.CloseSessionResponse
@@ -63,6 +64,7 @@ type (
 	ArchiveSessionRequest           = schema.ArchiveSessionRequest
 	UnarchiveSessionRequest         = schema.UnarchiveSessionRequest
 	SessionStatusRequest            = schema.SessionStatusRequest
+	SessionOptionsRequest           = schema.SessionOptionsRequest
 	SetSessionTitleRequest          = schema.SetSessionTitleRequest
 	ResumeSessionRequest            = schema.ResumeSessionRequest
 	CloseSessionRequest             = schema.CloseSessionRequest
@@ -178,6 +180,11 @@ type (
 	IdleStateUpdateVariant                   = schema.IdleStateUpdateVariant
 	IdleStateUpdateVariants                  = schema.IdleStateUpdateVariants
 	Implementation                           = schema.Implementation
+	InitialSessionConfigOption               = schema.InitialSessionConfigOption
+	InitialSessionConfigOptionBoolean        = schema.InitialSessionConfigOptionBoolean
+	InitialSessionConfigOptionUntagged       = schema.InitialSessionConfigOptionUntagged
+	InitialSessionConfigOptionVariant        = schema.InitialSessionConfigOptionVariant
+	InitialSessionConfigOptionVariants       = schema.InitialSessionConfigOptionVariants
 	LLMProtocol                              = schema.LLMProtocol
 	LogoutCapabilities                       = schema.LogoutCapabilities
 	MCPCapabilities                          = schema.MCPCapabilities
@@ -268,6 +275,7 @@ type (
 	SessionMode                              = schema.SessionMode
 	SessionModeID                            = schema.SessionModeID
 	SessionModeState                         = schema.SessionModeState
+	SessionOptionsCapabilities               = schema.SessionOptionsCapabilities
 	SessionResumeCapabilities                = schema.SessionResumeCapabilities
 	SessionStatus                            = schema.SessionStatus
 	SessionStatusCapabilities                = schema.SessionStatusCapabilities
@@ -323,6 +331,7 @@ type (
 	ToolCallContent                          = schema.ToolCallContent
 	ToolCallContentContent                   = schema.ToolCallContentContent
 	ToolCallContentDiff                      = schema.ToolCallContentDiff
+	ToolCallContentSession                   = schema.ToolCallContentSession
 	ToolCallContentTerminal                  = schema.ToolCallContentTerminal
 	ToolCallContentUnknown                   = schema.ToolCallContentUnknown
 	ToolCallContentVariant                   = schema.ToolCallContentVariant
@@ -444,6 +453,11 @@ func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T)
 // NewIdleStateUpdate wraps a variant.
 func NewIdleStateUpdate[T IdleStateUpdateVariants](v T) IdleStateUpdate {
 	return schema.NewIdleStateUpdate(v)
+}
+
+// NewInitialSessionConfigOption wraps a variant.
+func NewInitialSessionConfigOption[T InitialSessionConfigOptionVariants](v T) InitialSessionConfigOption {
+	return schema.NewInitialSessionConfigOption(v)
 }
 
 // NewMCPServer wraps a variant.

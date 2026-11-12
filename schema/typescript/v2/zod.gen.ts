@@ -446,6 +446,29 @@ export const zTerminal = z.object({
 });
 
 /**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * A display-only reference to another session that this tool call operates on,
+ * such as a subagent it created, delegated to, or is waiting on.
+ *
+ * The referenced session must already be known to the Client through ordinary
+ * session setup or a `subagent_update` announcement. The reference does not
+ * establish ownership, grant any Client-initiated controls, or report that the
+ * referenced session received or finished any work.
+ *
+ * @experimental
+ */
+export const zSessionReference = z.object({
+  sessionId: zSessionId,
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
  * Content produced by a tool call.
  *
  * Tool calls can produce different types of content including standard
@@ -474,16 +497,21 @@ export const zToolCallContent = preserveCustomPayload(
         type: z.literal("terminal"),
       }),
     ),
+    zSessionReference.and(
+      z.object({
+        type: z.literal("session"),
+      }),
+    ),
     excludeKnownTags(
       z.object({
         type: z.string(),
       }),
       "type",
-      ["content", "diff", "terminal"],
+      ["content", "diff", "session", "terminal"],
     ),
   ]),
   "type",
-  ["content", "diff", "terminal"],
+  ["content", "diff", "session", "terminal"],
 );
 
 /**
@@ -1281,16 +1309,10 @@ export const zSessionAdditionalDirectoriesCapabilities = z.object({
 });
 
 /**
- * **UNSTABLE**
- *
- * This capability is not part of the spec yet, and may be removed or changed at any point.
- *
  * Capabilities for the `override` system prompt mode.
  *
  * Supplying `{}` means the agent supports replacing its built-in default
  * instructions with the client-provided system prompt.
- *
- * @experimental
  */
 export const zSessionSystemPromptOverrideCapabilities = z.object({
   _meta: defaultOnError(
@@ -1300,16 +1322,10 @@ export const zSessionSystemPromptOverrideCapabilities = z.object({
 });
 
 /**
- * **UNSTABLE**
- *
- * This capability is not part of the spec yet, and may be removed or changed at any point.
- *
  * System prompt delivery modes the agent supports in addition to `append`.
  *
  * `append` has no entry because every agent advertising `session.systemPrompt`
  * supports it.
- *
- * @experimental
  */
 export const zSessionSystemPromptModeCapabilities = z.object({
   override: defaultOnError(
@@ -1323,16 +1339,10 @@ export const zSessionSystemPromptModeCapabilities = z.object({
 });
 
 /**
- * **UNSTABLE**
- *
- * This capability is not part of the spec yet, and may be removed or changed at any point.
- *
  * Capabilities for client-provided system prompts.
  *
  * Supplying `{}` means the agent supports `systemPrompt` on session lifecycle
  * requests in `append` mode.
- *
- * @experimental
  */
 export const zSessionSystemPromptCapabilities = z.object({
   mode: defaultOnError(
@@ -1405,6 +1415,25 @@ export const zSessionStatusCapabilities = z.object({
  *
  * This capability is not part of the spec yet, and may be removed or changed at any point.
  *
+ * Capabilities for the `session/options` method.
+ *
+ * Supplying `{}` means the agent supports `session/options` and accepts initial config
+ * option values on session setup requests.
+ *
+ * @experimental
+ */
+export const zSessionOptionsCapabilities = z.object({
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
  * Capabilities for Client-set session titles.
  *
  * Supplying `{}` means the agent supports `session/set_title`. Agents report titles
@@ -1450,6 +1479,10 @@ export const zSessionCapabilities = z.object({
     () => undefined,
   ),
   status: defaultOnError(zSessionStatusCapabilities.nullish(), () => undefined),
+  options: defaultOnError(
+    zSessionOptionsCapabilities.nullish(),
+    () => undefined,
+  ),
   title: defaultOnError(zSessionTitleCapabilities.nullish(), () => undefined),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
@@ -1809,6 +1842,7 @@ export const zAuthState = z.union([
  */
 export const zAuthAccount = z.object({
   label: z.string(),
+  description: defaultOnError(z.string().nullish(), () => undefined),
   active: defaultOnError(z.boolean().nullish(), () => undefined),
   name: defaultOnError(z.string().nullish(), () => undefined),
   email: defaultOnError(z.string().nullish(), () => undefined),
@@ -2640,6 +2674,33 @@ export const zSessionStatusResponse = z.object({
  *
  * This capability is not part of the spec yet, and may be removed or changed at any point.
  *
+ * Response from `session/options`.
+ *
+ * The result is a snapshot. The options a session actually starts with are the ones in
+ * the session setup response.
+ *
+ * @experimental
+ */
+export const zSessionOptionsResponse = z.object({
+  configOptions: defaultOnError(
+    vecSkipError(zSessionConfigOption).optional(),
+    () => [],
+  ),
+  availableCommands: defaultOnError(
+    vecSkipError(zAvailableCommand).optional(),
+    () => [],
+  ),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
  * Response from setting the title of a session.
  *
  * @experimental
@@ -2776,6 +2837,7 @@ export const zAgentResponse = z.union([
       zArchiveSessionResponse,
       zUnarchiveSessionResponse,
       zSessionStatusResponse,
+      zSessionOptionsResponse,
       zSetSessionTitleResponse,
       zResumeSessionResponse,
       zCloseSessionResponse,
@@ -4045,17 +4107,11 @@ export const zMcpServer = preserveCustomPayload(
 );
 
 /**
- * **UNSTABLE**
- *
- * This capability is not part of the spec yet, and may be removed or changed at any point.
- *
  * How the Agent combines a client-provided system prompt with its own instructions.
  *
  * Unknown modes are preserved so they can be stored,
  * proxied, or forwarded. An Agent MUST return an error for a mode it does not
  * support rather than treating it as `append` or `override`.
- *
- * @experimental
  */
 export const zSystemPromptMode = z.union([
   z.literal("append"),
@@ -4064,18 +4120,12 @@ export const zSystemPromptMode = z.union([
 ]);
 
 /**
- * **UNSTABLE**
- *
- * This capability is not part of the spec yet, and may be removed or changed at any point.
- *
  * Client-provided system-level instructions for a session.
  *
  * Clients MUST only send this when the Agent advertises
  * `session.systemPrompt`. Agents that cannot apply it, for example because of
  * an unadvertised mode or an unsupported content block type, MUST return an
- * error instead of creating, resuming, or forking the session.
- *
- * @experimental
+ * error instead of creating or resuming the session.
  */
 export const zSystemPrompt = z.object({
   mode: zSystemPromptMode,
@@ -4085,6 +4135,55 @@ export const zSystemPrompt = z.object({
     () => undefined,
   ),
 });
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
+ * An initial value for a config option, sent on session setup requests.
+ *
+ * Same shape as `session/set_config_option` without `sessionId`. Unlike
+ * `session/set_config_option`, an unknown `configId`, a `type` that does not match the
+ * option, or a value that is not allowed is ignored instead of rejected.
+ *
+ * @experimental
+ *
+ * Custom variants (unknown `type` values) keep their extra
+ * properties exactly as received; unlike known variants, those keys
+ * bypass lenient-field salvage and arrive unvalidated.
+ */
+export const zInitialSessionConfigOption = preserveCustomPayload(
+  z.intersection(
+    z.union([
+      z.object({
+        type: z.literal("id"),
+        value: zSessionConfigValueId,
+      }),
+      z.object({
+        type: z.literal("boolean"),
+        value: z.boolean(),
+      }),
+      excludeKnownTags(
+        z.object({
+          type: z.string(),
+          value: z.unknown(),
+        }),
+        "type",
+        ["boolean", "id"],
+      ),
+    ]),
+    z.object({
+      configId: zSessionConfigId,
+      _meta: defaultOnError(
+        z.record(z.string(), z.unknown()).nullish(),
+        () => undefined,
+      ),
+    }),
+  ),
+  "type",
+  ["boolean", "id"],
+);
 
 /**
  * Request parameters for creating a new session.
@@ -4099,6 +4198,10 @@ export const zNewSessionRequest = z.object({
   ).optional(),
   mcpServers: defaultOnNull(z.array(zMcpServer), () => []).optional(),
   systemPrompt: zSystemPrompt.nullish(),
+  configOptions: defaultOnNull(
+    z.array(zInitialSessionConfigOption),
+    () => [],
+  ).optional(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -4256,6 +4359,35 @@ export const zSessionStatusRequest = z.object({
  *
  * This capability is not part of the spec yet, and may be removed or changed at any point.
  *
+ * Request parameters for `session/options`, which returns the config options a session
+ * would start with, without creating or resuming a session.
+ *
+ * Only available if the Agent supports the `session.options` capability.
+ *
+ * `session/options` MUST NOT create or resume a session, send `session/update`
+ * notifications, add an entry to `session/list`, or change an existing session. Agents
+ * SHOULD NOT connect to MCP servers to answer it.
+ *
+ * @experimental
+ */
+export const zSessionOptionsRequest = z.object({
+  cwd: zAbsolutePath,
+  additionalDirectories: defaultOnNull(
+    z.array(zAbsolutePath),
+    () => [],
+  ).optional(),
+  sessionId: zSessionId.nullish(),
+  _meta: defaultOnError(
+    z.record(z.string(), z.unknown()).nullish(),
+    () => undefined,
+  ),
+});
+
+/**
+ * **UNSTABLE**
+ *
+ * This capability is not part of the spec yet, and may be removed or changed at any point.
+ *
  * Request parameters for setting the title of a session.
  *
  * Only available if the Agent supports the `session.title` capability.
@@ -4331,6 +4463,10 @@ export const zResumeSessionRequest = z.object({
   mcpServers: defaultOnNull(z.array(zMcpServer), () => []).optional(),
   replayFrom: zReplayFrom.nullish(),
   systemPrompt: zSystemPrompt.nullish(),
+  configOptions: defaultOnNull(
+    z.array(zInitialSessionConfigOption),
+    () => [],
+  ).optional(),
   _meta: defaultOnError(
     z.record(z.string(), z.unknown()).nullish(),
     () => undefined,
@@ -4498,6 +4634,7 @@ export const zClientRequest = z.object({
       zArchiveSessionRequest,
       zUnarchiveSessionRequest,
       zSessionStatusRequest,
+      zSessionOptionsRequest,
       zSetSessionTitleRequest,
       zResumeSessionRequest,
       zCloseSessionRequest,

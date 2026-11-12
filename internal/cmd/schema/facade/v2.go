@@ -167,6 +167,24 @@ answer is a snapshot; treat a status you do not recognize as saved.`,
 			}},
 		},
 		{
+			Interface:    "SessionOptionsReader",
+			Capability:   "session.options",
+			Experimental: true,
+			Doc: `SessionOptionsReader handles session/options, which reports the config
+options a session would start with, without creating or resuming one. It
+must not send session updates, list the session or change an existing one.
+With a session id it answers what session/resume would for that
+session, and an unknown session is refused with [acp.SessionNotFound]. An
+agent that advertises it also accepts the initial config option values a
+client sends on session setup requests.`,
+			Methods: []Method{{
+				Wire: "session/options", Name: "GetSessionOptions", Params: "SessionOptionsRequest", Response: "SessionOptionsResponse",
+				CallDoc: `GetSessionOptions asks which config options a session would start with,
+without creating or resuming one. The answer is a snapshot; the session
+setup response has the options the session actually starts with.`,
+			}},
+		},
+		{
 			Interface:    "SessionTitleSetter",
 			Capability:   "session.title",
 			Experimental: true,
