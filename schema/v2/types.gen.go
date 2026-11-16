@@ -559,6 +559,14 @@ type PromptCapabilities struct {
 	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports embedded context in prompts.
 	EmbeddedContext *PromptEmbeddedContextCapabilities `json:"embeddedContext,omitzero"`
+	// Agent supports `skill` content blocks.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
+	// Supplying `{}` means a prompt may contain one `skill` content block, as its first block.
+	// An agent that sends `skill` entries in `availableCommands` MUST advertise this capability.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Skill *PromptSkillCapabilities `json:"skill,omitzero"`
 	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
@@ -583,6 +591,34 @@ type PromptAudioCapabilities struct {
 //
 // Supplying `{}` means the agent supports embedded context in prompts.
 type PromptEmbeddedContextCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for `skill` content blocks in prompt requests.
+//
+// Supplying `{}` means a prompt may contain one `skill` content block, as
+// its first block. The agent opts in to more with the `inline` field.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSkillCapabilities struct {
+	// Agent supports `skill` content blocks at any position in a prompt.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the agent does not advertise support.
+	// Supplying `{}` means a prompt may contain any number of `skill` content blocks, at any
+	// position.
+	Inline *PromptSkillInlineCapabilities `json:"inline,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for `skill` content blocks at any position in a prompt.
+//
+// Supplying `{}` means a prompt may contain any number of `skill` content
+// blocks, at any position.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSkillInlineCapabilities struct {
 	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
@@ -1407,12 +1443,30 @@ type Cost struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
+// A prompt the Agent predicts the user will send next.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestion struct {
+	// The content of the suggested prompt.
+	//
+	// Required and non-null. Must contain at least one content block. This is
+	// the same type as the `prompt` field of `session/prompt`, and the Client
+	// can send it in that field unchanged.
+	//
+	// Agents MUST only use `text` and `resource_link` content blocks, and
+	// other content block types that both the Agent's `session.prompt`
+	// capability and the Client's `session.promptSuggestions` capability
+	// advertise. Agents MUST NOT send a prompt whose only content is empty
+	// or whitespace-only text.
+	Prompt []ContentBlock `json:"prompt"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
 // Client-initiated session mutations permitted for a specific subagent session.
 //
 // A mutation requires an explicit per-child capability. Support for the method
 // on ordinary sessions does not grant support on a child.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SubagentSessionCapabilities struct {
 	// Permits the client to cancel this child's current work without ending
 	// the session. Omitted and `null` are equivalent and mean unsupported. An object (including
@@ -1425,8 +1479,6 @@ type SubagentSessionCapabilities struct {
 // Capability to cancel work in a subagent session without ending that session.
 //
 // Supplying `{}` advertises support. An omitted or `null` `cancel` does not.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionCancelCapabilities struct {
 	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
@@ -1514,6 +1566,14 @@ type ClientCapabilities struct {
 	// Optional. Omitted and `null` are equivalent and mean the client does not advertise
 	// elicitation support.
 	Elicitation *ElicitationCapabilities `json:"elicitation,omitzero"`
+	// Session-related capabilities supported by the client.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise any
+	// session-related capabilities. This object only groups capabilities. Supplying `{}`
+	// advertises nothing.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Session *ClientSessionCapabilities `json:"session,omitzero"`
 	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
@@ -1573,6 +1633,118 @@ type ElicitationFormCapabilities struct {
 //
 // Supplying `{}` means the client supports URL-based elicitation.
 type ElicitationURLCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Session-related capabilities supported by the client.
+//
+// This object only groups capabilities. Unlike the agent's `session`
+// capability, it is not a support marker, and supplying `{}` advertises
+// nothing.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ClientSessionCapabilities struct {
+	// Support for `prompt_suggestions_update` session updates.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise support.
+	// Supplying `{}` means the client can offer prompt suggestions made of
+	// `text` and `resource_link` content blocks.
+	PromptSuggestions *PromptSuggestionsCapabilities `json:"promptSuggestions,omitzero"`
+	// Command types the client understands in addition to `command`.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise support
+	// for any of them. This object only groups capabilities. Supplying `{}` advertises nothing.
+	Commands *CommandsCapabilities `json:"commands,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Client support for `prompt_suggestions_update` session updates.
+//
+// Supplying `{}` means the client can offer prompt suggestions made of `text`
+// and `resource_link` content blocks. The client opts in to other content
+// block types with the fields below. They have the same names as the agent's
+// `session.prompt` capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestionsCapabilities struct {
+	// Whether prompt suggestions may include `image` content blocks.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise support.
+	// Supplying `{}` means the client can offer suggestions that include images.
+	Image *PromptSuggestionsImageCapabilities `json:"image,omitzero"`
+	// Whether prompt suggestions may include `audio` content blocks.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise support.
+	// Supplying `{}` means the client can offer suggestions that include audio.
+	Audio *PromptSuggestionsAudioCapabilities `json:"audio,omitzero"`
+	// Whether prompt suggestions may include `resource` content blocks.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise support.
+	// Supplying `{}` means the client can offer suggestions that include
+	// embedded resources.
+	EmbeddedContext *PromptSuggestionsEmbeddedContextCapabilities `json:"embeddedContext,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for image content in prompt suggestions.
+//
+// Supplying `{}` means the client can offer suggestions that include images.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestionsImageCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for audio content in prompt suggestions.
+//
+// Supplying `{}` means the client can offer suggestions that include audio.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestionsAudioCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for embedded resources in prompt suggestions.
+//
+// Supplying `{}` means the client can offer suggestions that include
+// `resource` content blocks.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestionsEmbeddedContextCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Command types the client understands in addition to `command`.
+//
+// Agents MUST NOT send a command type listed here unless the client
+// advertised it. This object only groups capabilities. Supplying `{}`
+// advertises nothing.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CommandsCapabilities struct {
+	// Support for `skill` command entries.
+	//
+	// Optional. Omitted and `null` are equivalent and mean the client does not advertise support.
+	// Supplying `{}` means the agent may send `skill` entries in `availableCommands`. The
+	// client invokes them with `skill` content blocks.
+	Skill *CommandsSkillCapabilities `json:"skill,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Client support for `skill` command entries.
+//
+// Supplying `{}` means the agent may send `skill` entries in
+// `availableCommands`. The client invokes them with `skill` content blocks.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CommandsSkillCapabilities struct {
 	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
@@ -1686,7 +1858,9 @@ type NewSessionRequest struct {
 	// entries and duplicate `configId` values fail the request with `-32602`. The Agent MUST
 	// ignore an entry whose `configId` is unknown, whose `type` does not match the option,
 	// or whose value is not allowed when it is applied. The `configOptions` in the response contain the values the session actually
-	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries.
+	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries,
+	// and SHOULD NOT send other `session/update` notifications caused by applying them
+	// before it responds.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	ConfigOptions []InitialSessionConfigOption `json:"configOptions,omitzero"`
@@ -1794,6 +1968,23 @@ type ForkSessionRequest struct {
 	// `session.systemPrompt`, and SHOULD send the same value they used for the
 	// source session.
 	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
+	// Initial values for the forked session's config options.
+	//
+	// Optional. Omitted and `null` are equivalent to an empty list. Clients MUST only send
+	// this when the Agent advertises `session.options`.
+	//
+	// The Agent applies the entries in list order on top of the configuration the fork
+	// starts with, as if the Client had called `session/set_config_option` for each entry
+	// after the session was set up. Malformed entries and duplicate `configId` values fail
+	// the request with `-32602`. The Agent MUST ignore an entry whose `configId` is unknown,
+	// whose `type` does not match the option, or whose value is not allowed when it is
+	// applied. The `configOptions` in the response contain the values the session actually
+	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries,
+	// and SHOULD NOT send other `session/update` notifications caused by applying them
+	// before it responds.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	ConfigOptions []InitialSessionConfigOption `json:"configOptions,omitzero"`
 	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }
@@ -1856,7 +2047,8 @@ type SessionStatusRequest struct {
 //
 // `session/options` MUST NOT create or resume a session, send `session/update`
 // notifications, add an entry to `session/list`, or change an existing session. Agents
-// SHOULD NOT connect to MCP servers to answer it.
+// SHOULD NOT connect to MCP servers to answer it. Agents MAY start their runtime to resolve
+// the options. The rules above still hold for it.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionOptionsRequest struct {
@@ -1956,7 +2148,9 @@ type ResumeSessionRequest struct {
 	// entries and duplicate `configId` values fail the request with `-32602`. The Agent MUST
 	// ignore an entry whose `configId` is unknown, whose `type` does not match the option,
 	// or whose value is not allowed when it is applied. The `configOptions` in the response contain the values the session actually
-	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries.
+	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries
+	// on the requesting connection. If the session is active on other connections, the
+	// Agent SHOULD send `config_option_update` on those connections.
 	//
 	// The Agent applies the entries before it replays history for `replayFrom` and before
 	// it responds.

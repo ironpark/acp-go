@@ -67,3 +67,11 @@ func ToolTerminal(id TerminalID) ToolCallContent {
 func ToolSession(id SessionID) ToolCallContent {
 	return schema.NewToolCallContent(schema.ToolCallContentSession{SessionID: id})
 }
+
+// TextSuggestion is a prompt suggestion made of text, for
+// [SessionStream.SendPromptSuggestions].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func TextSuggestion(text string) PromptSuggestion {
+	return PromptSuggestion{Prompt: []ContentBlock{TextBlock(text)}}
+}

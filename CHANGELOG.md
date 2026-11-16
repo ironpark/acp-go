@@ -6,6 +6,54 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-16
+
+### Schema
+
+- Pinned the TypeScript SDK at `b93e77b` (2.7.0). The ACP schema moves to **v1.32.0**, and the v2
+  draft to **2.0.0-alpha.16**. No method is added.
+- **Replay complete (v2):** an agent ends the history replay of every `session/resume` that
+  carries a `replayFrom` with a `replay_complete` update, before it answers, for an empty history
+  too. `SessionStream.ReplayComplete` sends it, and `SessionManager.ResumeSession`, which keeps
+  no history, now sends it for such a request. An agent that overrides `ResumeSession` to replay
+  history must send it itself.
+- **Prompt suggestions (unstable):** the `prompt_suggestions_update` session update lists prompts
+  the client may offer the user next, for clients that advertise `session.promptSuggestions`.
+  `SessionStream.SendPromptSuggestions` and `TextSuggestion` build it in both façades, and the
+  router carries the capability over when it downgrades a v2 client for a v1 agent.
+- **Skills (v2):** `AvailableCommandSkill` command entries and `ContentBlockSkill` content blocks,
+  with the `session.commands.skill` client capability and the `prompt.skill` agent capability.
+  v2 clients now have a `session` capability object (`ClientSessionCapabilities`).
+- `session/fork` takes initial config option values (`ForkSessionRequest.ConfigOptions`), and
+  config options gain the `speed` category.
+- v2 includes subagents without the unstable flag upstream; the Go types are unchanged.
+
+### Breaking changes
+
+- **The `file` plan type is gone (unstable):** `PlanUpdateContentFile` is removed from both
+  versions. A markdown plan names its file with the new `PlanUpdateContentMarkdown.Path` instead.
+  A `file` plan a peer still sends decodes as the union's unknown variant.
+
+### Fixed
+
+- **A prompt sent right behind `session/cancel` no longer runs beside the cancelled turn.**
+  `TurnTracker.Cancel` freed the session at once, so the next prompt started its turn while the
+  cancelled work was still winding down. A v2 client then heard of the two out of order — the new
+  work's `running`, or even its `idle`, before the cancelled work's `idle` — and read the new work
+  as ended; in both versions two pieces of work ran on one session. A cancelled turn now keeps
+  its session until its `done` runs: `TurnTracker.Join` (v2 `StartTurn`/`JoinTurn`) and
+  `TurnTracker.Begin` (v1 `RunTurn`/`BeginTurn`) wait for that, `Begin` giving up with its
+  context. Work must return once its context is done, as before. `Settle` reports a cancelled
+  turn settled even with a joined prompt unanswered.
+
+### Tests
+
+- Wire-order regression tests for `session/cancel`, after the scenarios `coder/acp-go-sdk` fixed
+  in its #86, #88 and #89: a cancel queued behind a slow notification, or behind a handler that
+  awaits the client, ends only the prompts sent before it; a prompt right behind a cancel is not
+  cancelled; and `session/cancel` sent as a request is answered "method not found" and cancels
+  nothing, as in the TypeScript SDK.
+
 ## [0.5.0] - 2026-11-13
 
 ### Schema

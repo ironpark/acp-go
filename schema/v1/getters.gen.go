@@ -257,6 +257,14 @@ func (x *ClientSessionCapabilities) GetNotices() NoticeCapabilities {
 	return zero
 }
 
+// GetPromptSuggestions returns PromptSuggestions, or nil if x is nil.
+func (x *ClientSessionCapabilities) GetPromptSuggestions() *PromptSuggestionsCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.PromptSuggestions
+}
+
 // GetAnnotations returns Annotations, or nil if x is nil.
 func (x *ContentBlockAudio) GetAnnotations() *Annotations {
 	if x == nil {
@@ -941,6 +949,15 @@ func (x *NewSessionResponse) GetModes() *SessionModeState {
 	return x.Modes
 }
 
+// GetPath returns the value of Path, or the zero value if x or Path is nil.
+func (x *PlanUpdateContentMarkdown) GetPath() string {
+	if x != nil && x.Path != nil {
+		return *x.Path
+	}
+	var zero string
+	return zero
+}
+
 // GetImage returns the value of Image, or the zero value if x or Image is nil.
 func (x *PromptCapabilities) GetImage() bool {
 	if x != nil && x.Image != nil {
@@ -974,6 +991,30 @@ func (x *PromptResponse) GetUsage() *Usage {
 		return nil
 	}
 	return x.Usage
+}
+
+// GetImage returns Image, or nil if x is nil.
+func (x *PromptSuggestionsCapabilities) GetImage() *PromptSuggestionsImageCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Image
+}
+
+// GetAudio returns Audio, or nil if x is nil.
+func (x *PromptSuggestionsCapabilities) GetAudio() *PromptSuggestionsAudioCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Audio
+}
+
+// GetEmbeddedContext returns EmbeddedContext, or nil if x is nil.
+func (x *PromptSuggestionsCapabilities) GetEmbeddedContext() *PromptSuggestionsEmbeddedContextCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.EmbeddedContext
 }
 
 // GetCurrent returns Current, or nil if x is nil.

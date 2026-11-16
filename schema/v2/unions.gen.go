@@ -434,8 +434,6 @@ func (v *ToolCallContentTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 // session setup or a `subagent_update` announcement. The reference does not
 // establish ownership, grant any Client-initiated controls, or report that the
 // referenced session received or finished any work.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type ToolCallContentSession struct {
 	// The referenced session.
 	SessionID SessionID `json:"sessionId"`
@@ -496,7 +494,7 @@ func (v ToolCallContentCustom) Tag() string { return v.Type }
 // [Content]: https://agentclientprotocol.com/protocol/v2/draft/content
 type ContentBlock struct{ value ContentBlockVariant }
 
-// ContentBlockVariant is implemented by [ContentBlockText], [ContentBlockImage], [ContentBlockAudio], [ContentBlockResourceLink], [ContentBlockResource], [ContentBlockCustom].
+// ContentBlockVariant is implemented by [ContentBlockText], [ContentBlockImage], [ContentBlockAudio], [ContentBlockResourceLink], [ContentBlockResource], [ContentBlockSkill], [ContentBlockCustom].
 type ContentBlockVariant interface {
 	contentBlockVariant()
 	Tag() string
@@ -511,6 +509,7 @@ type ContentBlockVariants interface {
 		ContentBlockAudio |
 		ContentBlockResourceLink |
 		ContentBlockResource |
+		ContentBlockSkill |
 		ContentBlockCustom
 	ContentBlockVariant
 }
@@ -596,6 +595,12 @@ func unmarshalContentBlockVariant(dec *jsontext.Decoder, out *ContentBlockVarian
 		*out = v
 	case "resource":
 		var v ContentBlockResource
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "skill":
+		var v ContentBlockSkill
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -793,6 +798,51 @@ func (v ContentBlockResource) MarshalJSONTo(enc *jsontext.Encoder) error {
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockResource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalTypeTagged(dec, "ContentBlockResource", "resource", (*contentBlockResourceFields)(v))
+}
+
+// ContentBlockSkill is a reference to a skill that the user invokes with a prompt.
+//
+// The Client sends it in `session/prompt` to invoke a `skill` entry from the
+// session's command list. The Agent MUST treat each reference as the user
+// explicitly invoking that skill for this prompt, and applies the skill to
+// the prompt as a whole. The reference carries no input.
+//
+// An Agent that advertises the `session.prompt.skill` capability accepts one
+// skill reference per prompt, as the first content block. An Agent that also
+// advertises `session.prompt.skill.inline` accepts any number of them, at any
+// position. Clients MUST NOT send a skill reference that the Agent's
+// capability does not allow.
+//
+// The `type` discriminator value is `skill`.
+//
+// ContentBlockSkill is the ContentBlock variant with type "skill".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type ContentBlockSkill struct {
+	// The `name` of a `skill` entry in the session's current command list.
+	//
+	// Required and non-null. The Agent MUST reject the prompt with `-32602`
+	// when it cannot resolve the name to a skill the user can invoke.
+	Name string `json:"name"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (ContentBlockSkill) contentBlockVariant() {}
+
+// Tag returns "skill".
+func (ContentBlockSkill) Tag() string { return "skill" }
+
+type contentBlockSkillFields ContentBlockSkill
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ContentBlockSkill) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[contentBlockSkillFields]{"skill", contentBlockSkillFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ContentBlockSkill) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "ContentBlockSkill", "skill", (*contentBlockSkillFields)(v))
 }
 
 // ContentBlockCustom holds ContentBlock values with an unrecognized "type", keeping every member.
@@ -2385,7 +2435,7 @@ func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 // variant: an omitzero field omits it, and encoding it anywhere else fails.
 type AvailableCommand struct{ value AvailableCommandVariant }
 
-// AvailableCommandVariant is implemented by [AvailableCommandCommand], [AvailableCommandCustom].
+// AvailableCommandVariant is implemented by [AvailableCommandCommand], [AvailableCommandSkill], [AvailableCommandCustom].
 type AvailableCommandVariant interface {
 	availableCommandVariant()
 	Tag() string
@@ -2396,6 +2446,7 @@ type AvailableCommandVariant interface {
 // methods, but is not one.
 type AvailableCommandVariants interface {
 	AvailableCommandCommand |
+		AvailableCommandSkill |
 		AvailableCommandCustom
 	AvailableCommandVariant
 }
@@ -2466,6 +2517,12 @@ func unmarshalAvailableCommandVariant(dec *jsontext.Decoder, out *AvailableComma
 			return err
 		}
 		*out = v
+	case "skill":
+		var v AvailableCommandSkill
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
 	default:
 		var v AvailableCommandCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -2513,6 +2570,57 @@ func (v *AvailableCommandCommand) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	return unmarshalTypeTagged(dec, "AvailableCommandCommand", "command", (*availableCommandCommandFields)(v))
 }
 
+// AvailableCommandSkill is the AvailableCommand variant with type "skill".
+//
+// An Agent Skill the user can invoke.
+//
+// The `type` discriminator value is `skill`.
+//
+// The Client invokes a skill with a `skill` content block that names it. The
+// `/name` syntax applies only to `command` entries. An Agent that sends
+// `skill` entries MUST advertise the `session.prompt.skill` capability.
+//
+// Agents MUST only send `skill` entries when the Client advertised the
+// `session.commands.skill` Client capability. Agents SHOULD advertise only
+// skills the user can invoke.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type AvailableCommandSkill struct {
+	// Skill name. The Client uses it to refer to the skill in a `skill` content block.
+	//
+	// MUST NOT contain whitespace and MUST be unique within the command list,
+	// across commands and skills. It need not match the `name` in the skill's
+	// frontmatter.
+	Name string `json:"name"`
+	// Human-readable description of what the skill does, shown to users.
+	Description string `json:"description"`
+	// The absolute path of the file that defines the skill, normally its
+	// `SKILL.md`, on the machine the Agent runs on.
+	//
+	// Omitted and `null` are equivalent and mean the skill has no such file,
+	// as with a skill that is built into the Agent or served by an MCP server.
+	Path *AbsolutePath `json:"path,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (AvailableCommandSkill) availableCommandVariant() {}
+
+// Tag returns "skill".
+func (AvailableCommandSkill) Tag() string { return "skill" }
+
+type availableCommandSkillFields AvailableCommandSkill
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v AvailableCommandSkill) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[availableCommandSkillFields]{"skill", availableCommandSkillFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *AvailableCommandSkill) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "AvailableCommandSkill", "skill", (*availableCommandSkillFields)(v))
+}
+
 // AvailableCommandCustom holds AvailableCommand values with an unrecognized "type", keeping every member.
 type AvailableCommandCustom struct {
 	// Custom or future command type.
@@ -2521,8 +2629,7 @@ type AvailableCommandCustom struct {
 	// extensions. Unknown values that do not begin with `_` are reserved for
 	// future ACP variants.
 	Type string `json:"type"`
-	// Command name without the leading `/`. MUST NOT contain whitespace and MUST be unique
-	// within the command list.
+	// Command name. MUST NOT contain whitespace and MUST be unique within the command list.
 	Name string `json:"name"`
 	// Human-readable description of what the command does.
 	Description          string                    `json:"description"`
@@ -2932,11 +3039,12 @@ func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 // snapshot normally.
 //
 // This is not a task outcome or session closure. It does not cancel work, resolve
-// pending requests, or revoke capabilities. Capabilities are updated separately.
+// pending requests, or revoke capabilities. If a control is no longer available,
+// the Agent updates the capabilities explicitly. Unfinished tool calls and
+// terminals stay as last reported. The Agent does not invent a final status
+// for them, and Clients do not present them as confirmed live activity.
 //
 // StateUpdateUnknown is the StateUpdate variant with state "unknown".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type StateUpdateUnknown struct {
 	// Work running independently of foreground work, as a complete snapshot.
 	//
@@ -3157,8 +3265,6 @@ func (v *BackgroundWorkToolCall) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 // BackgroundWorkSubagent is a listed subagent session associated with this session through `subagent_update`.
 //
 // BackgroundWorkSubagent is the BackgroundWork variant with type "subagent".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type BackgroundWorkSubagent struct {
 	// The ID of the listed session.
 	SessionID SessionID `json:"sessionId"`
@@ -3712,7 +3818,7 @@ func (IdleStateUpdateUntagged) Tag() string { return "" }
 // [Agent Reports Output]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#3-agent-reports-output
 type SessionUpdate struct{ value SessionUpdateVariant }
 
-// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateUserMessage], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentMessage], [SessionUpdateAgentThoughtChunk], [SessionUpdateAgentThought], [SessionUpdateStateUpdate], [SessionUpdateToolCallContentChunk], [SessionUpdateToolCallUpdate], [SessionUpdateTerminalUpdate], [SessionUpdateTerminalOutputChunk], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdateSubagentUpdate], [SessionUpdateSessionMessage], [SessionUpdateSessionMessageChunk], [SessionUpdateCustom].
+// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateUserMessage], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentMessage], [SessionUpdateAgentThoughtChunk], [SessionUpdateAgentThought], [SessionUpdateStateUpdate], [SessionUpdateToolCallContentChunk], [SessionUpdateToolCallUpdate], [SessionUpdateTerminalUpdate], [SessionUpdateTerminalOutputChunk], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdateReplayComplete], [SessionUpdatePromptSuggestionsUpdate], [SessionUpdateSubagentUpdate], [SessionUpdateSessionMessage], [SessionUpdateSessionMessageChunk], [SessionUpdateCustom].
 type SessionUpdateVariant interface {
 	sessionUpdateVariant()
 	Tag() string
@@ -3742,6 +3848,8 @@ type SessionUpdateVariants interface {
 		SessionUpdateNotice |
 		SessionUpdateCompactionUpdate |
 		SessionUpdateCompactionSummaryChunk |
+		SessionUpdateReplayComplete |
+		SessionUpdatePromptSuggestionsUpdate |
 		SessionUpdateSubagentUpdate |
 		SessionUpdateSessionMessage |
 		SessionUpdateSessionMessageChunk |
@@ -3920,6 +4028,18 @@ func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVari
 		*out = v
 	case "compaction_summary_chunk":
 		var v SessionUpdateCompactionSummaryChunk
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "replay_complete":
+		var v SessionUpdateReplayComplete
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "prompt_suggestions_update":
+		var v SessionUpdatePromptSuggestionsUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -4663,6 +4783,89 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 	return unmarshalSessionUpdateTagged(dec, "SessionUpdateCompactionSummaryChunk", "compaction_summary_chunk", (*sessionUpdateCompactionSummaryChunkFields)(v))
 }
 
+// SessionUpdateReplayComplete is the SessionUpdate variant with sessionUpdate "replay_complete".
+//
+// Marks the end of the history replay requested by `session/resume`.
+//
+// The Agent sends this once on a session for each `session/resume` request
+// with a `replayFrom` cursor, after the last replayed update for that session
+// and before the response. It sends it for an empty history too. Every update
+// for the session between the request and this update is replayed history.
+// Every update after it is not.
+//
+// The Agent does not send it when `replayFrom` is omitted or `null`, or when
+// it cannot finish the replay. A resume that ends without it delivered a
+// truncated replay.
+//
+// See protocol docs: [Replay Complete]
+//
+// [Replay Complete]: https://agentclientprotocol.com/protocol/v2/draft/session-setup#replay-complete
+type SessionUpdateReplayComplete struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (SessionUpdateReplayComplete) sessionUpdateVariant() {}
+
+// Tag returns "replay_complete".
+func (SessionUpdateReplayComplete) Tag() string { return "replay_complete" }
+
+type sessionUpdateReplayCompleteFields SessionUpdateReplayComplete
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v SessionUpdateReplayComplete) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateReplayCompleteFields]{"replay_complete", sessionUpdateReplayCompleteFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *SessionUpdateReplayComplete) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateReplayComplete", "replay_complete", (*sessionUpdateReplayCompleteFields)(v))
+}
+
+// SessionUpdatePromptSuggestionsUpdate is the SessionUpdate variant with sessionUpdate "prompt_suggestions_update".
+//
+// Replaces the session's current list of prompt suggestions.
+//
+// A prompt suggestion is a prompt the Agent predicts the user will send next.
+// The Client offers suggestions where the user writes the next prompt. The
+// list in the most recent update is the current list until the Agent sends
+// another update. A session starts with an empty list.
+//
+// Suggestions are not part of session history. Agents SHOULD NOT include
+// this update when they replay a session.
+//
+// Agents MUST only send this update when the Client advertised
+// the `session.promptSuggestions` Client capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionUpdatePromptSuggestionsUpdate struct {
+	// The suggestions the Client can offer, ordered most likely first.
+	//
+	// Required and non-null. An empty list withdraws the suggestions the
+	// Client is offering. A Client skips an entry it cannot parse and keeps
+	// the rest.
+	Suggestions []PromptSuggestion `json:"suggestions"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (SessionUpdatePromptSuggestionsUpdate) sessionUpdateVariant() {}
+
+// Tag returns "prompt_suggestions_update".
+func (SessionUpdatePromptSuggestionsUpdate) Tag() string { return "prompt_suggestions_update" }
+
+type sessionUpdatePromptSuggestionsUpdateFields SessionUpdatePromptSuggestionsUpdate
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v SessionUpdatePromptSuggestionsUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdatePromptSuggestionsUpdateFields]{"prompt_suggestions_update", sessionUpdatePromptSuggestionsUpdateFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *SessionUpdatePromptSuggestionsUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdatePromptSuggestionsUpdate", "prompt_suggestions_update", (*sessionUpdatePromptSuggestionsUpdateFields)(v))
+}
+
 // SessionUpdateSubagentUpdate is a notification that the enclosing parent session created and owns a child session.
 //
 // Later updates modify the existing association's metadata, not its ownership.
@@ -4697,8 +4900,6 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 // change this association.
 //
 // SessionUpdateSubagentUpdate is the SessionUpdate variant with sessionUpdate "subagent_update".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateSubagentUpdate struct {
 	// The opaque session ID identifying the child in all ACP messages.
 	SessionID SessionID `json:"sessionId"`
@@ -4762,8 +4963,6 @@ func (v *SessionUpdateSubagentUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 // SessionUpdateSessionMessage is an upsert for an inter-session message.
 //
 // SessionUpdateSessionMessage is the SessionUpdate variant with sessionUpdate "session_message".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateSessionMessage struct {
 	// Identifier of this message within the enclosing session's transcript.
 	MessageID MessageID `json:"messageId"`
@@ -4819,8 +5018,6 @@ func (v *SessionUpdateSessionMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 // `session_message` upserts, which can arrive before, between, or after its chunks.
 //
 // SessionUpdateSessionMessageChunk is the SessionUpdate variant with sessionUpdate "session_message_chunk".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateSessionMessageChunk struct {
 	// Identifier of this message within the enclosing session's transcript.
 	MessageID MessageID `json:"messageId"`
@@ -4870,7 +5067,7 @@ func (v SessionUpdateCustom) Tag() string { return v.SessionUpdate }
 // Updated content for a plan.
 type PlanUpdateContent struct{ value PlanUpdateContentVariant }
 
-// PlanUpdateContentVariant is implemented by [PlanUpdateContentItems], [PlanUpdateContentFile], [PlanUpdateContentMarkdown], [PlanUpdateContentCustom].
+// PlanUpdateContentVariant is implemented by [PlanUpdateContentItems], [PlanUpdateContentMarkdown], [PlanUpdateContentCustom].
 type PlanUpdateContentVariant interface {
 	planUpdateContentVariant()
 	Tag() string
@@ -4881,7 +5078,6 @@ type PlanUpdateContentVariant interface {
 // methods, but is not one.
 type PlanUpdateContentVariants interface {
 	PlanUpdateContentItems |
-		PlanUpdateContentFile |
 		PlanUpdateContentMarkdown |
 		PlanUpdateContentCustom
 	PlanUpdateContentVariant
@@ -4953,12 +5149,6 @@ func unmarshalPlanUpdateContentVariant(dec *jsontext.Decoder, out *PlanUpdateCon
 			return err
 		}
 		*out = v
-	case "file":
-		var v PlanUpdateContentFile
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
 	case "markdown":
 		var v PlanUpdateContentMarkdown
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -5007,37 +5197,6 @@ func (v *PlanUpdateContentItems) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	return unmarshalTypeTagged(dec, "PlanUpdateContentItems", "items", (*planUpdateContentItemsFields)(v))
 }
 
-// PlanUpdateContentFile is a plan represented by a file URI.
-//
-// PlanUpdateContentFile is the PlanUpdateContent variant with type "file".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type PlanUpdateContentFile struct {
-	// The plan ID to update.
-	PlanID PlanID `json:"planId"`
-	// The URI of the file containing the plan.
-	URI string `json:"uri"`
-	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-func (PlanUpdateContentFile) planUpdateContentVariant() {}
-
-// Tag returns "file".
-func (PlanUpdateContentFile) Tag() string { return "file" }
-
-type planUpdateContentFileFields PlanUpdateContentFile
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v PlanUpdateContentFile) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, typeTagged[planUpdateContentFileFields]{"file", planUpdateContentFileFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *PlanUpdateContentFile) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalTypeTagged(dec, "PlanUpdateContentFile", "file", (*planUpdateContentFileFields)(v))
-}
-
 // PlanUpdateContentMarkdown is a plan represented as raw markdown content.
 //
 // PlanUpdateContentMarkdown is the PlanUpdateContent variant with type "markdown".
@@ -5048,6 +5207,11 @@ type PlanUpdateContentMarkdown struct {
 	PlanID PlanID `json:"planId"`
 	// Markdown content for the plan.
 	Content string `json:"content"`
+	// The absolute path of the file that holds this plan.
+	//
+	// Omitted and `null` are equivalent and mean the plan has no file. `content` is the
+	// plan to display whether or not `path` is set. Clients can use `path` to open the file.
+	Path *AbsolutePath `json:"path,omitzero"`
 	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }

@@ -94,3 +94,84 @@ func TestTurnTrackerSettle(t *testing.T) {
 		t.Error("the first turn's context is still live")
 	}
 }
+
+// A cancelled turn keeps its session until done: the next turn waits for the
+// cancelled work to end rather than running beside it.
+func TestTurnTrackerCancelledTurnHoldsTheSession(t *testing.T) {
+	var turns TurnTracker[string]
+	first, done, err := turns.Begin(context.Background(), "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !turns.Cancel("s1") || !turns.Cancel("s1") {
+		t.Fatal("Cancel did not find the turn, the second time too")
+	}
+	if !TurnCancelled(first) {
+		t.Fatalf("cause = %v", context.Cause(first))
+	}
+
+	// Begin waits, and gives up with its context.
+	short, stop := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer stop()
+	if _, _, err := turns.Begin(short, "s1"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Begin behind a cancelled turn: %v, want its context's error", err)
+	}
+
+	for name, begin := range map[string]func() (context.Context, func()){
+		"Begin": func() (context.Context, func()) {
+			ctx, done, err := turns.Begin(context.Background(), "s1")
+			if err != nil {
+				t.Errorf("Begin: %v", err)
+			}
+			return ctx, done
+		},
+		"Join": func() (context.Context, func()) {
+			ctx, done, joined := turns.Join(context.Background(), "s1")
+			if joined {
+				t.Error("Join joined a cancelled turn")
+			}
+			return ctx, done
+		},
+	} {
+		type next struct {
+			ctx  context.Context
+			done func()
+		}
+		started := make(chan next)
+		go func() {
+			ctx, nextDone := begin()
+			started <- next{ctx, nextDone}
+		}()
+		select {
+		case <-started:
+			t.Fatalf("%s started a turn beside the cancelled one", name)
+		case <-time.After(30 * time.Millisecond):
+		}
+		done() // the cancelled work has ended
+		select {
+		case n := <-started:
+			if n.ctx == nil || n.ctx.Err() != nil {
+				t.Fatalf("%s: the next turn did not start live", name)
+			}
+			// The next round waits behind this turn, cancelled in its place.
+			done = n.done
+			turns.Cancel("s1")
+		case <-time.After(2 * time.Second):
+			t.Fatalf("%s never started after the cancelled turn ended", name)
+		}
+	}
+	done()
+}
+
+// A cancelled turn settles even with a joined prompt unanswered: its work
+// can answer nothing more.
+func TestTurnTrackerSettleAfterCancel(t *testing.T) {
+	var turns TurnTracker[string]
+	_, done, _ := turns.Join(context.Background(), "s1")
+	defer done()
+	turns.Join(context.Background(), "s1")
+	turns.Cancel("s1")
+	if !turns.Settle("s1") {
+		t.Fatal("a cancelled turn did not settle")
+	}
+}

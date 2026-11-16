@@ -256,6 +256,13 @@ func v2ClientCapabilitiesToV1(capabilities *schemav2.ClientCapabilities) (*schem
 		return nil, err
 	}
 	result.Auth = auth
+	if suggestions := capabilities.GetSession().GetPromptSuggestions(); suggestions != nil {
+		converted, err := convert[schemav1.PromptSuggestionsCapabilities](suggestions)
+		if err != nil {
+			return nil, err
+		}
+		result.Session.PromptSuggestions = &converted
+	}
 	if capabilities.Elicitation != nil {
 		elicitation, err := convert[schemav1.ElicitationCapabilities](capabilities.Elicitation)
 		if err != nil {

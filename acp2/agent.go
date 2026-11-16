@@ -3,6 +3,7 @@ package acp2
 import (
 	"cmp"
 	"context"
+	"encoding/json/jsontext"
 	"sync/atomic"
 
 	acp "github.com/ironpark/acp-go"
@@ -29,8 +30,21 @@ var _ Client = (*AgentSideConnection)(nil)
 func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, transport acp.Transport, opts ...acp.Option) *AgentSideConnection {
 	c := &AgentSideConnection{}
 	c.agent = newAgent(c)
-	c.conn = acpconn.NewAgentConnection(c.handleRequest, c.handleNotification, transport, opts)
+	c.conn = acpconn.NewAgentConnection(c.serveRequest, c.handleNotification, transport, opts)
 	return c
+}
+
+type agentConnKey struct{}
+
+// agentConnFrom returns the connection serving the request ctx belongs to.
+func agentConnFrom(ctx context.Context) (*AgentSideConnection, bool) {
+	c, ok := ctx.Value(agentConnKey{}).(*AgentSideConnection)
+	return c, ok
+}
+
+// serveRequest dispatches a request with the connection in its context.
+func (c *AgentSideConnection) serveRequest(ctx context.Context, method string, params jsontext.Value) (any, error) {
+	return c.handleRequest(context.WithValue(ctx, agentConnKey{}, c), method, params)
 }
 
 // initialize serves the client's initialize request, and records the

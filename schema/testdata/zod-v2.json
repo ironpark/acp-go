@@ -519,5 +519,192 @@
     "output": {
       "sessionId": "s"
     }
+  },
+  {
+    "schema": "zPlanUpdateContent",
+    "input": {
+      "type": "markdown",
+      "planId": "p",
+      "content": "# Plan",
+      "path": "/w/plan.md"
+    },
+    "success": true,
+    "output": {
+      "planId": "p",
+      "content": "# Plan",
+      "path": "/w/plan.md",
+      "type": "markdown"
+    }
+  },
+  {
+    "schema": "zPlanUpdateContent",
+    "input": {
+      "type": "markdown",
+      "planId": "p",
+      "content": "# Plan",
+      "path": 5
+    },
+    "success": true,
+    "output": {
+      "planId": "p",
+      "content": "# Plan",
+      "type": "markdown"
+    }
+  },
+  {
+    "schema": "zPlanUpdateContent",
+    "input": {
+      "type": "file",
+      "planId": "p",
+      "uri": "file:///w/plan.md",
+      "extra": 1
+    },
+    "success": true,
+    "output": {
+      "type": "file",
+      "planId": "p",
+      "uri": "file:///w/plan.md",
+      "extra": 1
+    }
+  },
+  {
+    "schema": "zPromptSuggestionsUpdate",
+    "input": {
+      "suggestions": [
+        {
+          "prompt": [
+            {
+              "type": "text",
+              "text": "Run the tests"
+            }
+          ]
+        }
+      ]
+    },
+    "success": true,
+    "output": {
+      "suggestions": [
+        {
+          "prompt": [
+            {
+              "text": "Run the tests",
+              "type": "text"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "schema": "zPromptSuggestionsUpdate",
+    "input": {
+      "suggestions": []
+    },
+    "success": true,
+    "output": {
+      "suggestions": []
+    }
+  },
+  {
+    "schema": "zPromptSuggestionsUpdate",
+    "input": {
+      "suggestions": null
+    },
+    "success": false
+  },
+  {
+    "schema": "zPromptSuggestionsUpdate",
+    "input": {},
+    "success": false
+  },
+  {
+    "schema": "zPromptSuggestion",
+    "input": {
+      "prompt": []
+    },
+    "success": false
+  },
+  {
+    "schema": "zForkSessionRequest",
+    "input": {
+      "sessionId": "s",
+      "cwd": "/w",
+      "configOptions": [
+        {
+          "configId": "m",
+          "type": "boolean",
+          "value": true
+        },
+        {
+          "bad": 1
+        }
+      ]
+    },
+    "success": false
+  },
+  {
+    "schema": "zReplayComplete",
+    "input": {
+      "extra": 1
+    },
+    "success": true,
+    "output": {}
+  },
+  {
+    "schema": "zSkill",
+    "input": {
+      "name": "review",
+      "description": "Review code",
+      "path": "relative"
+    },
+    "success": true,
+    "output": {
+      "name": "review",
+      "description": "Review code",
+      "path": "relative"
+    }
+  },
+  {
+    "schema": "zAvailableCommand",
+    "input": {
+      "type": "skill",
+      "name": "review",
+      "description": "Review code",
+      "path": "/s/review"
+    },
+    "success": true,
+    "output": {
+      "name": "review",
+      "description": "Review code",
+      "path": "/s/review",
+      "type": "skill"
+    }
+  },
+  {
+    "schema": "zAvailableCommand",
+    "input": {
+      "type": "skill",
+      "name": "review"
+    },
+    "success": false
+  },
+  {
+    "schema": "zContentBlock",
+    "input": {
+      "type": "skill",
+      "name": "review"
+    },
+    "success": true,
+    "output": {
+      "name": "review",
+      "type": "skill"
+    }
+  },
+  {
+    "schema": "zContentBlock",
+    "input": {
+      "type": "skill"
+    },
+    "success": false
   }
 ]

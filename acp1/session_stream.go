@@ -220,6 +220,16 @@ func (s *SessionStream) SendModeUpdate(ctx context.Context, modeID SessionModeID
 	return s.Send(ctx, schema.SessionUpdateCurrentModeUpdate{CurrentModeID: modeID})
 }
 
+// SendPromptSuggestions replaces the prompts the client offers the user to
+// send next; none clears them. Send it only to a client that advertised the
+// session.promptSuggestions capability, and not while replaying a session:
+// suggestions are not history. [TextSuggestion] builds the usual one.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (s *SessionStream) SendPromptSuggestions(ctx context.Context, suggestions ...PromptSuggestion) error {
+	return s.Send(ctx, schema.SessionUpdatePromptSuggestionsUpdate{Suggestions: suggestions})
+}
+
 // SendConfigUpdate reports new values for the session's config options.
 func (s *SessionStream) SendConfigUpdate(ctx context.Context, options []SessionConfigOption) error {
 	return s.Send(ctx, schema.SessionUpdateConfigOptionUpdate{ConfigOptions: options})
