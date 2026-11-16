@@ -442,5 +442,111 @@
     "output": {
       "sessionId": "s"
     }
+  },
+  {
+    "schema": "zPlanUpdateContent",
+    "input": {
+      "type": "markdown",
+      "planId": "p",
+      "content": "# Plan",
+      "path": "/w/plan.md"
+    },
+    "success": true,
+    "output": {
+      "planId": "p",
+      "content": "# Plan",
+      "path": "/w/plan.md",
+      "type": "markdown"
+    }
+  },
+  {
+    "schema": "zPlanUpdateContent",
+    "input": {
+      "type": "markdown",
+      "planId": "p",
+      "content": "# Plan",
+      "path": 5
+    },
+    "success": true,
+    "output": {
+      "planId": "p",
+      "content": "# Plan",
+      "type": "markdown"
+    }
+  },
+  {
+    "schema": "zPromptSuggestionsUpdate",
+    "input": {
+      "suggestions": [
+        {
+          "prompt": [
+            {
+              "type": "text",
+              "text": "Run the tests"
+            }
+          ]
+        }
+      ]
+    },
+    "success": true,
+    "output": {
+      "suggestions": [
+        {
+          "prompt": [
+            {
+              "text": "Run the tests",
+              "type": "text"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "schema": "zPromptSuggestionsUpdate",
+    "input": {
+      "suggestions": []
+    },
+    "success": true,
+    "output": {
+      "suggestions": []
+    }
+  },
+  {
+    "schema": "zPromptSuggestionsUpdate",
+    "input": {
+      "suggestions": null
+    },
+    "success": false
+  },
+  {
+    "schema": "zPromptSuggestionsUpdate",
+    "input": {},
+    "success": false
+  },
+  {
+    "schema": "zPromptSuggestion",
+    "input": {
+      "prompt": []
+    },
+    "success": false
+  },
+  {
+    "schema": "zForkSessionRequest",
+    "input": {
+      "sessionId": "s",
+      "cwd": "/w",
+      "configOptions": [
+        {
+          "configId": "m",
+          "type": "boolean",
+          "value": true
+        },
+        {
+          "bad": 1
+        }
+      ]
+    },
+    "success": false
   }
 ]

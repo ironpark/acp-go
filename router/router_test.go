@@ -204,7 +204,7 @@ func TestV2ClientIsDowngradedForV1OnlyAgent(t *testing.T) {
 	r := router.New().WithV1(func(*acp1.AgentSideConnection) acp1.Agent { return v1 })
 	p := serve(t, r)
 
-	p.send(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":2,"info":{"name":"c","version":"9"},"capabilities":{"auth":{"terminal":{}},"elicitation":{"form":{}}}}}`)
+	p.send(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":2,"info":{"name":"c","version":"9"},"capabilities":{"auth":{"terminal":{}},"elicitation":{"form":{}},"session":{"promptSuggestions":{"image":{}},"commands":{"skill":{}}}}}}`)
 	if got := string(p.receive()["result"]); !strings.Contains(got, `"protocolVersion":1`) {
 		t.Errorf("result = %s", got)
 	}
@@ -231,6 +231,10 @@ func TestV2ClientIsDowngradedForV1OnlyAgent(t *testing.T) {
 	}
 	if caps.Session == nil || caps.Session.ConfigOptions == nil || caps.Session.ConfigOptions.Boolean == nil || caps.Plan == nil {
 		t.Errorf("session/plan defaults missing: %+v", caps)
+	}
+	// Prompt suggestions exist in both versions; v2's command capabilities do not.
+	if caps.Session.GetPromptSuggestions().GetImage() == nil {
+		t.Errorf("session.promptSuggestions = %+v, want image carried over", caps.Session.PromptSuggestions)
 	}
 }
 

@@ -6,6 +6,32 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+### Schema
+
+- Pinned the TypeScript SDK at `b93e77b` (2.7.0). The ACP schema moves to **v1.32.0**, and the v2
+  draft to **2.0.0-alpha.16**. No method is added.
+- **Replay complete (v2):** an agent ends the history replay of every `session/resume` that
+  carries a `replayFrom` with a `replay_complete` update, before it answers, for an empty history
+  too. `SessionStream.ReplayComplete` sends it, and `SessionManager.ResumeSession`, which keeps
+  no history, now sends it for such a request. An agent that overrides `ResumeSession` to replay
+  history must send it itself.
+- **Prompt suggestions (unstable):** the `prompt_suggestions_update` session update lists prompts
+  the client may offer the user next, for clients that advertise `session.promptSuggestions`.
+  `SessionStream.SendPromptSuggestions` and `TextSuggestion` build it in both façades, and the
+  router carries the capability over when it downgrades a v2 client for a v1 agent.
+- **Skills (v2):** `AvailableCommandSkill` command entries and `ContentBlockSkill` content blocks,
+  with the `session.commands.skill` client capability and the `prompt.skill` agent capability.
+  v2 clients now have a `session` capability object (`ClientSessionCapabilities`).
+- `session/fork` takes initial config option values (`ForkSessionRequest.ConfigOptions`), and
+  config options gain the `speed` category.
+- v2 includes subagents without the unstable flag upstream; the Go types are unchanged.
+
+### Breaking changes
+
+- **The `file` plan type is gone (unstable):** `PlanUpdateContentFile` is removed from both
+  versions. A markdown plan names its file with the new `PlanUpdateContentMarkdown.Path` instead.
+  A `file` plan a peer still sends decodes as the union's unknown variant.
+
 ### Fixed
 
 - **A prompt sent right behind `session/cancel` no longer runs beside the cancelled turn.**

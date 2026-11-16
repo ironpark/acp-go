@@ -1733,7 +1733,7 @@ func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 // [Agent Reports Output]: https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#3-agent-reports-output
 type SessionUpdate struct{ value SessionUpdateVariant }
 
-// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentThoughtChunk], [SessionUpdateToolCall], [SessionUpdateToolCallUpdate], [SessionUpdatePlan], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateCurrentModeUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdateSubagentUpdate], [SessionUpdateSessionMessage], [SessionUpdateSessionMessageChunk], [SessionUpdateUnknown].
+// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentThoughtChunk], [SessionUpdateToolCall], [SessionUpdateToolCallUpdate], [SessionUpdatePlan], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateCurrentModeUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdatePromptSuggestionsUpdate], [SessionUpdateSubagentUpdate], [SessionUpdateSessionMessage], [SessionUpdateSessionMessageChunk], [SessionUpdateUnknown].
 type SessionUpdateVariant interface {
 	sessionUpdateVariant()
 	Tag() string
@@ -1759,6 +1759,7 @@ type SessionUpdateVariants interface {
 		SessionUpdateNotice |
 		SessionUpdateCompactionUpdate |
 		SessionUpdateCompactionSummaryChunk |
+		SessionUpdatePromptSuggestionsUpdate |
 		SessionUpdateSubagentUpdate |
 		SessionUpdateSessionMessage |
 		SessionUpdateSessionMessageChunk |
@@ -1913,6 +1914,12 @@ func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVari
 		*out = v
 	case "compaction_summary_chunk":
 		var v SessionUpdateCompactionSummaryChunk
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "prompt_suggestions_update":
+		var v SessionUpdatePromptSuggestionsUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -2495,6 +2502,49 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 	return unmarshalSessionUpdateTagged(dec, "SessionUpdateCompactionSummaryChunk", "compaction_summary_chunk", (*sessionUpdateCompactionSummaryChunkFields)(v))
 }
 
+// SessionUpdatePromptSuggestionsUpdate is the SessionUpdate variant with sessionUpdate "prompt_suggestions_update".
+//
+// Replaces the session's current list of prompt suggestions.
+//
+// A prompt suggestion is a prompt the Agent predicts the user will send next.
+// The Client offers suggestions where the user writes the next prompt. The
+// list in the most recent update is the current list until the Agent sends
+// another update. A session starts with an empty list.
+//
+// Suggestions are not part of session history. Agents SHOULD NOT include
+// this update when they replay a session.
+//
+// Agents MUST only send this update when the Client advertised
+// the `session.promptSuggestions` Client capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type SessionUpdatePromptSuggestionsUpdate struct {
+	// The suggestions the Client can offer, ordered most likely first.
+	//
+	// Required and non-null. An empty list withdraws the suggestions the
+	// Client is offering. A Client skips an entry it cannot parse and keeps
+	// the rest.
+	Suggestions []PromptSuggestion `json:"suggestions"`
+	Meta        Meta               `json:"_meta,omitzero"`
+}
+
+func (SessionUpdatePromptSuggestionsUpdate) sessionUpdateVariant() {}
+
+// Tag returns "prompt_suggestions_update".
+func (SessionUpdatePromptSuggestionsUpdate) Tag() string { return "prompt_suggestions_update" }
+
+type sessionUpdatePromptSuggestionsUpdateFields SessionUpdatePromptSuggestionsUpdate
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v SessionUpdatePromptSuggestionsUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdatePromptSuggestionsUpdateFields]{"prompt_suggestions_update", sessionUpdatePromptSuggestionsUpdateFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *SessionUpdatePromptSuggestionsUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdatePromptSuggestionsUpdate", "prompt_suggestions_update", (*sessionUpdatePromptSuggestionsUpdateFields)(v))
+}
+
 // SessionUpdateSubagentUpdate is a notification that the enclosing parent session created and owns a child session.
 //
 // Later updates modify the existing association's metadata, not its ownership.
@@ -2678,7 +2728,7 @@ func (v *SessionUpdateSessionMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decod
 // Experimental: not part of the spec yet; it may change or be removed.
 type PlanUpdateContent struct{ value PlanUpdateContentVariant }
 
-// PlanUpdateContentVariant is implemented by [PlanUpdateContentItems], [PlanUpdateContentFile], [PlanUpdateContentMarkdown], [PlanUpdateContentUnknown].
+// PlanUpdateContentVariant is implemented by [PlanUpdateContentItems], [PlanUpdateContentMarkdown], [PlanUpdateContentUnknown].
 type PlanUpdateContentVariant interface {
 	planUpdateContentVariant()
 	Tag() string
@@ -2689,7 +2739,6 @@ type PlanUpdateContentVariant interface {
 // methods, but is not one.
 type PlanUpdateContentVariants interface {
 	PlanUpdateContentItems |
-		PlanUpdateContentFile |
 		PlanUpdateContentMarkdown |
 		PlanUpdateContentUnknown
 	PlanUpdateContentVariant
@@ -2761,12 +2810,6 @@ func unmarshalPlanUpdateContentVariant(dec *jsontext.Decoder, out *PlanUpdateCon
 			return err
 		}
 		*out = v
-	case "file":
-		var v PlanUpdateContentFile
-		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
-			return err
-		}
-		*out = v
 	case "markdown":
 		var v PlanUpdateContentMarkdown
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -2826,36 +2869,6 @@ func (v *PlanUpdateContentItems) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	return unmarshalTypeTagged(dec, "PlanUpdateContentItems", "items", (*planUpdateContentItemsFields)(v))
 }
 
-// PlanUpdateContentFile is a plan represented by a file URI.
-//
-// PlanUpdateContentFile is the PlanUpdateContent variant with type "file".
-//
-// Experimental: not part of the spec yet; it may change or be removed.
-type PlanUpdateContentFile struct {
-	// The plan ID to update.
-	PlanID PlanID `json:"planId"`
-	// The URI of the file containing the plan.
-	URI  string `json:"uri"`
-	Meta Meta   `json:"_meta,omitzero"`
-}
-
-func (PlanUpdateContentFile) planUpdateContentVariant() {}
-
-// Tag returns "file".
-func (PlanUpdateContentFile) Tag() string { return "file" }
-
-type planUpdateContentFileFields PlanUpdateContentFile
-
-// MarshalJSONTo implements [json.MarshalerTo].
-func (v PlanUpdateContentFile) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, typeTagged[planUpdateContentFileFields]{"file", planUpdateContentFileFields(v)})
-}
-
-// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
-func (v *PlanUpdateContentFile) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return unmarshalTypeTagged(dec, "PlanUpdateContentFile", "file", (*planUpdateContentFileFields)(v))
-}
-
 // PlanUpdateContentMarkdown is a plan represented as raw markdown content.
 //
 // PlanUpdateContentMarkdown is the PlanUpdateContent variant with type "markdown".
@@ -2866,7 +2879,13 @@ type PlanUpdateContentMarkdown struct {
 	PlanID PlanID `json:"planId"`
 	// Markdown content for the plan.
 	Content string `json:"content"`
-	Meta    Meta   `json:"_meta,omitzero"`
+	// The absolute path of the file that holds this plan.
+	//
+	// This field is optional. Omitting it or sending `null` both mean that the plan
+	// has no file. `content` is the plan to display whether or not `path` is set.
+	// Clients can use `path` to open the file.
+	Path *string `json:"path,omitzero"`
+	Meta Meta    `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentMarkdown) planUpdateContentVariant() {}
@@ -3083,7 +3102,10 @@ func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 // snapshot normally.
 //
 // This is not a task outcome or session closure. It does not cancel work, resolve
-// pending requests, or revoke capabilities. Capabilities are updated separately.
+// pending requests, or revoke capabilities. If a control is no longer available,
+// the Agent updates the capabilities explicitly. Unfinished tool calls and
+// terminals stay as last reported. The Agent does not invent a final status
+// for them, and Clients do not present them as confirmed live activity.
 //
 // StateUpdateUnknown is the StateUpdate variant with state "unknown".
 //

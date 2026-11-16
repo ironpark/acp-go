@@ -106,8 +106,8 @@ type SessionInfoReporter interface {
 //
 // v2 has no session/load: session/resume replays the history the agent
 // retains when the request's ReplayFrom asks for it. The manager retains no
-// history, so its ResumeSession replays nothing; an agent that keeps history
-// overrides it.
+// history, so its ResumeSession replays nothing and reports the empty replay
+// complete; an agent that keeps history overrides it.
 type SessionManager[T SessionInfoReporter] struct {
 	store     SessionStore[T]
 	factory   SessionFactory[T]
@@ -440,12 +440,19 @@ func (m *SessionManager[T]) DeleteSession(ctx context.Context, params *DeleteSes
 }
 
 // ResumeSession continues a stored session. The manager retains no history,
-// so there is nothing to replay whatever the request's ReplayFrom; an agent
-// that keeps history overrides this method to replay it.
+// so for a request with a ReplayFrom it replays nothing and marks the empty
+// replay complete, as the protocol asks of every such request. An agent that
+// keeps history overrides this method: it sends the history, then
+// [SessionStream.ReplayComplete], then answers.
 func (m *SessionManager[T]) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
 	session, err := m.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
+	}
+	if conn, ok := agentConnFrom(ctx); ok && !params.ReplayFrom.IsZero() {
+		if err := NewSessionStream(conn, params.SessionID).ReplayComplete(ctx); err != nil {
+			return nil, err
+		}
 	}
 	return &ResumeSessionResponse{ConfigOptions: configOptions(session), AvailableCommands: availableCommands(session)}, nil
 }

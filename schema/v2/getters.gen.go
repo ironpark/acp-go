@@ -115,6 +115,15 @@ func (x *AuthMethodTerminal) GetDescription() string {
 	return zero
 }
 
+// GetPath returns the value of Path, or the zero value if x or Path is nil.
+func (x *AvailableCommandSkill) GetPath() AbsolutePath {
+	if x != nil && x.Path != nil {
+		return *x.Path
+	}
+	var zero AbsolutePath
+	return zero
+}
+
 // GetMIMEType returns the value of MIMEType, or the zero value if x or MIMEType is nil.
 func (x *BlobResourceContents) GetMIMEType() MediaType {
 	if x != nil && x.MIMEType != nil {
@@ -146,6 +155,38 @@ func (x *ClientCapabilities) GetElicitation() *ElicitationCapabilities {
 		return nil
 	}
 	return x.Elicitation
+}
+
+// GetSession returns Session, or nil if x is nil.
+func (x *ClientCapabilities) GetSession() *ClientSessionCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Session
+}
+
+// GetPromptSuggestions returns PromptSuggestions, or nil if x is nil.
+func (x *ClientSessionCapabilities) GetPromptSuggestions() *PromptSuggestionsCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.PromptSuggestions
+}
+
+// GetCommands returns Commands, or nil if x is nil.
+func (x *ClientSessionCapabilities) GetCommands() *CommandsCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Commands
+}
+
+// GetSkill returns Skill, or nil if x is nil.
+func (x *CommandsCapabilities) GetSkill() *CommandsSkillCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Skill
 }
 
 // GetAnnotations returns Annotations, or nil if x is nil.
@@ -853,6 +894,15 @@ func (x *NewSessionRequest) GetSystemPrompt() *SystemPrompt {
 	return x.SystemPrompt
 }
 
+// GetPath returns the value of Path, or the zero value if x or Path is nil.
+func (x *PlanUpdateContentMarkdown) GetPath() AbsolutePath {
+	if x != nil && x.Path != nil {
+		return *x.Path
+	}
+	var zero AbsolutePath
+	return zero
+}
+
 // GetImage returns Image, or nil if x is nil.
 func (x *PromptCapabilities) GetImage() *PromptImageCapabilities {
 	if x == nil {
@@ -871,6 +921,46 @@ func (x *PromptCapabilities) GetAudio() *PromptAudioCapabilities {
 
 // GetEmbeddedContext returns EmbeddedContext, or nil if x is nil.
 func (x *PromptCapabilities) GetEmbeddedContext() *PromptEmbeddedContextCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.EmbeddedContext
+}
+
+// GetSkill returns Skill, or nil if x is nil.
+func (x *PromptCapabilities) GetSkill() *PromptSkillCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Skill
+}
+
+// GetInline returns Inline, or nil if x is nil.
+func (x *PromptSkillCapabilities) GetInline() *PromptSkillInlineCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Inline
+}
+
+// GetImage returns Image, or nil if x is nil.
+func (x *PromptSuggestionsCapabilities) GetImage() *PromptSuggestionsImageCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Image
+}
+
+// GetAudio returns Audio, or nil if x is nil.
+func (x *PromptSuggestionsCapabilities) GetAudio() *PromptSuggestionsAudioCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Audio
+}
+
+// GetEmbeddedContext returns EmbeddedContext, or nil if x is nil.
+func (x *PromptSuggestionsCapabilities) GetEmbeddedContext() *PromptSuggestionsEmbeddedContextCapabilities {
 	if x == nil {
 		return nil
 	}

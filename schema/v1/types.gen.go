@@ -1161,6 +1161,25 @@ type Cost struct {
 	Meta     Meta   `json:"_meta,omitzero"`
 }
 
+// A prompt the Agent predicts the user will send next.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestion struct {
+	// The content of the suggested prompt.
+	//
+	// Required and non-null. Must contain at least one content block. This is
+	// the same type as the `prompt` field of `session/prompt`, and the Client
+	// can send it in that field unchanged.
+	//
+	// Agents MUST only use `text` and `resource_link` content blocks, and
+	// other content block types that both the Agent's prompt capabilities
+	// and the Client's `session.promptSuggestions` capability advertise.
+	// Agents MUST NOT send a prompt whose only content is empty or
+	// whitespace-only text.
+	Prompt []ContentBlock `json:"prompt"`
+	Meta   Meta           `json:"_meta,omitzero"`
+}
+
 // Client-initiated session mutations permitted for a specific subagent session.
 //
 // A mutation requires an explicit per-child capability. Support for the method
@@ -1329,7 +1348,15 @@ type ClientSessionCapabilities struct {
 	// Optional. Omitted or `null` both mean the client does not advertise support.
 	// Supplying `{}` means the client can present notices to the user.
 	Notices *NoticeCapabilities `json:"notices,omitzero"`
-	Meta    Meta                `json:"_meta,omitzero"`
+	// Support for `prompt_suggestions_update` session updates.
+	//
+	// Optional. Omitted or `null` both mean the client does not advertise support.
+	// Supplying `{}` means the client can offer prompt suggestions made of
+	// `text` and `resource_link` content blocks.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	PromptSuggestions *PromptSuggestionsCapabilities `json:"promptSuggestions,omitzero"`
+	Meta              Meta                           `json:"_meta,omitzero"`
 }
 
 // Client support for ID-addressed context compaction updates.
@@ -1356,6 +1383,62 @@ type BooleanConfigOptionCapabilities struct {
 
 // Client support for presenting live notices to the user.
 type NoticeCapabilities = map[string]jsontext.Value
+
+// Client support for `prompt_suggestions_update` session updates.
+//
+// Supplying `{}` means the client can offer prompt suggestions made of `text`
+// and `resource_link` content blocks. The client opts in to other content
+// block types with the fields below. They have the same names as the agent's
+// prompt capabilities.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestionsCapabilities struct {
+	// Whether prompt suggestions may include `image` content blocks.
+	//
+	// Optional. Omitted or `null` both mean the client does not advertise support.
+	// Supplying `{}` means the client can offer suggestions that include images.
+	Image *PromptSuggestionsImageCapabilities `json:"image,omitzero"`
+	// Whether prompt suggestions may include `audio` content blocks.
+	//
+	// Optional. Omitted or `null` both mean the client does not advertise support.
+	// Supplying `{}` means the client can offer suggestions that include audio.
+	Audio *PromptSuggestionsAudioCapabilities `json:"audio,omitzero"`
+	// Whether prompt suggestions may include `resource` content blocks.
+	//
+	// Optional. Omitted or `null` both mean the client does not advertise support.
+	// Supplying `{}` means the client can offer suggestions that include
+	// embedded resources.
+	EmbeddedContext *PromptSuggestionsEmbeddedContextCapabilities `json:"embeddedContext,omitzero"`
+	Meta            Meta                                          `json:"_meta,omitzero"`
+}
+
+// Capabilities for image content in prompt suggestions.
+//
+// Supplying `{}` means the client can offer suggestions that include images.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestionsImageCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for audio content in prompt suggestions.
+//
+// Supplying `{}` means the client can offer suggestions that include audio.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestionsAudioCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capabilities for embedded resources in prompt suggestions.
+//
+// Supplying `{}` means the client can offer suggestions that include
+// `resource` content blocks.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type PromptSuggestionsEmbeddedContextCapabilities struct {
+	Meta Meta `json:"_meta,omitzero"`
+}
 
 // Capability marker for exposing reusable child sessions as restricted ACP sessions.
 //
@@ -1518,7 +1601,9 @@ type NewSessionRequest struct {
 	// entries and duplicate `configId` values fail the request with `-32602`. The Agent MUST
 	// ignore an entry whose `configId` is unknown, whose `type` does not match the option,
 	// or whose value is not allowed when it is applied. The `configOptions` in the response contain the values the session actually
-	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries.
+	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries,
+	// and SHOULD NOT send other `session/update` notifications caused by applying them
+	// before it responds.
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	ConfigOptions []InitialSessionConfigOption `json:"configOptions,omitzero"`
@@ -1675,7 +1760,24 @@ type ForkSessionRequest struct {
 	// `sessionCapabilities.systemPrompt`, and SHOULD send the same value they used
 	// for the source session.
 	SystemPrompt *SystemPrompt `json:"systemPrompt,omitzero"`
-	Meta         Meta          `json:"_meta,omitzero"`
+	// Initial values for the forked session's config options.
+	//
+	// Optional. Omitted and `null` are equivalent to an empty list. Clients MUST only send
+	// this when the Agent advertises `sessionCapabilities.options`.
+	//
+	// The Agent applies the entries in list order on top of the configuration the fork
+	// starts with, as if the Client had called `session/set_config_option` for each entry
+	// after the session was set up. Malformed entries and duplicate `configId` values fail
+	// the request with `-32602`. The Agent MUST ignore an entry whose `configId` is unknown,
+	// whose `type` does not match the option, or whose value is not allowed when it is
+	// applied. The `configOptions` in the response contain the values the session actually
+	// has. The Agent SHOULD NOT send `config_option_update` notifications for these entries,
+	// and SHOULD NOT send other `session/update` notifications caused by applying them
+	// before it responds.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	ConfigOptions []InitialSessionConfigOption `json:"configOptions,omitzero"`
+	Meta          Meta                         `json:"_meta,omitzero"`
 }
 
 // Request parameters for archiving a session.
@@ -1733,7 +1835,8 @@ type SessionStatusRequest struct {
 //
 // `session/options` MUST NOT create or resume a session, send `session/update`
 // notifications, add an entry to `session/list`, or change an existing session. Agents
-// SHOULD NOT connect to MCP servers to answer it.
+// SHOULD NOT connect to MCP servers to answer it. Agents MAY start their runtime to resolve
+// the options. The rules above still hold for it.
 //
 // Experimental: not part of the spec yet; it may change or be removed.
 type SessionOptionsRequest struct {

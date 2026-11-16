@@ -292,3 +292,69 @@ func TestToolSession(t *testing.T) {
 		t.Errorf("ToolSession = %+v (tag %q)", content, content.Tag())
 	}
 }
+
+// A resume that asks for a replay ends it with replay_complete, though the
+// manager keeps no history to replay; one that does not ask sends none.
+func TestResumeMarksTheReplayComplete(t *testing.T) {
+	ctx := testContext(t)
+	client := &acp2test.Client{}
+	_, conn, _ := connectExtras(t, client)
+	created, err := conn.NewSession(ctx, &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replays := func() (n int) {
+		for _, update := range client.Updates() {
+			if update.Update.Tag() == "replay_complete" && update.SessionID == created.SessionID {
+				n++
+			}
+		}
+		return n
+	}
+
+	if _, err := conn.ResumeSession(ctx, &acp2.ResumeSessionRequest{SessionID: created.SessionID, Cwd: "/tmp"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := replays(); n != 0 {
+		t.Fatalf("%d replay_complete for a resume without replayFrom", n)
+	}
+	if _, err := conn.ResumeSession(ctx, &acp2.ResumeSessionRequest{
+		SessionID: created.SessionID, Cwd: "/tmp", ReplayFrom: schema.NewReplayFrom(schema.ReplayFromStart{}),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Updates are handled ahead of the response, so it has arrived by now.
+	if n := replays(); n != 1 {
+		t.Fatalf("%d replay_complete for a resume with replayFrom, want exactly 1", n)
+	}
+}
+
+func TestSendPromptSuggestions(t *testing.T) {
+	ctx := testContext(t)
+	client := &acp2test.Client{}
+	_, conn, agentConn := connectExtras(t, client)
+	created, err := conn.NewSession(ctx, &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := acp2.NewSessionStream(agentConn, created.SessionID)
+	if err := stream.SendPromptSuggestions(ctx, acp2.TextSuggestion("Run the tests")); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.SendPromptSuggestions(ctx); err != nil { // clears them
+		t.Fatal(err)
+	}
+	var lists [][]acp2.PromptSuggestion
+	waitFor(t, ctx, func() bool {
+		lists = lists[:0]
+		for _, n := range client.Updates() {
+			if s, ok := n.Update.As[acp2.SessionUpdatePromptSuggestionsUpdate](); ok {
+				lists = append(lists, s.Suggestions)
+			}
+		}
+		return len(lists) == 2
+	})
+	if len(lists[0]) != 1 || acp2.JoinTexts(lists[0][0].Prompt) != "Run the tests" || len(lists[1]) != 0 {
+		t.Errorf("suggestion lists = %+v", lists)
+	}
+}

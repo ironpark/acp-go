@@ -198,6 +198,26 @@ func (s *SessionStream) SendCommands(ctx context.Context, commands []AvailableCo
 	return s.Send(ctx, schema.SessionUpdateAvailableCommandsUpdate{AvailableCommands: commands})
 }
 
+// ReplayComplete marks the end of the history a session/resume request with
+// a ReplayFrom asked for. Send it once per such request, after the last
+// replayed update and before answering, for an empty history too: every
+// update the client receives for the session before it is history, and none
+// after it. Leave it out when the request has no ReplayFrom or the replay
+// could not finish, which tells the client the replay was cut short.
+func (s *SessionStream) ReplayComplete(ctx context.Context) error {
+	return s.Send(ctx, schema.SessionUpdateReplayComplete{})
+}
+
+// SendPromptSuggestions replaces the prompts the client offers the user to
+// send next; none clears them. Send it only to a client that advertised the
+// session.promptSuggestions capability, and not while replaying a session:
+// suggestions are not history. [TextSuggestion] builds the usual one.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (s *SessionStream) SendPromptSuggestions(ctx context.Context, suggestions ...PromptSuggestion) error {
+	return s.Send(ctx, schema.SessionUpdatePromptSuggestionsUpdate{Suggestions: suggestions})
+}
+
 // SendConfigUpdate reports new values for the session's config options.
 func (s *SessionStream) SendConfigUpdate(ctx context.Context, options []SessionConfigOption) error {
 	return s.Send(ctx, schema.SessionUpdateConfigOptionUpdate{ConfigOptions: options})

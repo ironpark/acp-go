@@ -81,3 +81,11 @@ func SlashCommand(name, description string) AvailableCommand {
 func CommandOf(command AvailableCommand) (AvailableCommandCommand, bool) {
 	return command.As[schema.AvailableCommandCommand]()
 }
+
+// TextSuggestion is a prompt suggestion made of text, for
+// [SessionStream.SendPromptSuggestions].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func TextSuggestion(text string) PromptSuggestion {
+	return PromptSuggestion{Prompt: []ContentBlock{TextBlock(text)}}
+}

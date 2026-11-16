@@ -205,13 +205,14 @@ const (
 	SessionConfigOptionCategoryMode         SessionConfigOptionCategory = "mode"
 	SessionConfigOptionCategoryModel        SessionConfigOptionCategory = "model"
 	SessionConfigOptionCategoryModelConfig  SessionConfigOptionCategory = "model_config"
+	SessionConfigOptionCategorySpeed        SessionConfigOptionCategory = "speed"
 	SessionConfigOptionCategoryThoughtLevel SessionConfigOptionCategory = "thought_level"
 )
 
 // Known reports whether v is one of the protocol-defined constants.
 func (v SessionConfigOptionCategory) Known() bool {
 	switch v {
-	case SessionConfigOptionCategoryMode, SessionConfigOptionCategoryModel, SessionConfigOptionCategoryModelConfig, SessionConfigOptionCategoryThoughtLevel:
+	case SessionConfigOptionCategoryMode, SessionConfigOptionCategoryModel, SessionConfigOptionCategoryModelConfig, SessionConfigOptionCategorySpeed, SessionConfigOptionCategoryThoughtLevel:
 		return true
 	}
 	return false

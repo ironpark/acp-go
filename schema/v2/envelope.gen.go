@@ -377,7 +377,7 @@ var clientRequestParamsAlternatives = union.Table(
 	union.Alt[NewSessionRequest](union.Rule{NonNull: true, Required: []string{"cwd"}, NotNull: []string{"cwd", "additionalDirectories", "mcpServers", "configOptions"}}),
 	union.Alt[ListSessionsRequest](union.Rule{NonNull: true}),
 	union.Alt[DeleteSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
-	union.Alt[ForkSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "cwd"}, NotNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}),
+	union.Alt[ForkSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "cwd"}, NotNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers", "configOptions"}}),
 	union.Alt[ArchiveSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
 	union.Alt[UnarchiveSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
 	union.Alt[SessionStatusRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
