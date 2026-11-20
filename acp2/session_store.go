@@ -36,6 +36,13 @@ func GenerateMessageID() MessageID { return MessageID(acp.GenerateID("message"))
 // Tool call ids must be unique within a session, across its turns.
 func GenerateToolCallID() ToolCallID { return ToolCallID(acp.GenerateID("call")) }
 
+// GenerateCursorID returns a new id of the form "cursor_<UUIDv7>".
+// Cursor ids are opaque, unique within a session, and never reused for another
+// position.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func GenerateCursorID() CursorID { return CursorID(acp.GenerateID("cursor")) }
+
 // SessionInfoLister is [acp.SessionInfoLister] for v2 session descriptions:
 // a store that implements it answers the [SessionManager]'s session/list
 // pages itself.
@@ -440,18 +447,24 @@ func (m *SessionManager[T]) DeleteSession(ctx context.Context, params *DeleteSes
 }
 
 // ResumeSession continues a stored session. The manager retains no history,
-// so for a request with a ReplayFrom it replays nothing and marks the empty
-// replay complete, as the protocol asks of every such request. An agent that
-// keeps history overrides this method: it sends the history, then
-// [SessionStream.ReplayComplete], then answers.
+// so for a request with a ReplayFrom of start it replays nothing and marks the
+// empty replay complete, as the protocol asks of every such request; any other
+// ReplayFrom cursor is rejected with invalid params (-32602) without sending
+// replay_complete. An agent that keeps history overrides this method: it sends
+// the history, then [SessionStream.ReplayComplete], then answers.
 func (m *SessionManager[T]) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
 	session, err := m.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}
-	if conn, ok := agentConnFrom(ctx); ok && !params.ReplayFrom.IsZero() {
-		if err := NewSessionStream(conn, params.SessionID).ReplayComplete(ctx); err != nil {
-			return nil, err
+	if !params.ReplayFrom.IsZero() {
+		if _, ok := params.ReplayFrom.As[ReplayFromStart](); !ok {
+			return nil, acp.InvalidParams("unsupported replayFrom cursor")
+		}
+		if conn, ok := agentConnFrom(ctx); ok {
+			if err := NewSessionStream(conn, params.SessionID).ReplayComplete(ctx); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return &ResumeSessionResponse{ConfigOptions: configOptions(session), AvailableCommands: availableCommands(session)}, nil
@@ -502,10 +515,14 @@ func (m *SessionManager[T]) TrackToolCall(ctx context.Context, sessionID Session
 // CancelToolCall serves tool_call/cancel. It cancels the context
 // [SessionManager.TrackToolCall] returned and answers at once, which only
 // accepts the cancellation; the agent confirms it with the tool call's final
-// status. A tool call that is not tracked, being unknown, finished or not
-// cancellable, is refused with invalid params.
-func (m *SessionManager[T]) CancelToolCall(_ context.Context, params *CancelToolCallRequest) (*CancelToolCallResponse, error) {
+// status. If the tool call is not tracked, an unknown session is refused with
+// [acp.SessionNotFound] (-32002) and a known session whose tool call is
+// unknown, finished or not cancellable is refused with invalid params (-32602).
+func (m *SessionManager[T]) CancelToolCall(ctx context.Context, params *CancelToolCallRequest) (*CancelToolCallResponse, error) {
 	if !m.toolCalls.Cancel(toolCallKey{params.SessionID, params.ToolCallID}) {
+		if _, err := m.Lookup(ctx, params.SessionID); err != nil {
+			return nil, err
+		}
 		return nil, acp.InvalidParams(fmt.Sprintf("tool call %s is not running or not cancellable", params.ToolCallID))
 	}
 	return &CancelToolCallResponse{}, nil
@@ -521,10 +538,15 @@ func (m *SessionManager[T]) TrackTerminal(ctx context.Context, sessionID Session
 }
 
 // CancelTerminal serves terminal/cancel, cancelling the context
-// [SessionManager.TrackTerminal] returned. A terminal that is not tracked,
-// being unknown, exited or not cancellable, is refused with invalid params.
-func (m *SessionManager[T]) CancelTerminal(_ context.Context, params *CancelTerminalRequest) (*CancelTerminalResponse, error) {
+// [SessionManager.TrackTerminal] returned. If the terminal is not tracked, an
+// unknown session is refused with [acp.SessionNotFound] (-32002) and a known
+// session whose terminal is unknown, exited or not cancellable is refused with
+// invalid params (-32602).
+func (m *SessionManager[T]) CancelTerminal(ctx context.Context, params *CancelTerminalRequest) (*CancelTerminalResponse, error) {
 	if !m.terminals.Cancel(terminalKey{params.SessionID, params.TerminalID}) {
+		if _, err := m.Lookup(ctx, params.SessionID); err != nil {
+			return nil, err
+		}
 		return nil, acp.InvalidParams(fmt.Sprintf("terminal %s is not running or not cancellable", params.TerminalID))
 	}
 	return &CancelTerminalResponse{}, nil

@@ -6,6 +6,50 @@ All notable changes to this module are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-20
+
+### Schema
+
+- Pinned the TypeScript SDK at `97d748e` (2.8.0). The ACP schema moves to **v1.33.0**, and the v2
+  draft to **2.0.0-alpha.17**. No method is added.
+- **Session cursors (unstable):** the `cursor_update` session update (`SessionUpdateCursorUpdate`,
+  `CursorID`, `CursorAnchor`, `CursorAnchorPosition`, `CursorCapabilities`,
+  `CursorForkCapabilities`) announces named positions anchored before or after messages, tool calls,
+  or compactions. `CursorUpdate.Capabilities` and `CursorUpdate.Meta` distinguish absent from `null`
+  (`optional.Value`), matching the Rust schema. `ForkSessionRequest` gains `CursorID` to fork at a
+  cursor, and v1 `ClientSessionCapabilities` gains `Cursors` (`SessionCursorsCapabilities`).
+- **Prompt idempotency keys (v2):** `PromptRequest` gains an optional `IdempotencyKey` (1–255
+  characters, validated by Zod), allowing clients to retry `session/prompt` without inserting the
+  user message twice.
+- **Diff changes (v2):** the protocol now requires at least one entry in `Diff.Changes` (documented
+  on `acp2.ToolDiff`).
+- Reference fixtures (`zod-v1.json`, `zod-v2.json`) gain cases for the new types and are checked
+  against Zod 4.6.7.
+
+### Added
+
+- `SessionStream.SendCursor` and `GenerateCursorID` in both `acp1` and `acp2` for announcing and
+  updating session cursors (unstable).
+- `acp2.ClientSession.PromptWithKey` sends a v2 `session/prompt` with an `IdempotencyKey`.
+
+### Breaking changes
+
+- **v2 elicitation string `pattern` removed:** `ElicitationPropertySchemaString.Pattern` and
+  `ElicitationPropertySchemaString.GetPattern` are removed in `schema/v2` and `acp2`, following
+  upstream schema v2.0.0-alpha.17 (`#2864`). Incoming `pattern` keys are stripped during validated
+  decoding.
+
+### Fixed
+
+- `acp2.SessionManager.CancelToolCall` and `CancelTerminal` now answer `-32002` with
+  `data.sessionId` (`acp.SessionNotFound`) for an unknown session when the work is not tracked,
+  rather than `-32602`, aligning with the updated v2 protocol specification.
+- `acp2.SessionManager.ResumeSession` now rejects unsupported `ReplayFrom` cursor variants with
+  `-32602` without sending `replay_complete`.
+- `examples/dual-agent` (v2): reject unsupported `systemPrompt` on `session/new` and
+  `session/resume` with `-32602` without creating or resuming a session, and send `replay_complete`
+  after replayed history rather than before it.
+
 ## [0.6.0] - 2026-11-16
 
 ### Schema

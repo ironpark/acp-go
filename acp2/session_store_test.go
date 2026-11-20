@@ -44,6 +44,9 @@ func TestGeneratedIDs(t *testing.T) {
 	if id := acp2.GenerateMessageID(); !strings.HasPrefix(string(id), "message_") {
 		t.Fatalf("message id %q", id)
 	}
+	if id := acp2.GenerateCursorID(); !strings.HasPrefix(string(id), "cursor_") {
+		t.Fatalf("cursor id %q", id)
+	}
 	// The UUIDv7 suffix sorts ids in the order they were minted.
 	first, second := acp2.GenerateSessionID(), acp2.GenerateSessionID()
 	suffix, ok := strings.CutPrefix(string(first), "session_")

@@ -548,5 +548,235 @@
       ]
     },
     "success": false
+  },
+  {
+    "schema": "zCursorUpdate",
+    "input": {
+      "cursorId": "cur_1",
+      "capabilities": {
+        "fork": {}
+      },
+      "anchor": {
+        "type": "user_message",
+        "messageId": "m1",
+        "position": "before"
+      }
+    },
+    "success": true,
+    "output": {
+      "cursorId": "cur_1",
+      "capabilities": {
+        "fork": {}
+      },
+      "anchor": {
+        "messageId": "m1",
+        "position": "before",
+        "type": "user_message"
+      }
+    }
+  },
+  {
+    "schema": "zCursorUpdate",
+    "input": {
+      "cursorId": "cur_1",
+      "capabilities": null
+    },
+    "success": true,
+    "output": {
+      "cursorId": "cur_1",
+      "capabilities": null
+    }
+  },
+  {
+    "schema": "zCursorUpdate",
+    "input": {
+      "cursorId": "cur_1",
+      "capabilities": "bad"
+    },
+    "success": true,
+    "output": {
+      "cursorId": "cur_1"
+    }
+  },
+  {
+    "schema": "zCursorUpdate",
+    "input": {
+      "cursorId": "cur_1",
+      "anchor": {
+        "type": "tool_call",
+        "position": "after"
+      }
+    },
+    "success": false
+  },
+  {
+    "schema": "zCursorAnchor",
+    "input": {
+      "type": "compaction",
+      "compactionId": "cmp_1",
+      "position": "after"
+    },
+    "success": true,
+    "output": {
+      "compactionId": "cmp_1",
+      "position": "after",
+      "type": "compaction"
+    }
+  },
+  {
+    "schema": "zCursorAnchor",
+    "input": {
+      "type": "user_message",
+      "messageId": "m1",
+      "position": "_middle"
+    },
+    "success": true,
+    "output": {
+      "messageId": "m1",
+      "position": "_middle",
+      "type": "user_message"
+    }
+  },
+  {
+    "schema": "zCursorAnchor",
+    "input": {
+      "type": "_custom",
+      "extra": 42
+    },
+    "success": true,
+    "output": {
+      "type": "_custom",
+      "extra": 42
+    }
+  },
+  {
+    "schema": "zCursorAnchor",
+    "input": {
+      "type": "agent_message",
+      "position": "before"
+    },
+    "success": false
+  },
+  {
+    "schema": "zCursorCapabilities",
+    "input": {
+      "fork": "bad"
+    },
+    "success": true,
+    "output": {}
+  },
+  {
+    "schema": "zSessionUpdate",
+    "input": {
+      "sessionUpdate": "cursor_update",
+      "cursorId": "cur_1",
+      "capabilities": {
+        "fork": {}
+      },
+      "anchor": {
+        "type": "tool_call",
+        "toolCallId": "t1",
+        "position": "after"
+      }
+    },
+    "success": true,
+    "output": {
+      "cursorId": "cur_1",
+      "capabilities": {
+        "fork": {}
+      },
+      "anchor": {
+        "toolCallId": "t1",
+        "position": "after",
+        "type": "tool_call"
+      },
+      "sessionUpdate": "cursor_update"
+    }
+  },
+  {
+    "schema": "zSessionUpdate",
+    "input": {
+      "sessionUpdate": "cursor_update"
+    },
+    "success": false
+  },
+  {
+    "schema": "zForkSessionRequest",
+    "input": {
+      "sessionId": "s",
+      "cwd": "/w",
+      "cursorId": "cur_1"
+    },
+    "success": true,
+    "output": {
+      "sessionId": "s",
+      "cursorId": "cur_1",
+      "cwd": "/w"
+    }
+  },
+  {
+    "schema": "zForkSessionRequest",
+    "input": {
+      "sessionId": "s",
+      "cwd": "/w",
+      "cursorId": null
+    },
+    "success": true,
+    "output": {
+      "sessionId": "s",
+      "cursorId": null,
+      "cwd": "/w"
+    }
+  },
+  {
+    "schema": "zForkSessionRequest",
+    "input": {
+      "sessionId": "s",
+      "cwd": "/w",
+      "cursorId": 123
+    },
+    "success": false
+  },
+  {
+    "schema": "zClientCapabilities",
+    "input": {
+      "session": {
+        "cursors": {}
+      }
+    },
+    "success": true,
+    "output": {
+      "fs": {
+        "readTextFile": false,
+        "writeTextFile": false
+      },
+      "terminal": false,
+      "session": {
+        "cursors": {}
+      },
+      "auth": {
+        "terminal": false
+      }
+    }
+  },
+  {
+    "schema": "zClientCapabilities",
+    "input": {
+      "session": {
+        "cursors": true
+      }
+    },
+    "success": true,
+    "output": {
+      "fs": {
+        "readTextFile": false,
+        "writeTextFile": false
+      },
+      "terminal": false,
+      "session": {},
+      "auth": {
+        "terminal": false
+      }
+    }
   }
 ]

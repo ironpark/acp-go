@@ -94,8 +94,13 @@ v2 has no client-side `fs/*` or `terminal/*` methods — file and shell access g
 `TerminalHandle` exists only in the v1 package. The agent reports the terminals it runs with
 `terminal_update`, and the client may stop one with `terminal/cancel` or a tool call with
 `tool_call/cancel` when that terminal or tool call advertises `capabilities.cancel`
-(`acp2.WithCancellable` sets it on a tool call). In v2 the prompt response only accepts the message;
-a `Turn` reads the session's updates until the agent reports the idle state.
+(`acp2.WithCancellable` sets it on a tool call). An agent without `ToolCallCanceller` or
+`TerminalCanceller` answers those requests with `-32601` (method not found); `SessionManager`
+implements both and answers `-32002` for an unknown session and `-32602` for an untracked,
+finished, or non-cancellable id. In v2 the prompt response only accepts the message;
+a `Turn` reads the session's updates until the agent reports the idle state. Clients can pass an
+`idempotencyKey` with `ClientSession.PromptWithKey` so retrying a prompt does not insert the user
+message twice.
 
 Overlapping prompts follow each version's rules on both sides. A v1 session runs one turn at a
 time: `ClientSession.Prompt` and `SessionManager.RunTurn` (or `BeginTurn`) both refuse a second

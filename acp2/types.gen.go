@@ -148,6 +148,20 @@ type (
 	CreateElicitationResponseDecline             = schema.CreateElicitationResponseDecline
 	CreateElicitationResponseVariant             = schema.CreateElicitationResponseVariant
 	CreateElicitationResponseVariants            = schema.CreateElicitationResponseVariants
+	CursorAnchor                                 = schema.CursorAnchor
+	CursorAnchorAgentMessage                     = schema.CursorAnchorAgentMessage
+	CursorAnchorAgentThought                     = schema.CursorAnchorAgentThought
+	CursorAnchorCompaction                       = schema.CursorAnchorCompaction
+	CursorAnchorCustom                           = schema.CursorAnchorCustom
+	CursorAnchorPosition                         = schema.CursorAnchorPosition
+	CursorAnchorSessionMessage                   = schema.CursorAnchorSessionMessage
+	CursorAnchorToolCall                         = schema.CursorAnchorToolCall
+	CursorAnchorUserMessage                      = schema.CursorAnchorUserMessage
+	CursorAnchorVariant                          = schema.CursorAnchorVariant
+	CursorAnchorVariants                         = schema.CursorAnchorVariants
+	CursorCapabilities                           = schema.CursorCapabilities
+	CursorForkCapabilities                       = schema.CursorForkCapabilities
+	CursorID                                     = schema.CursorID
 	DiffChange                                   = schema.DiffChange
 	DiffChangeAdd                                = schema.DiffChangeAdd
 	DiffChangeCopy                               = schema.DiffChangeCopy
@@ -188,6 +202,7 @@ type (
 	HTTPHeader                                   = schema.HTTPHeader
 	Icon                                         = schema.Icon
 	IconTheme                                    = schema.IconTheme
+	IdempotencyKey                               = schema.IdempotencyKey
 	IdleStateUpdate                              = schema.IdleStateUpdate
 	IdleStateUpdateCancelled                     = schema.IdleStateUpdateCancelled
 	IdleStateUpdateCustom                        = schema.IdleStateUpdateCustom
@@ -331,6 +346,7 @@ type (
 	SessionUpdateCompactionSummaryChunk          = schema.SessionUpdateCompactionSummaryChunk
 	SessionUpdateCompactionUpdate                = schema.SessionUpdateCompactionUpdate
 	SessionUpdateConfigOptionUpdate              = schema.SessionUpdateConfigOptionUpdate
+	SessionUpdateCursorUpdate                    = schema.SessionUpdateCursorUpdate
 	SessionUpdateCustom                          = schema.SessionUpdateCustom
 	SessionUpdateNotice                          = schema.SessionUpdateNotice
 	SessionUpdatePlanRemoved                     = schema.SessionUpdatePlanRemoved
@@ -405,6 +421,8 @@ const (
 	CompactionStatusCompleted               = schema.CompactionStatusCompleted
 	CompactionStatusFailed                  = schema.CompactionStatusFailed
 	CompactionStatusCancelled               = schema.CompactionStatusCancelled
+	CursorAnchorPositionBefore              = schema.CursorAnchorPositionBefore
+	CursorAnchorPositionAfter               = schema.CursorAnchorPositionAfter
 	DiffFileTypeText                        = schema.DiffFileTypeText
 	DiffFileTypeBinary                      = schema.DiffFileTypeBinary
 	DiffFileTypeDirectory                   = schema.DiffFileTypeDirectory
@@ -507,6 +525,9 @@ func NewCreateElicitationRequest[T CreateElicitationRequestAlternative](value T)
 func NewCreateElicitationResponse[T CreateElicitationResponseVariants](v T) CreateElicitationResponse {
 	return schema.NewCreateElicitationResponse(v)
 }
+
+// NewCursorAnchor wraps a variant.
+func NewCursorAnchor[T CursorAnchorVariants](v T) CursorAnchor { return schema.NewCursorAnchor(v) }
 
 // NewDiffChange wraps a variant.
 func NewDiffChange[T DiffChangeVariants](v T) DiffChange { return schema.NewDiffChange(v) }

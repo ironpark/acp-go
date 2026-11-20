@@ -1180,6 +1180,48 @@ type PromptSuggestion struct {
 	Meta   Meta           `json:"_meta,omitzero"`
 }
 
+// CursorCapabilities is the methods that currently accept a session cursor.
+//
+// A malformed value falls back to no capabilities, so the Client never passes a
+// cursor to a method the Agent did not advertise.
+//
+// See the [Session Cursors RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Session Cursors RFD]: https://agentclientprotocol.com/rfds/session-cursors
+type CursorCapabilities struct {
+	// Permits the Client to fork the session at this cursor with `session/fork`.
+	//
+	// Omitted and `null` are equivalent and mean unsupported. An object (including `{}`)
+	// means supported.
+	Fork *CursorForkCapabilities `json:"fork,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capability to fork the session at a cursor with `session/fork`.
+//
+// Supplying `{}` advertises support. An omitted or `null` `fork` does not.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CursorForkCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// CursorMessageAnchor is a session cursor anchor to a message. The anchor's `type` names the kind of message.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CursorMessageAnchor struct {
+	// The ID of the anchored message.
+	MessageID MessageID `json:"messageId"`
+	// On which side of the message the cursor is.
+	Position CursorAnchorPosition `json:"position"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
 // Client-initiated session mutations permitted for a specific subagent session.
 //
 // A mutation requires an explicit per-child capability. Support for the method
@@ -1356,7 +1398,14 @@ type ClientSessionCapabilities struct {
 	//
 	// Experimental: not part of the spec yet; it may change or be removed.
 	PromptSuggestions *PromptSuggestionsCapabilities `json:"promptSuggestions,omitzero"`
-	Meta              Meta                           `json:"_meta,omitzero"`
+	// Support for `cursor_update` session updates.
+	//
+	// Optional. Omitted or `null` both mean the client does not advertise support.
+	// Supplying `{}` means the client handles `cursor_update`.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	Cursors *SessionCursorsCapabilities `json:"cursors,omitzero"`
+	Meta    Meta                        `json:"_meta,omitzero"`
 }
 
 // Client support for ID-addressed context compaction updates.
@@ -1439,6 +1488,15 @@ type PromptSuggestionsAudioCapabilities struct {
 type PromptSuggestionsEmbeddedContextCapabilities struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
+
+// Client support for `cursor_update` session updates.
+//
+// See the [Session Cursors RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Session Cursors RFD]: https://agentclientprotocol.com/rfds/session-cursors
+type SessionCursorsCapabilities = map[string]jsontext.Value
 
 // Capability marker for exposing reusable child sessions as restricted ACP sessions.
 //
@@ -1742,6 +1800,17 @@ type DeleteSessionRequest struct {
 type ForkSessionRequest struct {
 	// The ID of the session to fork.
 	SessionID SessionID `json:"sessionId"`
+	// The session cursor to fork at. The new session's history is the source
+	// session's history before the cursor.
+	//
+	// Optional. Omitted and `null` are equivalent and fork the whole session.
+	// Clients MUST only send the ID of a cursor that the Agent announced on the
+	// source session and that currently advertises `capabilities.fork`. The Agent
+	// rejects any other ID with `-32602`. It does not fall back to forking the
+	// whole session.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	CursorID *CursorID `json:"cursorId,omitzero"`
 	// The working directory for this session. Must be an absolute path.
 	Cwd string `json:"cwd"`
 	// Additional workspace roots to activate for this session. Each path must be absolute.

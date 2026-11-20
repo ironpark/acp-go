@@ -171,6 +171,10 @@ var (
 		zodRefAgentThought,
 		zodObject_935a0a3a,
 	}}
+	zodIntersection_98b43b75 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+		zodRefCursorUpdate,
+		zodObject_448ef957,
+	}}
 	zodIntersection_9bed169e = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		zodRefBooleanPropertySchema,
 		zodObject_dd19ef42,
@@ -239,6 +243,14 @@ var (
 		zodRefDiff,
 		zodObject_04166e4d,
 	}}
+	zodIntersection_da44e6b8 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+		zodRefCursorToolCallAnchor,
+		zodObject_f47d5a05,
+	}}
+	zodIntersection_dec7c1a2 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+		zodRefCursorCompactionAnchor,
+		zodObject_1036dd89,
+	}}
 	zodIntersection_df3a46e9 = &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		zodRefCancelledPermissionOutcome,
 		zodObject_3b5e6e0c,
@@ -279,7 +291,9 @@ var (
 		zodRefPlanItems,
 		zodObject_8864af00,
 	}}
+	zodLiteral_0382870b                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"cursor_update"`)}
 	zodLiteral_0bb90d82                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"terminal_output_chunk"`)}
+	zodLiteral_0efae49b                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"compaction"`)}
 	zodLiteral_13a25ebe                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"skill"`)}
 	zodLiteral_1462f3b5                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"start"`)}
 	zodLiteral_15e6e3d6                = &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"number"`)}
@@ -344,6 +358,7 @@ var (
 	zodMinArrayRef_bc7791c3            = &zod.Rule{Kind: zod.KindMin, Inner: zodArrayRef_895584ff, Value: jsontext.Value(`1`)}
 	zodMinArrayString_3091117a         = &zod.Rule{Kind: zod.KindMin, Inner: zodArrayString_f734ce1d, Value: jsontext.Value(`1`)}
 	zodMinInt_0ddc91d5                 = &zod.Rule{Kind: zod.KindMin, Inner: &zod.Rule{Kind: zod.KindInt}, Value: jsontext.Value(`-2147483648`)}
+	zodMinString_6a492db6              = &zod.Rule{Kind: zod.KindMin, Inner: &zod.Rule{Kind: zod.KindString}, Value: jsontext.Value(`1`)}
 	zodNullDefaultArrayRef_2d755093    = &zod.Rule{Kind: zod.KindNullDefault, Inner: zodArrayRef_dc6468d5, Value: jsontext.Value(`[]`)}
 	zodNullDefaultArrayRef_60886f3d    = &zod.Rule{Kind: zod.KindNullDefault, Inner: zodArrayRef_cfb10be1, Value: jsontext.Value(`[]`)}
 	zodNullDefaultArrayRef_626f7296    = &zod.Rule{Kind: zod.KindNullDefault, Inner: zodArrayRef_bdad3a7e, Value: jsontext.Value(`[]`)}
@@ -373,6 +388,7 @@ var (
 	zodObject_04092bf4                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_59129908}}}
 	zodObject_04166e4d                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_768c61d2}}}
 	zodObject_05cc27b6                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_e8f2035f}}}
+	zodObject_1036dd89                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_0efae49b}}}
 	zodObject_15662cb5                 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "messageId", Schema: zodRefMessageId},
 		{Name: "content", Schema: zodRefContentBlock},
@@ -411,6 +427,7 @@ var (
 		{Name: "type", Schema: &zod.Rule{Kind: zod.KindString}},
 		{Name: "value", Schema: &zod.Rule{Kind: zod.KindUnknown}},
 	}}
+	zodObject_448ef957 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: zodLiteral_0382870b}}}
 	zodObject_4a6cde53 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_5c1c19d9}}}
 	zodObject_4d88ef68 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_f930e854}}}
 	zodObject_5791bde8 = &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -534,6 +551,12 @@ var (
 	zodRefContent                        = &zod.Rule{Kind: zod.KindRef, Ref: "zContent"}
 	zodRefContentBlock                   = &zod.Rule{Kind: zod.KindRef, Ref: "zContentBlock"}
 	zodRefContentChunk                   = &zod.Rule{Kind: zod.KindRef, Ref: "zContentChunk"}
+	zodRefCursorAnchorPosition           = &zod.Rule{Kind: zod.KindRef, Ref: "zCursorAnchorPosition"}
+	zodRefCursorCompactionAnchor         = &zod.Rule{Kind: zod.KindRef, Ref: "zCursorCompactionAnchor"}
+	zodRefCursorId                       = &zod.Rule{Kind: zod.KindRef, Ref: "zCursorId"}
+	zodRefCursorMessageAnchor            = &zod.Rule{Kind: zod.KindRef, Ref: "zCursorMessageAnchor"}
+	zodRefCursorToolCallAnchor           = &zod.Rule{Kind: zod.KindRef, Ref: "zCursorToolCallAnchor"}
+	zodRefCursorUpdate                   = &zod.Rule{Kind: zod.KindRef, Ref: "zCursorUpdate"}
 	zodRefDiff                           = &zod.Rule{Kind: zod.KindRef, Ref: "zDiff"}
 	zodRefDiffPathChange                 = &zod.Rule{Kind: zod.KindRef, Ref: "zDiffPathChange"}
 	zodRefDiffPathPairChange             = &zod.Rule{Kind: zod.KindRef, Ref: "zDiffPathPairChange"}
@@ -971,6 +994,59 @@ var zodSchemas = zod.Link(zod.Registry{
 		}},
 		zodObject_d1186e2e,
 	}}, Tag: "action", Tags: []string{"accept", "cancel", "decline"}},
+	"zCursorAnchor": &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		&zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+			zodRefCursorMessageAnchor,
+			&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_a98e70b0}}},
+		}},
+		&zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+			zodRefCursorMessageAnchor,
+			&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_8dd62d4e}}},
+		}},
+		&zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+			zodRefCursorMessageAnchor,
+			&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_403f1813}}},
+		}},
+		&zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
+			zodRefCursorMessageAnchor,
+			&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "type", Schema: zodLiteral_17c2ea33}}},
+		}},
+		zodIntersection_da44e6b8,
+		zodIntersection_dec7c1a2,
+		&zod.Rule{Kind: zod.KindExcludeTags, Inner: zodObject_a216e4c1, Tag: "type", Tags: []string{"agent_message", "agent_thought", "compaction", "session_message", "tool_call", "user_message"}},
+	}}, Tag: "type", Tags: []string{"agent_message", "agent_thought", "compaction", "session_message", "tool_call", "user_message"}},
+	"zCursorAnchorPosition": &zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"before"`)},
+		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"after"`)},
+		&zod.Rule{Kind: zod.KindString},
+	}},
+	"zCursorCapabilities": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "fork", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zCursorForkCapabilities"}}}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zCursorCompactionAnchor": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "compactionId", Schema: zodRefCompactionId},
+		{Name: "position", Schema: zodRefCursorAnchorPosition},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zCursorForkCapabilities": zodObject_d1186e2e,
+	"zCursorId":               &zod.Rule{Kind: zod.KindString},
+	"zCursorMessageAnchor": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "messageId", Schema: zodRefMessageId},
+		{Name: "position", Schema: zodRefCursorAnchorPosition},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zCursorToolCallAnchor": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "toolCallId", Schema: zodRefToolCallId},
+		{Name: "position", Schema: zodRefCursorAnchorPosition},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
+	"zCursorUpdate": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
+		{Name: "cursorId", Schema: zodRefCursorId},
+		{Name: "capabilities", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zCursorCapabilities"}}}},
+		{Name: "anchor", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zCursorAnchor"}}},
+		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
+	}},
 	"zDeleteSessionRequest":  zodObject_224974ec,
 	"zDeleteSessionResponse": zodObject_d1186e2e,
 	"zDiff": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -1128,6 +1204,7 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zExtResponse":     &zod.Rule{Kind: zod.KindUnknown},
 	"zForkSessionRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessionId", Schema: zodRefSessionId},
+		{Name: "cursorId", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: zodRefCursorId}},
 		{Name: "cwd", Schema: zodRefAbsolutePath},
 		{Name: "additionalDirectories", Schema: zodOptionalNullDefaultArray_8720e35a},
 		{Name: "mcpServers", Schema: zodOptionalNullDefaultArray_e967276a},
@@ -1149,6 +1226,7 @@ var zodSchemas = zod.Link(zod.Registry{
 		&zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"dark"`)},
 		&zod.Rule{Kind: zod.KindString},
 	}},
+	"zIdempotencyKey": &zod.Rule{Kind: zod.KindMax, Inner: zodMinString_6a492db6, Value: jsontext.Value(`255`)},
 	"zIdleStateUpdate": &zod.Rule{Kind: zod.KindDropMalformedTag, Inner: &zod.Rule{Kind: zod.KindPreserve, Inner: &zod.Rule{Kind: zod.KindIntersection, Members: []*zod.Rule{
 		&zod.Rule{Kind: zod.KindUnion, Members: []*zod.Rule{
 			&zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "stopReason", Schema: &zod.Rule{Kind: zod.KindLiteral, Value: jsontext.Value(`"end_turn"`)}}}},
@@ -1323,7 +1401,7 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zNewSessionResponse": zodObject_8d414937,
 	"zNotice": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "severity", Schema: &zod.Rule{Kind: zod.KindRef, Ref: "zNoticeSeverity"}},
-		{Name: "title", Schema: &zod.Rule{Kind: zod.KindMin, Inner: &zod.Rule{Kind: zod.KindString}, Value: jsontext.Value(`1`)}},
+		{Name: "title", Schema: zodMinString_6a492db6},
 		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
@@ -1415,6 +1493,7 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zPromptRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "sessionId", Schema: zodRefSessionId},
 		{Name: "prompt", Schema: zodMinArrayRef_422bc763},
+		{Name: "idempotencyKey", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zIdempotencyKey"}}},
 		{Name: "_meta", Schema: zodCatchNullishRecord_e9d5f1a4},
 	}},
 	"zPromptResponse": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
@@ -1717,11 +1796,12 @@ var zodSchemas = zod.Link(zod.Registry{
 		zodIntersection_bf527b4c,
 		zodIntersection_0951b0f9,
 		zodIntersection_accc9235,
+		zodIntersection_98b43b75,
 		zodIntersection_ebb1e5a0,
 		zodIntersection_67dec401,
 		zodIntersection_5db84867,
-		&zod.Rule{Kind: zod.KindExcludeTags, Inner: &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: &zod.Rule{Kind: zod.KindString}}}}, Tag: "sessionUpdate", Tags: []string{"agent_message", "agent_message_chunk", "agent_thought", "agent_thought_chunk", "available_commands_update", "compaction_summary_chunk", "compaction_update", "config_option_update", "notice", "plan_removed", "plan_update", "prompt_suggestions_update", "replay_complete", "session_info_update", "session_message", "session_message_chunk", "state_update", "subagent_update", "terminal_output_chunk", "terminal_update", "tool_call_content_chunk", "tool_call_update", "usage_update", "user_message", "user_message_chunk"}},
-	}}, Tag: "sessionUpdate", Tags: []string{"agent_message", "agent_message_chunk", "agent_thought", "agent_thought_chunk", "available_commands_update", "compaction_summary_chunk", "compaction_update", "config_option_update", "notice", "plan_removed", "plan_update", "prompt_suggestions_update", "replay_complete", "session_info_update", "session_message", "session_message_chunk", "state_update", "subagent_update", "terminal_output_chunk", "terminal_update", "tool_call_content_chunk", "tool_call_update", "usage_update", "user_message", "user_message_chunk"}},
+		&zod.Rule{Kind: zod.KindExcludeTags, Inner: &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "sessionUpdate", Schema: &zod.Rule{Kind: zod.KindString}}}}, Tag: "sessionUpdate", Tags: []string{"agent_message", "agent_message_chunk", "agent_thought", "agent_thought_chunk", "available_commands_update", "compaction_summary_chunk", "compaction_update", "config_option_update", "cursor_update", "notice", "plan_removed", "plan_update", "prompt_suggestions_update", "replay_complete", "session_info_update", "session_message", "session_message_chunk", "state_update", "subagent_update", "terminal_output_chunk", "terminal_update", "tool_call_content_chunk", "tool_call_update", "usage_update", "user_message", "user_message_chunk"}},
+	}}, Tag: "sessionUpdate", Tags: []string{"agent_message", "agent_message_chunk", "agent_thought", "agent_thought_chunk", "available_commands_update", "compaction_summary_chunk", "compaction_update", "config_option_update", "cursor_update", "notice", "plan_removed", "plan_update", "prompt_suggestions_update", "replay_complete", "session_info_update", "session_message", "session_message_chunk", "state_update", "subagent_update", "terminal_output_chunk", "terminal_update", "tool_call_content_chunk", "tool_call_update", "usage_update", "user_message", "user_message_chunk"}},
 	"zSetProviderRequest": &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{
 		{Name: "providerId", Schema: zodRefProviderId},
 		{Name: "apiType", Schema: zodRefLlmProtocol},
@@ -1784,7 +1864,6 @@ var zodSchemas = zod.Link(zod.Registry{
 		{Name: "description", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "minLength", Schema: zodNullishMaxGte_311fa1f4},
 		{Name: "maxLength", Schema: zodNullishMaxGte_311fa1f4},
-		{Name: "pattern", Schema: zodNullishString_bffa66f1},
 		{Name: "format", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRef, Ref: "zStringFormat"}}},
 		{Name: "default", Schema: zodCatchNullishString_3d5fc11d},
 		{Name: "enum", Schema: &zod.Rule{Kind: zod.KindNullish, Inner: zodMinArrayString_3091117a}},
@@ -1979,6 +2058,9 @@ var zodSchemas = zod.Link(zod.Registry{
 	"zCompactionUpdate&sessionUpdate=\"compaction_update\"":                zodIntersection_a3ae0eed,
 	"zConfigOptionUpdate&sessionUpdate=\"config_option_update\"":           zodIntersection_c579d489,
 	"zContent&type=\"content\"":                                            zodIntersection_629c4f30,
+	"zCursorCompactionAnchor&type=\"compaction\"":                          zodIntersection_dec7c1a2,
+	"zCursorToolCallAnchor&type=\"tool_call\"":                             zodIntersection_da44e6b8,
+	"zCursorUpdate&sessionUpdate=\"cursor_update\"":                        zodIntersection_98b43b75,
 	"zDiff&type=\"diff\"":                                                  zodIntersection_d3a9483a,
 	"zEmbeddedResource&type=\"resource\"":                                  zodIntersection_054b1f8b,
 	"zImageContent&type=\"image\"":                                         zodIntersection_edab019f,
@@ -2069,6 +2151,12 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[Cost]():                                         "zCost",
 	reflect.TypeFor[CreateElicitationRequest]():                     "zCreateElicitationRequest",
 	reflect.TypeFor[CreateElicitationResponse]():                    "zCreateElicitationResponse",
+	reflect.TypeFor[CursorAnchor]():                                 "zCursorAnchor",
+	reflect.TypeFor[CursorAnchorPosition]():                         "zCursorAnchorPosition",
+	reflect.TypeFor[CursorCapabilities]():                           "zCursorCapabilities",
+	reflect.TypeFor[CursorForkCapabilities]():                       "zCursorForkCapabilities",
+	reflect.TypeFor[CursorID]():                                     "zCursorId",
+	reflect.TypeFor[CursorMessageAnchor]():                          "zCursorMessageAnchor",
 	reflect.TypeFor[DeleteSessionRequest]():                         "zDeleteSessionRequest",
 	reflect.TypeFor[DeleteSessionResponse]():                        "zDeleteSessionResponse",
 	reflect.TypeFor[DiffChange]():                                   "zDiffChange",
@@ -2104,6 +2192,7 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[HTTPHeader]():                                   "zHttpHeader",
 	reflect.TypeFor[Icon]():                                         "zIcon",
 	reflect.TypeFor[IconTheme]():                                    "zIconTheme",
+	reflect.TypeFor[IdempotencyKey]():                               "zIdempotencyKey",
 	reflect.TypeFor[IdleStateUpdate]():                              "zIdleStateUpdate",
 	reflect.TypeFor[Implementation]():                               "zImplementation",
 	reflect.TypeFor[InitialSessionConfigOption]():                   "zInitialSessionConfigOption",
@@ -2258,6 +2347,9 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[SessionUpdateCompactionUpdate]():                "zCompactionUpdate&sessionUpdate=\"compaction_update\"",
 	reflect.TypeFor[SessionUpdateConfigOptionUpdate]():              "zConfigOptionUpdate&sessionUpdate=\"config_option_update\"",
 	reflect.TypeFor[ToolCallContentContent]():                       "zContent&type=\"content\"",
+	reflect.TypeFor[CursorAnchorCompaction]():                       "zCursorCompactionAnchor&type=\"compaction\"",
+	reflect.TypeFor[CursorAnchorToolCall]():                         "zCursorToolCallAnchor&type=\"tool_call\"",
+	reflect.TypeFor[SessionUpdateCursorUpdate]():                    "zCursorUpdate&sessionUpdate=\"cursor_update\"",
 	reflect.TypeFor[ToolCallContentDiff]():                          "zDiff&type=\"diff\"",
 	reflect.TypeFor[ContentBlockResource]():                         "zEmbeddedResource&type=\"resource\"",
 	reflect.TypeFor[ContentBlockImage]():                            "zImageContent&type=\"image\"",
@@ -2354,6 +2446,12 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[Cost](zodSchemas, "zCost"),
 	zod.Unmarshaler[CreateElicitationRequest](zodSchemas, "zCreateElicitationRequest"),
 	zod.Unmarshaler[CreateElicitationResponse](zodSchemas, "zCreateElicitationResponse"),
+	zod.Unmarshaler[CursorAnchor](zodSchemas, "zCursorAnchor"),
+	zod.Unmarshaler[CursorAnchorPosition](zodSchemas, "zCursorAnchorPosition"),
+	zod.Unmarshaler[CursorCapabilities](zodSchemas, "zCursorCapabilities"),
+	zod.Unmarshaler[CursorForkCapabilities](zodSchemas, "zCursorForkCapabilities"),
+	zod.Unmarshaler[CursorID](zodSchemas, "zCursorId"),
+	zod.Unmarshaler[CursorMessageAnchor](zodSchemas, "zCursorMessageAnchor"),
 	zod.Unmarshaler[DeleteSessionRequest](zodSchemas, "zDeleteSessionRequest"),
 	zod.Unmarshaler[DeleteSessionResponse](zodSchemas, "zDeleteSessionResponse"),
 	zod.Unmarshaler[DiffChange](zodSchemas, "zDiffChange"),
@@ -2389,6 +2487,7 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[HTTPHeader](zodSchemas, "zHttpHeader"),
 	zod.Unmarshaler[Icon](zodSchemas, "zIcon"),
 	zod.Unmarshaler[IconTheme](zodSchemas, "zIconTheme"),
+	zod.Unmarshaler[IdempotencyKey](zodSchemas, "zIdempotencyKey"),
 	zod.Unmarshaler[IdleStateUpdate](zodSchemas, "zIdleStateUpdate"),
 	zod.Unmarshaler[Implementation](zodSchemas, "zImplementation"),
 	zod.Unmarshaler[InitialSessionConfigOption](zodSchemas, "zInitialSessionConfigOption"),
@@ -2543,6 +2642,9 @@ var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[SessionUpdateCompactionUpdate](zodSchemas, "zCompactionUpdate&sessionUpdate=\"compaction_update\""),
 	zod.Unmarshaler[SessionUpdateConfigOptionUpdate](zodSchemas, "zConfigOptionUpdate&sessionUpdate=\"config_option_update\""),
 	zod.Unmarshaler[ToolCallContentContent](zodSchemas, "zContent&type=\"content\""),
+	zod.Unmarshaler[CursorAnchorCompaction](zodSchemas, "zCursorCompactionAnchor&type=\"compaction\""),
+	zod.Unmarshaler[CursorAnchorToolCall](zodSchemas, "zCursorToolCallAnchor&type=\"tool_call\""),
+	zod.Unmarshaler[SessionUpdateCursorUpdate](zodSchemas, "zCursorUpdate&sessionUpdate=\"cursor_update\""),
 	zod.Unmarshaler[ToolCallContentDiff](zodSchemas, "zDiff&type=\"diff\""),
 	zod.Unmarshaler[ContentBlockResource](zodSchemas, "zEmbeddedResource&type=\"resource\""),
 	zod.Unmarshaler[ContentBlockImage](zodSchemas, "zImageContent&type=\"image\""),

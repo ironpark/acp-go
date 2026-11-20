@@ -21,6 +21,8 @@ tristate:
     - CompactionUpdate._meta
     - CompactionUpdate.error
     - CompactionUpdate.summary
+    - CursorUpdate._meta
+    - CursorUpdate.capabilities
     - SessionInfoUpdate.title
     - SessionInfoUpdate.updatedAt
     - SessionMessage._meta
@@ -44,6 +46,8 @@ tristate:
     - CompactionUpdate._meta
     - CompactionUpdate.error
     - CompactionUpdate.summary
+    - CursorUpdate._meta
+    - CursorUpdate.capabilities
     - SessionInfoUpdate._meta
     - SessionInfoUpdate.title
     - SessionInfoUpdate.updatedAt

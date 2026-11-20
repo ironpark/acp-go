@@ -1733,7 +1733,7 @@ func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 // [Agent Reports Output]: https://agentclientprotocol.com/protocol/v1/draft/prompt-turn#3-agent-reports-output
 type SessionUpdate struct{ value SessionUpdateVariant }
 
-// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentThoughtChunk], [SessionUpdateToolCall], [SessionUpdateToolCallUpdate], [SessionUpdatePlan], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateCurrentModeUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdatePromptSuggestionsUpdate], [SessionUpdateSubagentUpdate], [SessionUpdateSessionMessage], [SessionUpdateSessionMessageChunk], [SessionUpdateUnknown].
+// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentThoughtChunk], [SessionUpdateToolCall], [SessionUpdateToolCallUpdate], [SessionUpdatePlan], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateCurrentModeUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdatePromptSuggestionsUpdate], [SessionUpdateCursorUpdate], [SessionUpdateSubagentUpdate], [SessionUpdateSessionMessage], [SessionUpdateSessionMessageChunk], [SessionUpdateUnknown].
 type SessionUpdateVariant interface {
 	sessionUpdateVariant()
 	Tag() string
@@ -1760,6 +1760,7 @@ type SessionUpdateVariants interface {
 		SessionUpdateCompactionUpdate |
 		SessionUpdateCompactionSummaryChunk |
 		SessionUpdatePromptSuggestionsUpdate |
+		SessionUpdateCursorUpdate |
 		SessionUpdateSubagentUpdate |
 		SessionUpdateSessionMessage |
 		SessionUpdateSessionMessageChunk |
@@ -1920,6 +1921,12 @@ func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVari
 		*out = v
 	case "prompt_suggestions_update":
 		var v SessionUpdatePromptSuggestionsUpdate
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "cursor_update":
+		var v SessionUpdateCursorUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -2545,6 +2552,59 @@ func (v *SessionUpdatePromptSuggestionsUpdate) UnmarshalJSONFrom(dec *jsontext.D
 	return unmarshalSessionUpdateTagged(dec, "SessionUpdatePromptSuggestionsUpdate", "prompt_suggestions_update", (*sessionUpdatePromptSuggestionsUpdateFields)(v))
 }
 
+// SessionUpdateCursorUpdate is a session cursor upsert. A cursor names one position in the session's timeline.
+//
+// The first update for a `cursorId` MUST include `anchor`. The anchor is fixed
+// after that, and later updates change only `capabilities`.
+//
+// Agents MUST only send this update when the Client advertised
+// the `session.cursors` Client capability.
+//
+// `capabilities` and `_meta` have patch semantics: omission leaves the stored
+// value unchanged, `null` clears it, and a concrete value replaces it.
+//
+// See the [Session Cursors RFD].
+//
+// SessionUpdateCursorUpdate is the SessionUpdate variant with sessionUpdate "cursor_update".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Session Cursors RFD]: https://agentclientprotocol.com/rfds/session-cursors
+type SessionUpdateCursorUpdate struct {
+	// The Agent-owned ID of this cursor, unique within the session.
+	CursorID CursorID `json:"cursorId"`
+	// The methods that currently accept this cursor.
+	//
+	// Omission leaves the capabilities unchanged, `null` clears them, and an object replaces
+	// the whole previous value. A new cursor starts with none.
+	Capabilities optional.Value[CursorCapabilities] `json:"capabilities,omitzero"`
+	// Where the cursor is, relative to an entity the Client holds.
+	//
+	// Required on the first update for a cursor. The Agent MUST NOT change it afterwards.
+	// A later update can omit it or repeat the same anchor. Omitted and `null` are
+	// equivalent and leave the stored anchor unchanged.
+	Anchor CursorAnchor `json:"anchor,omitzero"`
+	// Extensible metadata patch for this cursor.
+	Meta optional.Value[Meta] `json:"_meta,omitzero"`
+}
+
+func (SessionUpdateCursorUpdate) sessionUpdateVariant() {}
+
+// Tag returns "cursor_update".
+func (SessionUpdateCursorUpdate) Tag() string { return "cursor_update" }
+
+type sessionUpdateCursorUpdateFields SessionUpdateCursorUpdate
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v SessionUpdateCursorUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, sessionUpdateTagged[sessionUpdateCursorUpdateFields]{"cursor_update", sessionUpdateCursorUpdateFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *SessionUpdateCursorUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalSessionUpdateTagged(dec, "SessionUpdateCursorUpdate", "cursor_update", (*sessionUpdateCursorUpdateFields)(v))
+}
+
 // SessionUpdateSubagentUpdate is a notification that the enclosing parent session created and owns a child session.
 //
 // Later updates modify the existing association's metadata, not its ownership.
@@ -2904,6 +2964,330 @@ func (v PlanUpdateContentMarkdown) MarshalJSONTo(enc *jsontext.Encoder) error {
 func (v *PlanUpdateContentMarkdown) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalTypeTagged(dec, "PlanUpdateContentMarkdown", "markdown", (*planUpdateContentMarkdownFields)(v))
 }
+
+// CursorAnchor is a tagged union discriminated by the "type" member. Use [NewCursorAnchor]
+// or a type switch on [CursorAnchor.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
+//
+// Where a session cursor is, relative to an entity the Client holds.
+//
+// The anchor names the entity by its type and ID, and `position` says on which
+// side of that entity the cursor is. A known `type` with a malformed payload is
+// an error. It does not fall back to the unknown-type variant.
+//
+// See the [Session Cursors RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Session Cursors RFD]: https://agentclientprotocol.com/rfds/session-cursors
+type CursorAnchor struct{ value CursorAnchorVariant }
+
+// CursorAnchorVariant is implemented by [CursorAnchorUserMessage], [CursorAnchorAgentMessage], [CursorAnchorAgentThought], [CursorAnchorSessionMessage], [CursorAnchorToolCall], [CursorAnchorCompaction], [CursorAnchorCustom].
+type CursorAnchorVariant interface {
+	cursorAnchorVariant()
+	Tag() string
+}
+
+// CursorAnchorVariants is the set of CursorAnchor variant types. It lists the types
+// themselves: a pointer to a variant also has the CursorAnchorVariant
+// methods, but is not one.
+type CursorAnchorVariants interface {
+	CursorAnchorUserMessage |
+		CursorAnchorAgentMessage |
+		CursorAnchorAgentThought |
+		CursorAnchorSessionMessage |
+		CursorAnchorToolCall |
+		CursorAnchorCompaction |
+		CursorAnchorCustom
+	CursorAnchorVariant
+}
+
+// NewCursorAnchor wraps a variant.
+func NewCursorAnchor[T CursorAnchorVariants](v T) CursorAnchor { return CursorAnchor{value: v} }
+
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u CursorAnchor) Variant() CursorAnchorVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u CursorAnchor) As[T CursorAnchorVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
+
+// Tag returns the "type" discriminator, or "" for the zero value.
+func (u CursorAnchor) Tag() string {
+	if u.value == nil {
+		return ""
+	}
+	return u.value.Tag()
+}
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u CursorAnchor) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u CursorAnchor) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return errors.New("CursorAnchor: no variant set; use NewCursorAnchor")
+	}
+	return json.MarshalEncode(enc, u.value)
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *CursorAnchor) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalCursorAnchorVariant(dec, &u.value)
+}
+
+// unmarshalCursorAnchorVariant decodes a CursorAnchorVariant by its "type" member; it backs Unmarshalers.
+func unmarshalCursorAnchorVariant(dec *jsontext.Decoder, out *CursorAnchorVariant) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("CursorAnchor: expected object, got %s", raw.Kind())
+	}
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
+		return fmt.Errorf("CursorAnchor: %w", err)
+	}
+	if !present {
+		return errors.New("CursorAnchor: missing \"type\" member")
+	}
+	switch tag {
+	case "user_message":
+		var v CursorAnchorUserMessage
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "agent_message":
+		var v CursorAnchorAgentMessage
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "agent_thought":
+		var v CursorAnchorAgentThought
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "session_message":
+		var v CursorAnchorSessionMessage
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "tool_call":
+		var v CursorAnchorToolCall
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	case "compaction":
+		var v CursorAnchorCompaction
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v CursorAnchorCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
+	return nil
+}
+
+// CursorAnchorUserMessage is the CursorAnchor variant with type "user_message".
+type CursorAnchorUserMessage struct {
+	// The ID of the anchored message.
+	MessageID MessageID `json:"messageId"`
+	// On which side of the message the cursor is.
+	Position CursorAnchorPosition `json:"position"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (CursorAnchorUserMessage) cursorAnchorVariant() {}
+
+// Tag returns "user_message".
+func (CursorAnchorUserMessage) Tag() string { return "user_message" }
+
+type cursorAnchorUserMessageFields CursorAnchorUserMessage
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v CursorAnchorUserMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[cursorAnchorUserMessageFields]{"user_message", cursorAnchorUserMessageFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *CursorAnchorUserMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "CursorAnchorUserMessage", "user_message", (*cursorAnchorUserMessageFields)(v))
+}
+
+// CursorAnchorAgentMessage is the CursorAnchor variant with type "agent_message".
+type CursorAnchorAgentMessage struct {
+	// The ID of the anchored message.
+	MessageID MessageID `json:"messageId"`
+	// On which side of the message the cursor is.
+	Position CursorAnchorPosition `json:"position"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (CursorAnchorAgentMessage) cursorAnchorVariant() {}
+
+// Tag returns "agent_message".
+func (CursorAnchorAgentMessage) Tag() string { return "agent_message" }
+
+type cursorAnchorAgentMessageFields CursorAnchorAgentMessage
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v CursorAnchorAgentMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[cursorAnchorAgentMessageFields]{"agent_message", cursorAnchorAgentMessageFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *CursorAnchorAgentMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "CursorAnchorAgentMessage", "agent_message", (*cursorAnchorAgentMessageFields)(v))
+}
+
+// CursorAnchorAgentThought is the CursorAnchor variant with type "agent_thought".
+type CursorAnchorAgentThought struct {
+	// The ID of the anchored message.
+	MessageID MessageID `json:"messageId"`
+	// On which side of the message the cursor is.
+	Position CursorAnchorPosition `json:"position"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (CursorAnchorAgentThought) cursorAnchorVariant() {}
+
+// Tag returns "agent_thought".
+func (CursorAnchorAgentThought) Tag() string { return "agent_thought" }
+
+type cursorAnchorAgentThoughtFields CursorAnchorAgentThought
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v CursorAnchorAgentThought) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[cursorAnchorAgentThoughtFields]{"agent_thought", cursorAnchorAgentThoughtFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *CursorAnchorAgentThought) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "CursorAnchorAgentThought", "agent_thought", (*cursorAnchorAgentThoughtFields)(v))
+}
+
+// CursorAnchorSessionMessage is the CursorAnchor variant with type "session_message".
+type CursorAnchorSessionMessage struct {
+	// The ID of the anchored message.
+	MessageID MessageID `json:"messageId"`
+	// On which side of the message the cursor is.
+	Position CursorAnchorPosition `json:"position"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (CursorAnchorSessionMessage) cursorAnchorVariant() {}
+
+// Tag returns "session_message".
+func (CursorAnchorSessionMessage) Tag() string { return "session_message" }
+
+type cursorAnchorSessionMessageFields CursorAnchorSessionMessage
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v CursorAnchorSessionMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[cursorAnchorSessionMessageFields]{"session_message", cursorAnchorSessionMessageFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *CursorAnchorSessionMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "CursorAnchorSessionMessage", "session_message", (*cursorAnchorSessionMessageFields)(v))
+}
+
+// CursorAnchorToolCall is a session cursor anchor to a tool call.
+//
+// CursorAnchorToolCall is the CursorAnchor variant with type "tool_call".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CursorAnchorToolCall struct {
+	// The ID of the anchored tool call.
+	ToolCallID ToolCallID `json:"toolCallId"`
+	// On which side of the tool call the cursor is.
+	Position CursorAnchorPosition `json:"position"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (CursorAnchorToolCall) cursorAnchorVariant() {}
+
+// Tag returns "tool_call".
+func (CursorAnchorToolCall) Tag() string { return "tool_call" }
+
+type cursorAnchorToolCallFields CursorAnchorToolCall
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v CursorAnchorToolCall) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[cursorAnchorToolCallFields]{"tool_call", cursorAnchorToolCallFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *CursorAnchorToolCall) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "CursorAnchorToolCall", "tool_call", (*cursorAnchorToolCallFields)(v))
+}
+
+// CursorAnchorCompaction is a session cursor anchor to a compaction.
+//
+// CursorAnchorCompaction is the CursorAnchor variant with type "compaction".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CursorAnchorCompaction struct {
+	// The ID of the anchored compaction.
+	CompactionID CompactionID `json:"compactionId"`
+	// On which side of the compaction the cursor is.
+	Position CursorAnchorPosition `json:"position"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+func (CursorAnchorCompaction) cursorAnchorVariant() {}
+
+// Tag returns "compaction".
+func (CursorAnchorCompaction) Tag() string { return "compaction" }
+
+type cursorAnchorCompactionFields CursorAnchorCompaction
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v CursorAnchorCompaction) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, typeTagged[cursorAnchorCompactionFields]{"compaction", cursorAnchorCompactionFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *CursorAnchorCompaction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalTypeTagged(dec, "CursorAnchorCompaction", "compaction", (*cursorAnchorCompactionFields)(v))
+}
+
+// CursorAnchorCustom holds CursorAnchor values with an unrecognized "type", keeping every member.
+type CursorAnchorCustom struct {
+	// Custom or future anchor type.
+	//
+	// Values beginning with `_` are reserved for implementation-specific
+	// extensions. Unknown values that do not begin with `_` are reserved for
+	// future ACP variants.
+	Type                 string                    `json:"type"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (CursorAnchorCustom) cursorAnchorVariant() {}
+
+// Tag returns the "type" member.
+func (v CursorAnchorCustom) Tag() string { return v.Type }
 
 // StateUpdate is a tagged union discriminated by the "state" member. Use [NewStateUpdate]
 // or a type switch on [StateUpdate.Variant] to work with it. The zero value holds no
@@ -3470,7 +3854,7 @@ type IdleStateUpdateCustom struct {
 	//
 	// Optional. Omitted or `null` both mean the agent is not reporting a stop reason; a malformed value is treated the same way.
 	//
-	// See protocol docs: [Current work state](https://agentclientprotocol.com/rfds/subagents#current-work-state)
+	// See protocol docs: [Work state](https://agentclientprotocol.com/protocol/v1/draft/subagents#work-state)
 	StopReason string `json:"stopReason"`
 	// **UNSTABLE** Token usage for completed foreground work.
 	//
@@ -4691,6 +5075,7 @@ var unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalSessionConfigOptionVariant),
 	json.UnmarshalFromFunc(unmarshalSessionUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalPlanUpdateContentVariant),
+	json.UnmarshalFromFunc(unmarshalCursorAnchorVariant),
 	json.UnmarshalFromFunc(unmarshalStateUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalIdleStateUpdateVariant),
 	json.UnmarshalFromFunc(unmarshalMCPServerVariant),

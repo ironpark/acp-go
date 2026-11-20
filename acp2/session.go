@@ -80,6 +80,18 @@ func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (Me
 	return response.MessageID, nil
 }
 
+// PromptWithKey is [ClientSession.Prompt] with an idempotency key, so the
+// client can send the request again without the agent inserting the user
+// message twice. The key must be 1 to 255 characters; the agent rejects an
+// empty or overlong key with invalid params (-32602).
+func (s *ClientSession) PromptWithKey(ctx context.Context, key IdempotencyKey, content ...ContentBlock) (MessageID, error) {
+	response, err := s.conn.Prompt(ctx, &PromptRequest{SessionID: s.ID, Prompt: content, IdempotencyKey: &key})
+	if err != nil {
+		return "", err
+	}
+	return response.MessageID, nil
+}
+
 // NextUpdate returns the session's oldest queued update, waiting for one if
 // needed. Idle state updates are returned like any other. A cancelled ctx
 // ends the wait without cancelling the agent's work or discarding updates.

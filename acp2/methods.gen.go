@@ -81,8 +81,10 @@ type SessionForker interface {
 // ToolCallCanceller handles tool_call/cancel. Each tool call advertises
 // whether it can be cancelled in its own capabilities.cancel; there is no
 // connection-wide capability. Answer once the cancellation is accepted and
-// confirm it with a tool_call_update to a final status. Reject an unknown,
-// final or uncancellable tool call with an invalid-params error.
+// confirm it with a tool_call_update to a final status. Reject an unknown or
+// inactive session with [acp.SessionNotFound] (-32002), and an unknown,
+// final or uncancellable tool call with an invalid-params error (-32602).
+// An agent that does not implement this interface answers method not found (-32601).
 //
 // See protocol docs: [Cancelling Tool Calls](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-tool-calls)
 type ToolCallCanceller interface {
@@ -93,6 +95,10 @@ type ToolCallCanceller interface {
 // it can be cancelled in its own capabilities.cancel. Answer once the
 // cancellation is accepted and confirm it with a terminal_update that sets
 // exitStatus. Cancelling stops the process but does not release the terminal.
+// Reject an unknown or inactive session with [acp.SessionNotFound] (-32002),
+// and an unknown, exited or uncancellable terminal with an invalid-params
+// error (-32602). An agent that does not implement this interface answers
+// method not found (-32601).
 //
 // See protocol docs: [Cancelling Terminals](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#cancelling-terminals)
 type TerminalCanceller interface {
