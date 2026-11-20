@@ -265,6 +265,15 @@ func (x *ClientSessionCapabilities) GetPromptSuggestions() *PromptSuggestionsCap
 	return x.PromptSuggestions
 }
 
+// GetCursors returns the value of Cursors, or the zero value if x or Cursors is nil.
+func (x *ClientSessionCapabilities) GetCursors() SessionCursorsCapabilities {
+	if x != nil && x.Cursors != nil {
+		return *x.Cursors
+	}
+	var zero SessionCursorsCapabilities
+	return zero
+}
+
 // GetAnnotations returns Annotations, or nil if x is nil.
 func (x *ContentBlockAudio) GetAnnotations() *Annotations {
 	if x == nil {
@@ -402,6 +411,14 @@ func (x *CreateTerminalRequest) GetOutputByteLimit() uint64 {
 	}
 	var zero uint64
 	return zero
+}
+
+// GetFork returns Fork, or nil if x is nil.
+func (x *CursorCapabilities) GetFork() *CursorForkCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Fork
 }
 
 // GetForm returns Form, or nil if x is nil.
@@ -722,6 +739,15 @@ func (x *FileSystemCapabilities) GetWriteTextFile() bool {
 		return *x.WriteTextFile
 	}
 	var zero bool
+	return zero
+}
+
+// GetCursorID returns the value of CursorID, or the zero value if x or CursorID is nil.
+func (x *ForkSessionRequest) GetCursorID() CursorID {
+	if x != nil && x.CursorID != nil {
+		return *x.CursorID
+	}
+	var zero CursorID
 	return zero
 }
 
@@ -1317,6 +1343,26 @@ func (x *SessionUpdateCompactionUpdate) GetError() string {
 
 // GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
 func (x *SessionUpdateCompactionUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
+}
+
+// GetCapabilities returns a copy of Capabilities, or nil if x is nil or Capabilities is absent or null.
+func (x *SessionUpdateCursorUpdate) GetCapabilities() *CursorCapabilities {
+	if x != nil {
+		if v, ok := x.Capabilities.Get(); ok {
+			return &v
+		}
+	}
+	return nil
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateCursorUpdate) GetMeta() Meta {
 	if x == nil {
 		var zero Meta
 		return zero

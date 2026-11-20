@@ -2,12 +2,14 @@ package acp1_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
 	"github.com/ironpark/acp-go/acp1/acp1test"
+	"github.com/ironpark/acp-go/schema/optional"
 )
 
 // extrasAgent serves the methods added in schema v1.29 on top of the helper
@@ -121,5 +123,66 @@ func TestClientSessionExtras(t *testing.T) {
 			t.Fatal("auth/status_update not recorded")
 		case <-time.After(5 * time.Millisecond):
 		}
+	}
+}
+
+func TestSendCursor(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	client := &acp1test.Client{}
+	var agentConn *acp1.AgentSideConnection
+	conn := acp1test.Connect(t, func(c *acp1.AgentSideConnection) acp1.Agent {
+		agentConn = c
+		return newHelperAgent(acp1.NewMemoryStore[commandSession]())
+	}, client)
+
+	created, err := conn.NewSession(ctx, &acp1.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := acp1.GenerateCursorID()
+	if !strings.HasPrefix(string(id), "cursor_") {
+		t.Fatalf("cursor id = %q", id)
+	}
+	stream := acp1.NewSessionStream(agentConn, created.SessionID)
+	anchor := acp1.NewCursorAnchor(acp1.CursorAnchorAgentMessage{
+		MessageID: "msg_1",
+		Position:  acp1.CursorAnchorPositionAfter,
+	})
+	if err := stream.SendCursor(ctx, id, anchor, optional.Of(acp1.CursorCapabilities{
+		Fork: &acp1.CursorForkCapabilities{},
+	})); err != nil {
+		t.Fatal(err)
+	}
+	// Clearing capabilities sends explicit null without changing the anchor.
+	if err := stream.SendCursor(ctx, id, acp1.CursorAnchor{}, optional.Null[acp1.CursorCapabilities]()); err != nil {
+		t.Fatal(err)
+	}
+
+	var updates []acp1.SessionUpdateCursorUpdate
+	for len(updates) < 2 {
+		updates = updates[:0]
+		for _, n := range client.Updates() {
+			if u, ok := n.Update.As[acp1.SessionUpdateCursorUpdate](); ok {
+				updates = append(updates, u)
+			}
+		}
+		if len(updates) >= 2 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("received %d cursor_update notifications, want 2", len(updates))
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+	if updates[0].CursorID != id || updates[0].Anchor.Tag() != "agent_message" {
+		t.Errorf("first cursor_update = %+v", updates[0])
+	}
+	if caps, ok := updates[0].Capabilities.Get(); !ok || caps.Fork == nil {
+		t.Errorf("first capabilities = %+v, want fork", updates[0].Capabilities)
+	}
+	if !updates[1].Anchor.IsZero() || !updates[1].Capabilities.IsNull() {
+		t.Errorf("second cursor_update = %+v, want zero anchor and null capabilities", updates[1])
 	}
 }

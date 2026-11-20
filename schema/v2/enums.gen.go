@@ -504,6 +504,39 @@ func (v CompactionStatus) Known() bool {
 	return false
 }
 
+// CursorID is a unique identifier for a session cursor within a session.
+//
+// The Agent generates it, and it is never reused for another position in the
+// session. Clients MUST NOT parse, change, or construct it.
+//
+// See the [Session Cursors RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Session Cursors RFD]: https://agentclientprotocol.com/rfds/session-cursors
+type CursorID string
+
+// CursorAnchorPosition also accepts values outside the listed constants; use [CursorAnchorPosition.Known] to check.
+//
+// On which side of the anchored entity a session cursor is.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CursorAnchorPosition string
+
+const (
+	CursorAnchorPositionBefore CursorAnchorPosition = "before"
+	CursorAnchorPositionAfter  CursorAnchorPosition = "after"
+)
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v CursorAnchorPosition) Known() bool {
+	switch v {
+	case CursorAnchorPositionBefore, CursorAnchorPositionAfter:
+		return true
+	}
+	return false
+}
+
 // SystemPromptMode also accepts values outside the listed constants; use [SystemPromptMode.Known] to check.
 //
 // How the Agent combines a client-provided system prompt with its own instructions.
@@ -551,3 +584,13 @@ func (v SessionArchiveFilter) Known() bool {
 	}
 	return false
 }
+
+// IdempotencyKey is a key the Client generates to identify one `session/prompt` submission across attempts.
+//
+// The key is an opaque, case-sensitive string of 1 to 255 characters. It is scoped to the
+// session named by the request's `sessionId`.
+//
+// See protocol docs: [Retrying a prompt]
+//
+// [Retrying a prompt]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#retrying-a-prompt
+type IdempotencyKey string

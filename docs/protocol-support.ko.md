@@ -93,7 +93,11 @@ ACP v1과 초안 v2의 메서드 및 동작 차이를 정리합니다.
 v2에는 클라이언트 측 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MCP 경유) `TerminalHandle`은 v1 패키지에만
 있습니다. 에이전트는 자신이 실행하는 터미널을 `terminal_update`로 보고하며, 해당 터미널이나 도구 호출이
 `capabilities.cancel`을 알리면 클라이언트는 `terminal/cancel`·`tool_call/cancel`로 중단할 수 있습니다
-(도구 호출에는 `acp2.WithCancellable`로 설정). v2에서 prompt 응답은 메시지 접수만 뜻하며, `Turn`은 에이전트가 idle 상태를 보고할 때까지 세션의 업데이트를 읽습니다.
+(도구 호출에는 `acp2.WithCancellable`로 설정). `ToolCallCanceller`나 `TerminalCanceller`를 구현하지 않은 에이전트는
+이 요청에 `-32601`(method not found)로 응답하며, `SessionManager`는 둘 다 구현해 알 수 없는 세션에는 `-32002`,
+추적 중이지 않거나 이미 끝났거나 취소할 수 없는 ID에는 `-32602`로 응답합니다. v2에서 prompt 응답은 메시지 접수만 뜻하며,
+`Turn`은 에이전트가 idle 상태를 보고할 때까지 세션의 업데이트를 읽습니다. 클라이언트는 `ClientSession.PromptWithKey`로
+`idempotencyKey`를 전달해 프롬프트를 재시도할 때 사용자 메시지가 중복 삽입되지 않게 할 수 있습니다.
 
 턴이 겹치는 프롬프트는 버전별 규칙을 양쪽이 똑같이 따릅니다. v1 세션은 한 번에 한 턴만 돌리므로
 `ClientSession.Prompt`와 `SessionManager.RunTurn`(또는 `BeginTurn`) 모두 두 번째 프롬프트를

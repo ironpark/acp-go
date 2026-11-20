@@ -34,6 +34,13 @@ func GenerateMessageID() MessageID { return MessageID(acp.GenerateID("message"))
 // Tool call ids must be unique within a session, across its turns.
 func GenerateToolCallID() ToolCallID { return ToolCallID(acp.GenerateID("call")) }
 
+// GenerateCursorID returns a new id of the form "cursor_<UUIDv7>".
+// Cursor ids are opaque, unique within a session, and never reused for another
+// position.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func GenerateCursorID() CursorID { return CursorID(acp.GenerateID("cursor")) }
+
 // SessionInfoLister is [acp.SessionInfoLister] for v1 session descriptions:
 // a store that implements it answers the [SessionManager]'s session/list
 // pages itself.

@@ -301,6 +301,14 @@ func (x *CreateElicitationRequestURLSession) GetToolCallID() ToolCallID {
 	return zero
 }
 
+// GetFork returns Fork, or nil if x is nil.
+func (x *CursorCapabilities) GetFork() *CursorForkCapabilities {
+	if x == nil {
+		return nil
+	}
+	return x.Fork
+}
+
 // GetFileType returns the value of FileType, or the zero value if x or FileType is nil.
 func (x *DiffChangeAdd) GetFileType() DiffFileType {
 	if x != nil && x.FileType != nil {
@@ -623,15 +631,6 @@ func (x *ElicitationPropertySchemaString) GetMaxLength() uint32 {
 	return zero
 }
 
-// GetPattern returns the value of Pattern, or the zero value if x or Pattern is nil.
-func (x *ElicitationPropertySchemaString) GetPattern() string {
-	if x != nil && x.Pattern != nil {
-		return *x.Pattern
-	}
-	var zero string
-	return zero
-}
-
 // GetFormat returns the value of Format, or the zero value if x or Format is nil.
 func (x *ElicitationPropertySchemaString) GetFormat() StringFormat {
 	if x != nil && x.Format != nil {
@@ -701,6 +700,15 @@ func (x *ErrorStopReason) GetError() *Error {
 		return nil
 	}
 	return x.Error
+}
+
+// GetCursorID returns the value of CursorID, or the zero value if x or CursorID is nil.
+func (x *ForkSessionRequest) GetCursorID() CursorID {
+	if x != nil && x.CursorID != nil {
+		return *x.CursorID
+	}
+	var zero CursorID
+	return zero
 }
 
 // GetSystemPrompt returns SystemPrompt, or nil if x is nil.
@@ -933,6 +941,15 @@ func (x *PromptCapabilities) GetSkill() *PromptSkillCapabilities {
 		return nil
 	}
 	return x.Skill
+}
+
+// GetIdempotencyKey returns the value of IdempotencyKey, or the zero value if x or IdempotencyKey is nil.
+func (x *PromptRequest) GetIdempotencyKey() IdempotencyKey {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	var zero IdempotencyKey
+	return zero
 }
 
 // GetInline returns Inline, or nil if x is nil.
@@ -1284,6 +1301,26 @@ func (x *SessionUpdateCompactionUpdate) GetError() string {
 
 // GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
 func (x *SessionUpdateCompactionUpdate) GetMeta() Meta {
+	if x == nil {
+		var zero Meta
+		return zero
+	}
+	v, _ := x.Meta.Get()
+	return v
+}
+
+// GetCapabilities returns a copy of Capabilities, or nil if x is nil or Capabilities is absent or null.
+func (x *SessionUpdateCursorUpdate) GetCapabilities() *CursorCapabilities {
+	if x != nil {
+		if v, ok := x.Capabilities.Get(); ok {
+			return &v
+		}
+	}
+	return nil
+}
+
+// GetMeta returns the value of Meta, or the zero value if x is nil or Meta is absent or null.
+func (x *SessionUpdateCursorUpdate) GetMeta() Meta {
 	if x == nil {
 		var zero Meta
 		return zero

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ironpark/acp-go/schema/optional"
 	schema "github.com/ironpark/acp-go/schema/v1"
 )
 
@@ -228,6 +229,22 @@ func (s *SessionStream) SendModeUpdate(ctx context.Context, modeID SessionModeID
 // Experimental: not part of the spec yet; it may change or be removed.
 func (s *SessionStream) SendPromptSuggestions(ctx context.Context, suggestions ...PromptSuggestion) error {
 	return s.Send(ctx, schema.SessionUpdatePromptSuggestionsUpdate{Suggestions: suggestions})
+}
+
+// SendCursor announces a session cursor at anchor or updates an existing
+// cursor's capabilities. The first update for id must carry a non-zero anchor;
+// later updates may pass a zero anchor to leave it unchanged. capabilities
+// follows patch semantics: an unset [optional.Value] leaves it unchanged,
+// [optional.Null] clears it, and [optional.Of] replaces it. Send it only to a
+// client that advertised the session.cursors capability.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+func (s *SessionStream) SendCursor(ctx context.Context, id CursorID, anchor CursorAnchor, capabilities optional.Value[CursorCapabilities]) error {
+	return s.Send(ctx, schema.SessionUpdateCursorUpdate{
+		CursorID:     id,
+		Anchor:       anchor,
+		Capabilities: capabilities,
+	})
 }
 
 // SendConfigUpdate reports new values for the session's config options.

@@ -49,7 +49,7 @@ func ToolText(text string) ToolCallContent {
 
 // ToolDiff is tool call content showing file changes, built with
 // [NewDiffChange] from [DiffChangeModify], [DiffChangeAdd] and the other
-// change kinds.
+// change kinds. The protocol requires at least one change.
 func ToolDiff(changes ...DiffChange) ToolCallContent {
 	return schema.NewToolCallContent(schema.ToolCallContentDiff{Changes: changes})
 }

@@ -82,7 +82,8 @@ type ToolCallUpdate struct {
 	// Current execution status of the tool call.
 	//
 	// Omission leaves the status unchanged, `null` resets it to `pending`, and a value
-	// replaces it. A new tool call starts as `pending`.
+	// replaces it. A new tool call starts as `pending`. Agents do not move a tool call
+	// back to `pending` once it has another status.
 	Status optional.Value[ToolCallStatus] `json:"status,omitzero"`
 	// Content produced by the tool call.
 	Content optional.Value[[]ToolCallContent] `json:"content,omitzero"`
@@ -1463,10 +1464,56 @@ type PromptSuggestion struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
+// CursorCapabilities is the methods that currently accept a session cursor.
+//
+// A malformed value falls back to no capabilities, so the Client never passes a
+// cursor to a method the Agent did not advertise.
+//
+// See the [Session Cursors RFD].
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Session Cursors RFD]: https://agentclientprotocol.com/rfds/session-cursors
+type CursorCapabilities struct {
+	// Permits the Client to fork the session at this cursor with `session/fork`.
+	//
+	// Omitted and `null` are equivalent and mean unsupported. An object (including `{}`)
+	// means supported.
+	Fork *CursorForkCapabilities `json:"fork,omitzero"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// Capability to fork the session at a cursor with `session/fork`.
+//
+// Supplying `{}` advertises support. An omitted or `null` `fork` does not.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CursorForkCapabilities struct {
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
+// CursorMessageAnchor is a session cursor anchor to a message. The anchor's `type` names the kind of message.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type CursorMessageAnchor struct {
+	// The ID of the anchored message.
+	MessageID MessageID `json:"messageId"`
+	// On which side of the message the cursor is.
+	Position CursorAnchorPosition `json:"position"`
+	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
+	Meta Meta `json:"_meta,omitzero"`
+}
+
 // Client-initiated session mutations permitted for a specific subagent session.
 //
 // A mutation requires an explicit per-child capability. Support for the method
 // on ordinary sessions does not grant support on a child.
+//
+// See protocol docs: [Restricted methods]
+//
+// [Restricted methods]: https://agentclientprotocol.com/protocol/v2/draft/subagents#restricted-methods
 type SubagentSessionCapabilities struct {
 	// Permits the client to cancel this child's current work without ending
 	// the session. Omitted and `null` are equivalent and mean unsupported. An object (including
@@ -1950,6 +1997,17 @@ type DeleteSessionRequest struct {
 type ForkSessionRequest struct {
 	// The ID of the session to fork.
 	SessionID SessionID `json:"sessionId"`
+	// The session cursor to fork at. The new session's history is the source
+	// session's history before the cursor.
+	//
+	// Optional. Omitted and `null` are equivalent and fork the whole session.
+	// Clients MUST only send the ID of a cursor that the Agent announced on the
+	// source session and that currently advertises `capabilities.fork`. The Agent
+	// rejects any other ID with `-32602`. It does not fall back to forking the
+	// whole session.
+	//
+	// Experimental: not part of the spec yet; it may change or be removed.
+	CursorID *CursorID `json:"cursorId,omitzero"`
 	// The working directory for this session. Must be an absolute path.
 	Cwd AbsolutePath `json:"cwd"`
 	// Additional workspace roots to activate for this session. Each path must be absolute.
@@ -2262,6 +2320,23 @@ type PromptRequest struct {
 	// Clients MUST NOT send an empty array. Agents MAY reject one with `-32602` without
 	// inserting it.
 	Prompt []ContentBlock `json:"prompt"`
+	// Identifies this submission, so the Client can send the request again without the
+	// user message being inserted twice.
+	//
+	// Optional. Omitted and `null` are equivalent and mean no key. The Agent then handles
+	// the prompt without duplicate detection.
+	//
+	// The Client generates the key and sends the same key on every attempt for the same
+	// submission. The Agent inserts at most one user message for a key in a session, and
+	// answers a retry with the `messageId` of the message it already inserted. Agents that
+	// advertise `capabilities.session` MUST support the key.
+	//
+	// When present, the value is an opaque, case-sensitive string of 1 to 255 characters.
+	// Agents MUST reject any other value with `-32602` (Invalid params) and MUST NOT treat
+	// it as omitted.
+	//
+	// See protocol docs: [Retrying a prompt](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#retrying-a-prompt)
+	IdempotencyKey *IdempotencyKey `json:"idempotencyKey,omitzero"`
 	// Omitted and `null` are equivalent and mean no metadata. Implementations MUST NOT assign meaning to keys they do not recognize.
 	Meta Meta `json:"_meta,omitzero"`
 }

@@ -143,6 +143,20 @@ type (
 	CreateElicitationResponseDecline             = schema.CreateElicitationResponseDecline
 	CreateElicitationResponseVariant             = schema.CreateElicitationResponseVariant
 	CreateElicitationResponseVariants            = schema.CreateElicitationResponseVariants
+	CursorAnchor                                 = schema.CursorAnchor
+	CursorAnchorAgentMessage                     = schema.CursorAnchorAgentMessage
+	CursorAnchorAgentThought                     = schema.CursorAnchorAgentThought
+	CursorAnchorCompaction                       = schema.CursorAnchorCompaction
+	CursorAnchorCustom                           = schema.CursorAnchorCustom
+	CursorAnchorPosition                         = schema.CursorAnchorPosition
+	CursorAnchorSessionMessage                   = schema.CursorAnchorSessionMessage
+	CursorAnchorToolCall                         = schema.CursorAnchorToolCall
+	CursorAnchorUserMessage                      = schema.CursorAnchorUserMessage
+	CursorAnchorVariant                          = schema.CursorAnchorVariant
+	CursorAnchorVariants                         = schema.CursorAnchorVariants
+	CursorCapabilities                           = schema.CursorCapabilities
+	CursorForkCapabilities                       = schema.CursorForkCapabilities
+	CursorID                                     = schema.CursorID
 	ElicitationCapabilities                      = schema.ElicitationCapabilities
 	ElicitationContentValue                      = schema.ElicitationContentValue
 	ElicitationContentValueAlternative           = schema.ElicitationContentValueAlternative
@@ -271,6 +285,7 @@ type (
 	SessionConfigSelectOptions                   = schema.SessionConfigSelectOptions
 	SessionConfigSelectOptionsAlternative        = schema.SessionConfigSelectOptionsAlternative
 	SessionConfigValueID                         = schema.SessionConfigValueID
+	SessionCursorsCapabilities                   = schema.SessionCursorsCapabilities
 	SessionDeleteCapabilities                    = schema.SessionDeleteCapabilities
 	SessionForkCapabilities                      = schema.SessionForkCapabilities
 	SessionID                                    = schema.SessionID
@@ -295,6 +310,7 @@ type (
 	SessionUpdateCompactionUpdate                = schema.SessionUpdateCompactionUpdate
 	SessionUpdateConfigOptionUpdate              = schema.SessionUpdateConfigOptionUpdate
 	SessionUpdateCurrentModeUpdate               = schema.SessionUpdateCurrentModeUpdate
+	SessionUpdateCursorUpdate                    = schema.SessionUpdateCursorUpdate
 	SessionUpdateNotice                          = schema.SessionUpdateNotice
 	SessionUpdatePlan                            = schema.SessionUpdatePlan
 	SessionUpdatePlanRemoved                     = schema.SessionUpdatePlanRemoved
@@ -359,6 +375,8 @@ const (
 	CompactionStatusCompleted               = schema.CompactionStatusCompleted
 	CompactionStatusFailed                  = schema.CompactionStatusFailed
 	CompactionStatusCancelled               = schema.CompactionStatusCancelled
+	CursorAnchorPositionBefore              = schema.CursorAnchorPositionBefore
+	CursorAnchorPositionAfter               = schema.CursorAnchorPositionAfter
 	ElicitationSchemaTypeObject             = schema.ElicitationSchemaTypeObject
 	ErrorCodeParseError                     = schema.ErrorCodeParseError
 	ErrorCodeInvalidRequest                 = schema.ErrorCodeInvalidRequest
@@ -440,6 +458,9 @@ func NewCreateElicitationRequest[T CreateElicitationRequestAlternative](value T)
 func NewCreateElicitationResponse[T CreateElicitationResponseVariants](v T) CreateElicitationResponse {
 	return schema.NewCreateElicitationResponse(v)
 }
+
+// NewCursorAnchor wraps a variant.
+func NewCursorAnchor[T CursorAnchorVariants](v T) CursorAnchor { return schema.NewCursorAnchor(v) }
 
 // NewElicitationContentValue encodes value, one of the ElicitationContentValueAlternative types.
 func NewElicitationContentValue[T ElicitationContentValueAlternative](value T) (ElicitationContentValue, error) {

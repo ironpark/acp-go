@@ -8,6 +8,7 @@ import (
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp2"
 	"github.com/ironpark/acp-go/acp2/acp2test"
+	"github.com/ironpark/acp-go/schema/optional"
 	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
@@ -356,5 +357,153 @@ func TestSendPromptSuggestions(t *testing.T) {
 	})
 	if len(lists[0]) != 1 || acp2.JoinTexts(lists[0][0].Prompt) != "Run the tests" || len(lists[1]) != 0 {
 		t.Errorf("suggestion lists = %+v", lists)
+	}
+}
+
+// minimalAgent implements only the required acp2.Agent methods (no ToolCallCanceller
+// or TerminalCanceller).
+type minimalAgent struct{}
+
+func (minimalAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
+	return &acp2.InitializeResponse{ProtocolVersion: acp2.ProtocolVersion, Info: acp2.Implementation{Name: "minimal", Version: "0"}}, nil
+}
+func (minimalAgent) NewSession(context.Context, *acp2.NewSessionRequest) (*acp2.NewSessionResponse, error) {
+	return &acp2.NewSessionResponse{SessionID: "s1"}, nil
+}
+func (minimalAgent) ListSessions(context.Context, *acp2.ListSessionsRequest) (*acp2.ListSessionsResponse, error) {
+	return &acp2.ListSessionsResponse{}, nil
+}
+func (minimalAgent) ResumeSession(context.Context, *acp2.ResumeSessionRequest) (*acp2.ResumeSessionResponse, error) {
+	return &acp2.ResumeSessionResponse{}, nil
+}
+func (minimalAgent) CloseSession(context.Context, *acp2.CloseSessionRequest) (*acp2.CloseSessionResponse, error) {
+	return &acp2.CloseSessionResponse{}, nil
+}
+func (minimalAgent) Prompt(context.Context, *acp2.PromptRequest) (*acp2.PromptResponse, error) {
+	return &acp2.PromptResponse{MessageID: "m1"}, nil
+}
+func (minimalAgent) CancelSession(context.Context, *acp2.CancelSessionNotification) error { return nil }
+
+func TestCancelWithoutHandlerAnswersMethodNotFound(t *testing.T) {
+	ctx := testContext(t)
+	conn := acp2test.Connect(t, func(*acp2.AgentSideConnection) acp2.Agent { return minimalAgent{} }, &acp2test.Client{})
+
+	if _, err := conn.CancelToolCall(ctx, &acp2.CancelToolCallRequest{SessionID: "s1", ToolCallID: "c1"}); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
+		t.Errorf("tool_call/cancel without handler: got %v, want -32601", err)
+	}
+	if _, err := conn.CancelTerminal(ctx, &acp2.CancelTerminalRequest{SessionID: "s1", TerminalID: "t1"}); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
+		t.Errorf("terminal/cancel without handler: got %v, want -32601", err)
+	}
+}
+
+func TestCancelWorkOnUnknownSessionAnswersSessionNotFound(t *testing.T) {
+	ctx := testContext(t)
+	_, conn, _ := connectExtras(t, &acp2test.Client{})
+
+	_, err := conn.CancelToolCall(ctx, &acp2.CancelToolCallRequest{SessionID: "session_missing", ToolCallID: "call_1"})
+	if id, ok := acp.SessionNotFoundID(err); !ok || id != "session_missing" {
+		t.Errorf("tool_call/cancel on unknown session: got %v (id %q, %v), want -32002 with data.sessionId", err, id, ok)
+	}
+	_, err = conn.CancelTerminal(ctx, &acp2.CancelTerminalRequest{SessionID: "session_missing", TerminalID: "term_1"})
+	if id, ok := acp.SessionNotFoundID(err); !ok || id != "session_missing" {
+		t.Errorf("terminal/cancel on unknown session: got %v (id %q, %v), want -32002 with data.sessionId", err, id, ok)
+	}
+}
+
+func TestResumeRejectsUnsupportedReplayFromWithoutReplayComplete(t *testing.T) {
+	ctx := testContext(t)
+	client := &acp2test.Client{}
+	_, conn, _ := connectExtras(t, client)
+	created, err := conn.NewSession(ctx, &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = conn.ResumeSession(ctx, &acp2.ResumeSessionRequest{
+		SessionID:  created.SessionID,
+		Cwd:        "/tmp",
+		ReplayFrom: schema.NewReplayFrom(schema.ReplayFromCustom{Type: "_unsupported"}),
+	})
+	if !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
+		t.Fatalf("resume with unsupported replayFrom: got %v, want -32602", err)
+	}
+	for _, update := range client.Updates() {
+		if update.Update.Tag() == "replay_complete" {
+			t.Fatalf("unexpected replay_complete after rejected replayFrom")
+		}
+	}
+}
+
+func TestSendCursor(t *testing.T) {
+	ctx := testContext(t)
+	client := &acp2test.Client{}
+	_, conn, agentConn := connectExtras(t, client)
+	created, err := conn.NewSession(ctx, &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := acp2.GenerateCursorID()
+	stream := acp2.NewSessionStream(agentConn, created.SessionID)
+	anchor := acp2.NewCursorAnchor(acp2.CursorAnchorUserMessage{
+		MessageID: "msg_1",
+		Position:  acp2.CursorAnchorPositionBefore,
+	})
+	if err := stream.SendCursor(ctx, id, anchor, optional.Of(acp2.CursorCapabilities{
+		Fork: &acp2.CursorForkCapabilities{},
+	})); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.SendCursor(ctx, id, acp2.CursorAnchor{}, optional.Null[acp2.CursorCapabilities]()); err != nil {
+		t.Fatal(err)
+	}
+
+	var updates []acp2.SessionUpdateCursorUpdate
+	waitFor(t, ctx, func() bool {
+		updates = updates[:0]
+		for _, n := range client.Updates() {
+			if u, ok := n.Update.As[acp2.SessionUpdateCursorUpdate](); ok {
+				updates = append(updates, u)
+			}
+		}
+		return len(updates) == 2
+	})
+	if updates[0].CursorID != id || updates[0].Anchor.Tag() != "user_message" {
+		t.Errorf("first cursor_update = %+v", updates[0])
+	}
+	if caps, ok := updates[0].Capabilities.Get(); !ok || caps.Fork == nil {
+		t.Errorf("first capabilities = %+v, want fork", updates[0].Capabilities)
+	}
+	if !updates[1].Anchor.IsZero() || !updates[1].Capabilities.IsNull() {
+		t.Errorf("second cursor_update = %+v, want zero anchor and null capabilities", updates[1])
+	}
+}
+
+type keyedPromptAgent struct {
+	minimalAgent
+	keys chan acp2.IdempotencyKey
+}
+
+func (a *keyedPromptAgent) Prompt(_ context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
+	a.keys <- params.GetIdempotencyKey()
+	return &acp2.PromptResponse{MessageID: "m1"}, nil
+}
+
+func TestPromptWithKey(t *testing.T) {
+	ctx := testContext(t)
+	agent := &keyedPromptAgent{keys: make(chan acp2.IdempotencyKey, 2)}
+	conn := acp2test.Connect(t, func(*acp2.AgentSideConnection) acp2.Agent { return agent }, &acp2test.Client{})
+	session, err := conn.StartSession(ctx, &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := session.PromptWithKey(ctx, "req-1", acp2.TextBlock("hello"))
+	if err != nil || id != "m1" {
+		t.Fatalf("PromptWithKey = %q, %v", id, err)
+	}
+	if got := <-agent.keys; got != "req-1" {
+		t.Errorf("idempotencyKey = %q, want req-1", got)
+	}
+	// An empty idempotency key is rejected by schema validation with -32602.
+	if _, err := session.PromptWithKey(ctx, "", acp2.TextBlock("hello")); !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
+		t.Errorf("empty idempotencyKey: got %v, want -32602", err)
 	}
 }

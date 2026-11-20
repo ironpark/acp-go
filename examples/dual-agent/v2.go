@@ -78,6 +78,9 @@ func newV2Agent(client acp2.Client) *v2Agent {
 	return &v2Agent{
 		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[*v2Session](),
 			func(_ context.Context, params *acp2.NewSessionRequest) (acp2.SessionID, *v2Session, error) {
+				if params.SystemPrompt != nil {
+					return "", nil, acp.InvalidParams("systemPrompt is not supported")
+				}
 				return acp2.GenerateSessionID(), &v2Session{cwd: params.Cwd}, nil
 			}),
 		client: client,
@@ -126,25 +129,24 @@ func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2
 // ResumeSession continues a session, first replaying its history when the
 // client asks to replay from the start. In v2 this replaces session/load.
 func (a *v2Agent) ResumeSession(ctx context.Context, params *acp2.ResumeSessionRequest) (*acp2.ResumeSessionResponse, error) {
-	response, err := a.SessionManager.ResumeSession(ctx, params) // fails for an unknown session
+	if params.SystemPrompt != nil {
+		return nil, acp.InvalidParams("systemPrompt is not supported")
+	}
+	session, err := a.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}
 	switch params.ReplayFrom.Variant().(type) {
 	case nil:
-		return response, nil // continue without a replay
+		return &acp2.ResumeSessionResponse{}, nil // continue without a replay
 	case acp2.ReplayFromStart:
 	default:
 		return nil, acp.InvalidParams("unsupported replay cursor")
 	}
 
-	session, err := a.Lookup(ctx, params.SessionID)
-	if err != nil {
-		return nil, err
-	}
 	history := session.replay()
-	// The replay goes out before the response, the same messages with the
-	// same ids, so the client can rebuild the conversation.
+	// The replay goes out before replay_complete and the response, the same
+	// messages with the same ids, so the client can rebuild the conversation.
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
 	for _, exchange := range history {
 		if err := stream.SendUserMessage(ctx, exchange.userMessage, exchange.prompt...); err != nil {
@@ -154,5 +156,8 @@ func (a *v2Agent) ResumeSession(ctx context.Context, params *acp2.ResumeSessionR
 			return nil, err
 		}
 	}
-	return response, nil
+	if err := stream.ReplayComplete(ctx); err != nil {
+		return nil, err
+	}
+	return &acp2.ResumeSessionResponse{}, nil
 }
